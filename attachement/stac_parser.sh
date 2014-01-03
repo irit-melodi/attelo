@@ -1,22 +1,32 @@
+#!/bin/bash
+
+set -e
+
 #test cross-validation avec attachement et relations
 #
-python  decoding.py /home/phil/Devel/Stac/expes/charrette-2013-07-25T1530/pilot.edu-pairs.2.csv /home/phil/Devel/Stac/expes/charrette-2013-07-25T1530/pilot.relations.2.csv -l bayes -d mst
+DATA_DIR=/tmp/charette-2013-12-30
+DATA_EXT=.csv # .2.csv
+DECODE_FLAGS="-C stac"
 
-python  decoding.py /home/phil/Devel/Stac/expes/charrette-2013-07-25T1530/socl-season1.edu-pairs.2.csv /home/phil/Devel/Stac/expes/charrette-2013-07-25T1530/socl-season1.relations.2.csv -l bayes -d mst
+python  decoding.py $DECODE_FLAGS $DATA_DIR/pilot.edu-pairs$DATA_EXT        $DATA_DIR/pilot.relations$DATA_EXT        -l bayes -d mst
+python  decoding.py $DECODE_FLAGS $DATA_DIR/socl-season1.edu-pairs$DATA_EXT $DATA_DIR/socl-season1.relations$DATA_EXT -l bayes -d mst
 
 # test stand-alone parser for stac
 # 1) train and save attachment model
-python -i  decoding.py -S /home/phil/Devel/Stac/expes/charrette-2013-06-26T1644Z/pilot.edu-pairs.2.csv -l bayes
+# -i
+python decoding.py $DECODE_FLAGS -S $DATA_DIR/pilot.edu-pairs$DATA_EXT -l bayes
 # 2) predict attachment (same instances here, but should be sth else) 
 # NB: updated astar decoder seems to fail / TODO: check with the real subdoc id
-python -i  decoding.py -T -A attach.model -o tmp /home/phil/Devel/Stac/expes/charrette-2013-06-26T1644Z/pilot.edu-pairs.2.csv -d mst
+# -i
+python decoding.py $DECODE_FLAGS -T -A attach.model -o tmp $DATA_DIR/pilot.edu-pairs$DATA_EXT -d mst
 
 # attahct + relations: TODO: relation file is not generated properly yet
 # 1b) train + save attachemtn+relations models
-python  decoding.py -S /home/phil/Devel/Stac/expes/charrette-2013-07-25T1530/pilot.edu-pairs.2.csv /home/phil/Devel/Stac/expes/charrette-2013-07-25T1530/pilot.relations.2.csv -l bayes
+python  decoding.py $DECODE_FLAGS -S $DATA_DIR/pilot.edu-pairs$DATA_EXT $DATA_DIR/pilot.relations$DATA_EXT -l bayes
 
 # 2b) predict attachment + relations
-python -i  decoding.py -T -A attach.model -R relations.model -o tmp/ /home/phil/Devel/Stac/expes/charrette-2013-07-25T1530/pilot.edu-pairs.2.csv /home/phil/Devel/Stac/expes/charrette-2013-07-25T1530/pilot.relations.2.csv -d mst
+# -i
+python decoding.py $DECODE_FLAGS -T -A attach.model -R relations.model -o tmp/ $DATA_DIR/pilot.edu-pairs$DATA_EXT $DATA_DIR/pilot.relations$DATA_EXT -d mst
 
 
 
