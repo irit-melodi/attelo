@@ -30,6 +30,7 @@ and within that, abstract layers : fold,document
  x- RFC with coord-subord distinction
  - nicer report for scores (table, latex, figures)
 """ 
+import os
 import sys
 import cPickle
 from ConfigParser import ConfigParser
@@ -60,7 +61,7 @@ from edu import EDU
 # SourceSpanStart = "SourceSpanStart"
 # SourceSpanEnd = "SourceSpanEnd"
 # FILE = "FILE"
-def_cfg = {
+annodis_cfg = {
             "FirstNode" : "SOURCE",
             "SecondNode" : "TARGET",
             "TargetSpanStart" : "TargetSpanStart",
@@ -71,6 +72,17 @@ def_cfg = {
             "CLASS": "CLASS"
             }
 
+stac_cfg = {
+        "FirstNode"       : "id_DU1",
+        "SecondNode"      : "id_DU2",
+        "TargetSpanStart" : "start_DU2",
+        "TargetSpanEnd"   : "end_DU2",
+        "SourceSpanStart" : "start_DU1",
+        "SourceSpanEnd"   : "end_DU1",
+        "FILE"            : "dialogue",
+        "CLASS"           : "CLASS" }
+
+def_cfg = annodis_cfg
 
 def local_baseline(prob_distrib, threshold = 0.5, use_prob=True):
     """just attach locally if prob is > threshold
@@ -190,7 +202,10 @@ def meta_info(instance):
 
 
 def exportGraph(predicted, doc, folder):
-    f = open(folder + doc + ".rel", 'w')
+    fname = os.path.join(folder, doc + ".rel")
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    f = open(fname, 'w')
     for (a1, a2, rel) in predicted:
         f.write(rel + " ( " + a1 + " / " + a2 + " )\n")
     f.close()
@@ -221,10 +236,10 @@ def process_document(onedoc, model, decoder, data_attach,
     SourceSpanEndIndex = data_attach.domain.index(metacfg["SourceSpanEnd"])
     FILEIndex = data_attach.domain.index(metacfg["FILE"])
 
-    doc_instances = data_attach.filter_ref(FILE = onedoc)
+    doc_instances = data_attach.filter_ref({FILE : onedoc})
 
     if with_relations:
-        rel_instances = data_relations.filter_ref(FILE = onedoc)
+        rel_instances = data_relations.filter_ref({FILE : onedoc})
     if with_relations and not(post_labelling):
         prob_distrib = combine_probs(doc_instances, rel_instances, model, model_relations, cfg = cfg)
     else:
@@ -257,7 +272,7 @@ def process_document(onedoc, model, decoder, data_attach,
     if save_results:
         exportGraph(predicted, onedoc, output_folder)
     # eval for that prediction
-    doc_ref = doc_instances.filter_ref(CLASS = "True")
+    doc_ref = doc_instances.filter_ref({CLASS : "True"})
     if with_relations and not(unlabelled):
         labels = rel_instances.filter_ref({CLASS:["UNRELATED"]}, negate = 1)
     else:
@@ -312,6 +327,9 @@ class Report:
         pass
 
     def save(self,name):
+        dname = os.path.dirname(name)
+        if not os.path.exists(dname):
+            os.makedirs(dname)
         reportfile=open(name,"w")
         cPickle.dump(self,reportfile)
         reportfile.close()
@@ -484,6 +502,8 @@ if __name__ == "__main__":
         config.optionxform = lambda option: option
         config.readfp(open(options.config))
         metacfg = dict(config.items("Meta features"))
+    elif options.corpus.lower() == "stac":
+        metacfg = stac_cfg
     else:# annodis config as default, should not cause regression on coling experiment
         metacfg =  def_cfg
 
