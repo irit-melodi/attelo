@@ -3,6 +3,13 @@ attelo
 
 discourse parser
 
+Authors
+-------
+In alphabetical order:
+
+Stergos  Afantenos
+Pascal   Denis
+Philippe Muller
 
 License
 -------
