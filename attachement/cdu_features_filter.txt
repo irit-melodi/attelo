@@ -1,0 +1,13 @@
+D#CDU_Accessible
+D#C_EDU
+D#N_EDU
+C#C_LENGTH
+C#N_LENGTH
+C#N_PAR_SPAN
+C#C_PAR_SPAN
+C#C_rank
+C#N_rank
+C#C_Number_of_EDUs
+C#N_Number_of_EDUs 
+C#C_Number_of_Sentences
+C#N_Number_of_Sentences
