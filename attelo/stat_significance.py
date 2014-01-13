@@ -12,7 +12,8 @@ TODO: list of args, matrix of results
 import cPickle
 from pprint import pprint
 import sys
-from decoding import Report
+
+from report import Report
 
 eval1=cPickle.load(open(sys.argv[1]))
 eval2=cPickle.load(open(sys.argv[2]))
