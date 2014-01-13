@@ -16,9 +16,9 @@ example: cf coling_expes.sh
 TODO:
  - GET RID OF THE FCKG GLOBAL VARIABLES
         - meta-feature names that are used for indexing/... etc. they mess things up in "online_learner" too
-         FILE, edu ids, and span ids. 
+         FILE, edu ids, and span ids.
         - class for parser ? would help ! but first put cfg everywhere
- x- might be useful to have project config files for that instead of option switch ... 
+ x- might be useful to have project config files for that instead of option switch ...
  - abstract main as processing method, depending on various things: fold nb, learner, decoder, eval function for one discourse
 and within that, abstract layers : fold,document
  - more generic descriptions of features names
@@ -29,7 +29,7 @@ and within that, abstract layers : fold,document
  - other evals: tree-edit, parseval-like, other?
  x- RFC with coord-subord distinction
  - nicer report for scores (table, latex, figures)
-""" 
+"""
 import os
 import sys
 import cPickle
@@ -54,7 +54,7 @@ from report import Report
 # from MST import MSTdecoder
 
 
-# index names for EDU pairs 
+# index names for EDU pairs
 # FirstNode = "SOURCE"
 # SecondNode = "TARGET"
 # TargetSpanStart = "TargetSpanStart"
@@ -110,11 +110,6 @@ def last_baseline(prob_distrib, use_prob=True):
 
     predicted=[(a1.id,a2.id,dict_prob[(a1.id,a2.id)][0]) for (a1,a2) in ordered_pairs]
     return predicted
-              
-        
-    
-
-
 
 
 def discourse_eval(predicted, data, labels = None, debug = False, cfg = def_cfg ):
@@ -162,7 +157,7 @@ def combine_probs(attach_instances, relation_instances, attachmt_model, relation
         # this should be investigated
         try: best_rel = p_relations[0].value
         except: best_rel = p_relations[0]
-        
+
         rel_prob = max(p_relations[1])
         distrib.append((EDU(one[arg1].value, one[SourceSpanStartIndex].value, one[SourceSpanEndIndex].value, one[FILEIndex].value),
                          EDU(one[arg2].value, one[TargetSpanStartIndex].value, one[TargetSpanEndIndex].value, one[FILEIndex].value),
@@ -172,16 +167,16 @@ def combine_probs(attach_instances, relation_instances, attachmt_model, relation
 
 
 def index_by_metas(instances,metas=None):
-    """transform a data table to a dictionary of instances indexed by ordered tuple of all meta-attributes; 
+    """transform a data table to a dictionary of instances indexed by ordered tuple of all meta-attributes;
     convenient to find instances associated to multiple tables (eg edu pairs for attachment+relations)
     """
     if metas is None:
         to_keep = lambda x: x.get_metas().values()
     else:
-        to_keep = lambda x: [x[y] for y in metas] 
+        to_keep = lambda x: [x[y] for y in metas]
     result = [(tuple([y.value for y in to_keep(x)]),x) for x in instances]
     return dict(result)
-    
+
 
 
 def add_labels(predicted, rel_instances, relations_model, cfg = def_cfg ):
@@ -226,8 +221,8 @@ def process_document(onedoc, model, decoder, data_attach,
 
     TODO: check that call to learner can be uniform with 2 parameters (as logistic), as the documentation is inconsistent on this
     """
-    
-   
+
+
     FILE = cfg["FILE"]
     CLASS = cfg["CLASS"]
     # TODO: should be added to config at the start
@@ -254,7 +249,7 @@ def process_document(onedoc, model, decoder, data_attach,
                              model(one, Orange.classification.Classifier.GetProbabilities)[1],
                              "unlabelled") for one in doc_instances]
     # print prob_distrib
-        
+
     # get prediction (input is just prob_distrib)
     if threshold:
         predicted = decoder(prob_distrib, threshold = threshold, use_prob=use_prob)
@@ -262,7 +257,7 @@ def process_document(onedoc, model, decoder, data_attach,
     else:
         predicted = decoder(prob_distrib, use_prob=use_prob)
         # predicted = decoder(prob_distrib)
-        
+
     if post_labelling:
         predicted = add_labels(predicted, rel_instances, model_relations, use_prob=use_prob, cfg = cfg)
         # predicted = add_labels(predicted, rel_instances, model_relations)
@@ -295,9 +290,9 @@ def process_document(onedoc, model, decoder, data_attach,
 # - local: Prec=0.619, Recall=0.638, F1=0.628
 # -RFC beam(2):  Prec=0.610, Recall=0.676, F1=0.641
 # - MST Prec=0.671, Recall=0.744, F1=0.706
-# - RFC h_best: 
+# - RFC h_best:
 # - RFC h_moyenne: Prec=0.666, Recall=0.738, F1=0.700
-# auto-svm: 
+# auto-svm:
 # MST Prec=0.636, Recall=0.706, F1=0.669
 
 
@@ -387,20 +382,20 @@ if __name__ == "__main__":
     parser.add_argument("-S", "--save-models", default = False, action = "store_true",
                         help = "train on the whole instance set provided, and save attachment [and relation] models to attach.model and relation.model")
 
-    # todo for options 
-    # RFC type 
+    # todo for options
+    # RFC type
     # beam size
     # nbest eval (when implemented)
-    # 
+    #
 
     args = parser.parse_args()
 
     output_folder = args.output
     # todo: test existence; create if needed
 
-    if args.config is not None: 
+    if args.config is not None:
         config = ConfigParser()
-        # cancels case-insensitive reading of variables. 
+        # cancels case-insensitive reading of variables.
         config.optionxform = lambda option: option
         config.readfp(open(args.config))
         metacfg = dict(config.items("Meta features"))
@@ -409,8 +404,8 @@ if __name__ == "__main__":
     else:# annodis config as default, should not cause regression on coling experiment
         metacfg =  def_cfg
 
-    # index names for EDU pairs 
-    # if args.corpus.lower() == "stac": 
+    # index names for EDU pairs
+    # if args.corpus.lower() == "stac":
     #     FirstNode = "id_DU1"
     #     SecondNode = "id_DU2"
     #     TargetSpanStart = "start_DU2"
@@ -418,11 +413,11 @@ if __name__ == "__main__":
     #     SourceSpanStart = "start_DU1"
     #     SourceSpanEnd = "end_DU1"
     #     FILE = "document"
- 
+
 
     data_attach = Orange.data.Table(args.data_attach)
     # print "DATA ATTACH:", data_attach
-    
+
     if args.data_relations:
         data_relations = Orange.data.Table(args.data_relations)
         with_relations = True
@@ -434,7 +429,7 @@ if __name__ == "__main__":
 
 
 
-    # decoders 
+    # decoders
     _heuristics = {"average":h_average, "best":h_best, "max":h_max, "zero":h0}
     heuristic = _heuristics.get(args.heuristics, h_average)
     _decoders = {"last":last_baseline,"local":local_baseline, "locallyGreedy":locallyGreedy, "mst":MST_decoder, "astar":lambda x, **kargs: astar_decoder(x, heuristics = heuristic, RFC = args.rfc, **kargs)}
@@ -451,14 +446,14 @@ if __name__ == "__main__":
     majority = Orange.classification.majority.MajorityLearner()
     majority.name = "majority"
 
-    # home made perceptron 
-    perc = Perceptron( nber_it=args.nit, avg=args.averaging , cfg = metacfg) 
-    # home made structured perceptron 
-    struc_perc = StructuredPerceptron( all_decoders[0], nber_it=args.nit, avg=args.averaging  , cfg = metacfg) 
-    
+    # home made perceptron
+    perc = Perceptron( nber_it=args.nit, avg=args.averaging , cfg = metacfg)
+    # home made structured perceptron
+    struc_perc = StructuredPerceptron( all_decoders[0], nber_it=args.nit, avg=args.averaging  , cfg = metacfg)
+
     _learners = {"bayes":bayes, "svm":svm, "maxent":maxent,"majority":majority, "perc":perc, "struc_perc":struc_perc}
     all_learners = [_learners.get(x, bayes) for x in args.learners.split(",")]
-    
+
     RECALL_CORRECTION = args.correction
 
 
@@ -485,7 +480,7 @@ if __name__ == "__main__":
         args.nfold = 1
 
     fold_struct = make_n_fold(data_attach, folds = args.nfold,meta_index=metacfg["FILE"])
-    
+
     selection = makeFoldByFileIndex(data_attach, fold_struct,meta_index=metacfg["FILE"])
     # only one learner+decoder for now
     learner = all_learners[0]
@@ -493,7 +488,7 @@ if __name__ == "__main__":
 
     use_threshold = args.threshold is not None
     # eval procedures
-    if args.test_only: 
+    if args.test_only:
         structure_eval = lambda x,y, labels=None: 0
     else:
         structure_eval = lambda x,y, labels=None: discourse_eval(x,y, cfg = metacfg, labels=labels)
@@ -525,7 +520,7 @@ if __name__ == "__main__":
                 sys.exit(0)
             attm = open(args.attachment_model,"rb")
             model = cPickle.load(attm)
-           
+
         if use_threshold or str(decoder.__name__) == "local_baseline":
             try:
                 threshold = model.threshold
@@ -534,12 +529,12 @@ if __name__ == "__main__":
                 threshold = args.threshold if use_threshold else 0.5
         else:
             threshold = None
- 
 
-        # test 
+
+        # test
         if not(args.save_models):# else would be training only
             test_data_attach = data_attach.select_ref(selection, test_fold)
-        # 
+        #
         if with_relations  and not(args.test_only):
             if args.save_models:
                 train_data_relations = data_relations.select_ref(selection, test_fold)
@@ -577,13 +572,13 @@ if __name__ == "__main__":
                                           unlabelled = args.unlabelled,
                                           post_labelling = args.post_label,
                                           use_prob = args.use_prob , cfg = metacfg )
-                if not(args.test_only): 
+                if not(args.test_only):
                     evals.append(scores)
                     fold_evals.append(scores)
         args.relations = ["attach","relations"][with_relations]
         args.context = "window5" if "window" in args.data_attach else "full"
         args.relnb = args.data_relations.split(".")[-2][-6:] if with_relations else "-"
-        if not(args.test_only): 
+        if not(args.test_only):
             fold_report = Report(fold_evals, params = args, correction = RECALL_CORRECTION)
             print "Fold eval:", fold_report.summary()
         # --end of file level
@@ -593,7 +588,7 @@ if __name__ == "__main__":
     args.relations = ["attach","relations"][with_relations]
     args.context = "window5" if "window" in args.data_attach else "full"
     args.relnb = args.data_relations.split(".")[-2][-6:] if with_relations else "-"
-    if not(args.test_only): 
+    if not(args.test_only):
         report = Report(evals, params = args, correction = RECALL_CORRECTION)
         print ">>> FINAL EVAL:", report.summary()
         report.save("results/"+"{relations}_{context}_{relnb}_{decoders}_{learners}_{heuristics}_{unlabelled}_{post_label}_{rfc}".format(**args.__dict__))
@@ -607,7 +602,7 @@ if __name__ == "__main__":
 # with full RFC Prec=0.394, Recall=0.388, F1=0.391
 
 # MST: Prec=0.264, Recall=0.260, F1=0.262
-# local: to be done, threshold fucked-up by prob. combination. 
+# local: to be done, threshold fucked-up by prob. combination.
 # with arbitray 0.5: Prec=0.376, Recall=0.316, F1=0.343
 
 # same, unlabelled eval (!! not the same as attchmt prediction only)
@@ -621,7 +616,7 @@ if __name__ == "__main__":
 # local: Prec=0.670, Recall=0.464, F1=0.548
 
 # window 5
-# -- local attacht 
+# -- local attacht
 #Prec=0.770, Recall=0.557, F1=0.647
 #with recall correction estimate (0.91%), F1=0.611496928675
 # -- mst Prec=0.667, Recall=0.742, F1=0.702
