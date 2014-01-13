@@ -1,5 +1,5 @@
 #!/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 """ interface for problem subject to local optimisation (used in {Search})
 

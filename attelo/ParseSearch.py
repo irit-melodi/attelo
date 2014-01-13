@@ -1,5 +1,5 @@
 #!/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 """
 module for building discourse graphs from probability distribution and
