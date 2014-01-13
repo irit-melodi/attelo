@@ -44,8 +44,8 @@ except:
 
 from fileNfold import make_n_fold, makeFoldByFileIndex
 from ParseSearch import astar_decoder, h0, h_best, h_max, h_average
-from discourse_parsing_attachment_mst import MST_list_edges as MST_decoder
-from discourse_parsing_attachment_greedy import locallyGreedy, getSortedEDUs
+from attachment.mst import MST_list_edges as MST_decoder
+from attachment.greedy import locallyGreedy, getSortedEDUs
 from megam_wrapper import MaxentLearner
 from online_learner import Perceptron, StructuredPerceptron
 from edu import EDU
