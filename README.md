@@ -11,10 +11,15 @@ Stergos  Afantenos
 Pascal   Denis
 Philippe Muller
 
-License
--------
-Attelo is free and open source software released under the BSD3-like
-CeCILL-B license.
+License (GPL-3)
+---------------
+Attelo is based on the Orange machine learning toolkit, which is
+licensed under the GPL-3.
+
+The Attelo components by themselves should be considered released
+under the more liberal BSD3-like CeCILL-B license.  So long as
+attelo depends on Orange, the combination should be considered as
+GPL'ed however.
 
 Aside from conformance with French law, the difference between the
 CeCILL-B and other similarly liberal licenses is the strong citation
