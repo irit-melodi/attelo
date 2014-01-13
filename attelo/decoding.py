@@ -38,15 +38,18 @@ except:
     print >> sys.stderr, "no module scipy.stats, cannot test stat. significance of results"
     STATS=False
 
-from fileNfold import make_n_fold, makeFoldByFileIndex
 from ParseSearch import astar_decoder, h0, h_best, h_max, h_average
+from attachment.baseline import local_baseline, last_baseline
 from attachment.mst import MST_list_edges as MST_decoder
 from attachment.greedy import locallyGreedy, getSortedEDUs
+
 from megam_wrapper import MaxentLearner
 from online_learner import Perceptron, StructuredPerceptron
 
 from edu         import EDU, mk_edu_pairs
 from features    import Features
+
+from fileNfold import make_n_fold, makeFoldByFileIndex
 from report      import Report
 
 # from MST import MSTdecoder
@@ -60,32 +63,6 @@ stac_features=Features(source="id_DU1",
                        target_span_end   = "end_DU2",
                        grouping          = "dialogue",
                        label             = "CLASS")
-
-def local_baseline(prob_distrib, threshold = 0.5, use_prob=True):
-    """just attach locally if prob is > threshold
-    """
-    predicted = []
-    for (arg1, arg2, probs, label) in prob_distrib:
-        attach = probs
-        if use_prob:
-            if attach > threshold:
-                predicted.append((arg1.id, arg2.id, label))
-        else:
-            if attach >= 0.0:
-                predicted.append((arg1.id, arg2.id, label))
-    return predicted
-
-
-def last_baseline(prob_distrib, use_prob=True):
-    "attach to last, always"
-    edus = getSortedEDUs(prob_distrib)
-    ordered_pairs = zip(edus[:-1],edus[1:])
-    dict_prob = {}
-    for (a1,a2,p,r) in prob_distrib:
-        dict_prob[(a1.id,a2.id)]=(r,p)
-
-    predicted=[(a1.id,a2.id,dict_prob[(a1.id,a2.id)][0]) for (a1,a2) in ordered_pairs]
-    return predicted
 
 
 def discourse_eval(features, predicted, data, labels = None, debug = False):
