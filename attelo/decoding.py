@@ -332,49 +332,60 @@ FOLDS_NB = 10
 
 if __name__ == "__main__":
     import sys
-    import optparse
+    import argparse
     import pprint
     # usage: argv1 is attachment data file
     # if there is an argv2, it is the relation data file
 
     usage = "usage: %prog [options] attachement_data_file [relation_data_file]"
-    parser = optparse.OptionParser(usage = usage)
-    parser.add_option("-l", "--learners", default = "bayes",
-                      help = "comma separated list of learners for attacht [and relations]; implemented: bayes, svm, maxent, perc, struc_perc; default (naive) bayes")
-    parser.add_option("-d", "--decoders", default = "local",
-                      help = "comma separated list of decoders for attacht [and relations]; implemented: local, last, mst, locallyGreedy, astar (cf also heuristics); default:local")
-    parser.add_option("-e", "--heuristics", default = "average", type = "choice", choices = ["zero", "max", "best", "average"],
-                      help = "heuristics used for astar decoding; default = average")
-    parser.add_option("-n", "--nfold", default = FOLDS_NB, type = "int",
-                      help = "nfold cross-validation number (default 10)")
-    parser.add_option("-o", "--output", default = None,
-                      help = "if this option is set to an existing path, predicted structures will be saved there; nothing saved otherwise")
-    parser.add_option("-c", "--correction", default = 1.0, type = "float",
-                      help = "if input is already a restriction on the full task, this options defines a correction to apply on the final recall score to have the real scores on the full corpus")
-    parser.add_option("-t", "--threshold", default = None, type = "float",
-                      help = "force the classifier to use this threshold value for attachment decisions, unless it is trained explicitely with a threshold")
-    parser.add_option("-u", "--unlabelled", default = False, action = "store_true",
-                      help = "force unlabelled evaluation, even if the prediction is made with relations")
-    parser.add_option("-p", "--post-label", default = False, action = "store_true",
-                      help = "decode only on attachment, and predict relations afterwards")
-    parser.add_option("-r", "--rfc", default = "full",type = "choice", choices = ["full","simple","none"],
-                      help = "with astar decoding, what kind of RFC is applied: simple of full; simple means everything is subordinating")
-    parser.add_option("-a", "--accuracy", default = False, action = "store_true",
-                      help = "provide accuracy scores for classifiers used")
-    parser.add_option("-m", "--averaging", default = False, action = "store_true", help = "averaged perceptron")
-    parser.add_option("-i", "--nit", default = 1, type = "int",help = "number of iterations for perceptron models")
-    parser.add_option("-P", "--use_prob", default = True, action = "store_false", help = "convert perceptron scores into probabilities")
-    parser.add_option("-s","--shuffle",default=False, action = "store_true",
-                      help="if set, ensure a different cross-validation of files is done, otherwise, the same file splitting is done everytime")
-    parser.add_option("-C", "--corpus", default = "annodis", type = "choice", choices = ["annodis","stac"],
-                      help = "corpus type (annodis or stac), default: annodis")
-    parser.add_option("-X", "--config", default = None,
-                      help = "TEST OPTION: corpus specificities config file; if absent, defaults to hard-wired annodis config; when ok, should replace -C")
+    parser = argparse.ArgumentParser(usage = usage)
+    parser.add_argument("data_attach",    metavar="FILE",
+                        help="attachment data")
+    parser.add_argument("data_relations", metavar="FILE", nargs="?",
+                        help="relations data") # optional
+    parser.add_argument("-l", "--learners", default = "bayes",
+                        help = "comma separated list of learners for attacht [and relations]; implemented: bayes, svm, maxent, perc, struc_perc; default (naive) bayes")
+    parser.add_argument("-d", "--decoders", default = "local",
+                        help = "comma separated list of decoders for attacht [and relations]; implemented: local, last, mst, locallyGreedy, astar (cf also heuristics); default:local")
+    parser.add_argument("-e", "--heuristics", default = "average", choices = ["zero", "max", "best", "average"],
+                        help = "heuristics used for astar decoding; default = average")
+    parser.add_argument("-n", "--nfold", default = FOLDS_NB, type = int,
+                        help = "nfold cross-validation number (default 10)")
+    parser.add_argument("-o", "--output", default = None,
+                        help = "if this option is set to an existing path, predicted structures will be saved there; nothing saved otherwise")
+    parser.add_argument("-c", "--correction", default = 1.0, type = float,
+                        help = "if input is already a restriction on the full task, this options defines a correction to apply on the final recall score to have the real scores on the full corpus")
+    parser.add_argument("-t", "--threshold", default = None, type = float,
+                        help = "force the classifier to use this threshold value for attachment decisions, unless it is trained explicitely with a threshold")
+    parser.add_argument("-u", "--unlabelled", default = False, action = "store_true",
+                        help = "force unlabelled evaluation, even if the prediction is made with relations")
+    parser.add_argument("-p", "--post-label", default = False, action = "store_true",
+                        help = "decode only on attachment, and predict relations afterwards")
+    parser.add_argument("-r", "--rfc", default = "full", choices = ["full","simple","none"],
+                        help = "with astar decoding, what kind of RFC is applied: simple of full; simple means everything is subordinating")
+    parser.add_argument("-a", "--accuracy", default = False, action = "store_true",
+                        help = "provide accuracy scores for classifiers used")
+    parser.add_argument("-m", "--averaging", default = False, action = "store_true",
+                        help = "averaged perceptron")
+    parser.add_argument("-i", "--nit", default = 1, type = int,
+                        help = "number of iterations for perceptron models")
+    parser.add_argument("-P", "--use_prob", default = True, action = "store_false",
+                        help = "convert perceptron scores into probabilities")
+    parser.add_argument("-s","--shuffle",default=False, action = "store_true",
+                        help="if set, ensure a different cross-validation of files is done, otherwise, the same file splitting is done everytime")
+    parser.add_argument("-C", "--corpus", default = "annodis", choices = ["annodis","stac"],
+                        help = "corpus type (annodis or stac), default: annodis")
+    parser.add_argument("-X", "--config", default = None,
+                        help = "TEST OPTION: corpus specificities config file; if absent, defaults to hard-wired annodis config; when ok, should replace -C")
     # simple parser with separate train/test
-    parser.add_option("-A", "--attachment-model", default = None, help = "provide saved model for prediction of attachment (only with -T option)")
-    parser.add_option("-R", "--relation-model", default = None, help = "provide saved model for prediction of relations (only with -T option)")
-    parser.add_option("-T", "--test-only", default = False, action = "store_true", help = "predicts on the given  data (requires a model for -A option or two with -A and -R option), save to output directory, forces -o option is not set with output/ as default path; does not make any evaluation, even if the class labels are present")
-    parser.add_option("-S", "--save-models", default = False, action = "store_true", help = "train on the whole instance set provided, and save attachment [and relation] models to attach.model and relation.model")
+    parser.add_argument("-A", "--attachment-model", default = None,
+                        help = "provide saved model for prediction of attachment (only with -T option)")
+    parser.add_argument("-R", "--relation-model", default = None,
+                        help = "provide saved model for prediction of relations (only with -T option)")
+    parser.add_argument("-T", "--test-only", default = False, action = "store_true",
+                        help = "predicts on the given  data (requires a model for -A option or two with -A and -R option), save to output directory, forces -o option is not set with output/ as default path; does not make any evaluation, even if the class labels are present")
+    parser.add_argument("-S", "--save-models", default = False, action = "store_true",
+                        help = "train on the whole instance set provided, and save attachment [and relation] models to attach.model and relation.model")
 
     # todo for options 
     # RFC type 
@@ -382,24 +393,24 @@ if __name__ == "__main__":
     # nbest eval (when implemented)
     # 
 
-    (options, args) = parser.parse_args()
+    args = parser.parse_args()
 
-    output_folder = options.output
+    output_folder = args.output
     # todo: test existence; create if needed
 
-    if options.config is not None: 
+    if args.config is not None: 
         config = ConfigParser()
         # cancels case-insensitive reading of variables. 
         config.optionxform = lambda option: option
-        config.readfp(open(options.config))
+        config.readfp(open(args.config))
         metacfg = dict(config.items("Meta features"))
-    elif options.corpus.lower() == "stac":
+    elif args.corpus.lower() == "stac":
         metacfg = stac_cfg
     else:# annodis config as default, should not cause regression on coling experiment
         metacfg =  def_cfg
 
     # index names for EDU pairs 
-    # if options.corpus.lower() == "stac": 
+    # if args.corpus.lower() == "stac": 
     #     FirstNode = "id_DU1"
     #     SecondNode = "id_DU2"
     #     TargetSpanStart = "start_DU2"
@@ -409,25 +420,25 @@ if __name__ == "__main__":
     #     FILE = "document"
  
 
-    data_attach = Orange.data.Table(args[0])
+    data_attach = Orange.data.Table(args.data_attach)
     # print "DATA ATTACH:", data_attach
     
-    if len(args) > 1:
-        data_relations = Orange.data.Table(args[1])
+    if args.data_relations:
+        data_relations = Orange.data.Table(args.data_relations)
         with_relations = True
     else:
         data_relations = None
         with_relations = False
         labels = None
-        if options!="none": options.rfc = "simple"
+        args.rfc = "simple"
 
 
 
     # decoders 
     _heuristics = {"average":h_average, "best":h_best, "max":h_max, "zero":h0}
-    heuristic = _heuristics.get(options.heuristics, h_average)
-    _decoders = {"last":last_baseline,"local":local_baseline, "locallyGreedy":locallyGreedy, "mst":MST_decoder, "astar":lambda x, **kargs: astar_decoder(x, heuristics = heuristic, RFC = options.rfc, **kargs)}
-    all_decoders = [_decoders.get(x, local_baseline) for x in options.decoders.split(",")]
+    heuristic = _heuristics.get(args.heuristics, h_average)
+    _decoders = {"last":last_baseline,"local":local_baseline, "locallyGreedy":locallyGreedy, "mst":MST_decoder, "astar":lambda x, **kargs: astar_decoder(x, heuristics = heuristic, RFC = args.rfc, **kargs)}
+    all_decoders = [_decoders.get(x, local_baseline) for x in args.decoders.split(",")]
 
     # orange classifiers
     bayes = Orange.classification.bayes.NaiveLearner(adjust_threshold = True)
@@ -441,14 +452,14 @@ if __name__ == "__main__":
     majority.name = "majority"
 
     # home made perceptron 
-    perc = Perceptron( nber_it=options.nit, avg=options.averaging , cfg = metacfg) 
+    perc = Perceptron( nber_it=args.nit, avg=args.averaging , cfg = metacfg) 
     # home made structured perceptron 
-    struc_perc = StructuredPerceptron( all_decoders[0], nber_it=options.nit, avg=options.averaging  , cfg = metacfg) 
+    struc_perc = StructuredPerceptron( all_decoders[0], nber_it=args.nit, avg=args.averaging  , cfg = metacfg) 
     
     _learners = {"bayes":bayes, "svm":svm, "maxent":maxent,"majority":majority, "perc":perc, "struc_perc":struc_perc}
-    all_learners = [_learners.get(x, bayes) for x in options.learners.split(",")]
+    all_learners = [_learners.get(x, bayes) for x in args.learners.split(",")]
     
-    RECALL_CORRECTION = options.correction
+    RECALL_CORRECTION = args.correction
 
 
     # id for EDU  (isn't it just the index?)
@@ -465,90 +476,90 @@ if __name__ == "__main__":
 
     # prepare n-fold-by-file
     import random
-    if options.shuffle:
+    if args.shuffle:
         random.seed()
     else:
         random.seed("just an illusion")
 
-    if options.save_models or options.test_only:# training only or testing only => no folds
-        options.nfold = 1
+    if args.save_models or args.test_only:# training only or testing only => no folds
+        args.nfold = 1
 
-    fold_struct = make_n_fold(data_attach, folds = options.nfold,meta_index=metacfg["FILE"])
+    fold_struct = make_n_fold(data_attach, folds = args.nfold,meta_index=metacfg["FILE"])
     
     selection = makeFoldByFileIndex(data_attach, fold_struct,meta_index=metacfg["FILE"])
     # only one learner+decoder for now
     learner = all_learners[0]
     decoder = all_decoders[0]
 
-    use_threshold = options.threshold is not None
+    use_threshold = args.threshold is not None
     # eval procedures
-    if options.test_only: 
+    if args.test_only: 
         structure_eval = lambda x,y, labels=None: 0
     else:
         structure_eval = lambda x,y, labels=None: discourse_eval(x,y, cfg = metacfg, labels=labels)
-    save_results = options.output is not None
+    save_results = args.output is not None
 
     # TODO: refactor from here, using above as parameters
     evals = []
     # --- fold level -- to be refactored
-    for test_fold in range(options.nfold):
+    for test_fold in range(args.nfold):
         print >> sys.stderr, ">>> doing fold ", test_fold + 1
-        if not(options.test_only):
+        if not(args.test_only):
             print >> sys.stderr, ">>> training ... "
-            if options.save_models:# training only
+            if args.save_models:# training only
                 train_data_attach = data_attach.select_ref(selection, test_fold)
             else:
                 train_data_attach = data_attach.select_ref(selection, test_fold, negate = 1)
             # train model
-            if options.learners == "struc_perc":
-                model = learner(train_data_attach, use_prob=options.use_prob)
+            if args.learners == "struc_perc":
+                model = learner(train_data_attach, use_prob=args.use_prob)
             else:
                 model = learner(train_data_attach)
-            if options.save_models:# training only
+            if args.save_models:# training only
                 attm = open("attach.model","wb")
                 cPickle.dump(model,attm)
                 attm.close()
         else:# test-only
-            if options.attachment_model is None:
+            if args.attachment_model is None:
                 print >> sys.stderr, "ERROR, attachment model not provided with -A"
                 sys.exit(0)
-            attm = open(options.attachment_model,"rb")
+            attm = open(args.attachment_model,"rb")
             model = cPickle.load(attm)
            
         if use_threshold or str(decoder.__name__) == "local_baseline":
             try:
                 threshold = model.threshold
             except:
-                print >> sys.stderr, "treshold forced at : ",  options.threshold
-                threshold = options.threshold if use_threshold else 0.5
+                print >> sys.stderr, "treshold forced at : ",  args.threshold
+                threshold = args.threshold if use_threshold else 0.5
         else:
             threshold = None
  
 
         # test 
-        if not(options.save_models):# else would be training only
+        if not(args.save_models):# else would be training only
             test_data_attach = data_attach.select_ref(selection, test_fold)
         # 
-        if with_relations  and not(options.test_only):
-            if options.save_models:
+        if with_relations  and not(args.test_only):
+            if args.save_models:
                 train_data_relations = data_relations.select_ref(selection, test_fold)
             else:
                 train_data_relations = data_relations.select_ref(selection, test_fold, negate = 1)
             train_data_relations = train_data_relations.filter_ref({"CLASS":["UNRELATED"]}, negate = 1)
             # train model
             model_relations = learner(train_data_relations)
-            if options.save_models:# training only
+            if args.save_models:# training only
                 relm = open("relations.model","wb")
                 cPickle.dump(model_relations,relm)
                 relm.close()
-        elif with_relations and not(options.save_models):
+        elif with_relations and not(args.save_models):
             test_data_relations = data_relations.select_ref(selection, test_fold)
-            if options.test_only:
-                relm=open(options.relation_model,"rb")
+            if args.test_only:
+                relm=open(args.relation_model,"rb")
                 model_relations = cPickle.load(relm)
         else:# no relations
             model_relations = None
-        if options.save_models:# training done, leaving
+        if args.save_models:# training done, leaving
             print >> sys.stderr, "done with training, exiting"
             sys.exit(0)
         # -- file level --
@@ -563,29 +574,29 @@ if __name__ == "__main__":
                                           save_results = save_results,
                                           output_folder = output_folder,
                                           threshold = threshold,
-                                          unlabelled = options.unlabelled,
-                                          post_labelling = options.post_label,
-                                          use_prob = options.use_prob , cfg = metacfg )
-                if not(options.test_only): 
+                                          unlabelled = args.unlabelled,
+                                          post_labelling = args.post_label,
+                                          use_prob = args.use_prob , cfg = metacfg )
+                if not(args.test_only): 
                     evals.append(scores)
                     fold_evals.append(scores)
-        options.relations = ["attach","relations"][with_relations]
-        options.context = "window5" if "window" in args[0] else "full"
-        options.relnb = args[1].split(".")[-2][-6:] if with_relations else "-"
-        if not(options.test_only): 
-            fold_report = Report(fold_evals, params = options, correction = RECALL_CORRECTION)
+        args.relations = ["attach","relations"][with_relations]
+        args.context = "window5" if "window" in args.data_attach else "full"
+        args.relnb = args.data_relations.split(".")[-2][-6:] if with_relations else "-"
+        if not(args.test_only): 
+            fold_report = Report(fold_evals, params = args, correction = RECALL_CORRECTION)
             print "Fold eval:", fold_report.summary()
         # --end of file level
        # --- end of fold level
     # end of test for a set of parameter
     # report: summing : TODO: must register many runs with change of parameters
-    options.relations = ["attach","relations"][with_relations]
-    options.context = "window5" if "window" in args[0] else "full"
-    options.relnb = args[1].split(".")[-2][-6:] if with_relations else "-"
-    if not(options.test_only): 
-        report = Report(evals, params = options, correction = RECALL_CORRECTION)
+    args.relations = ["attach","relations"][with_relations]
+    args.context = "window5" if "window" in args.data_attach else "full"
+    args.relnb = args.data_relations.split(".")[-2][-6:] if with_relations else "-"
+    if not(args.test_only): 
+        report = Report(evals, params = args, correction = RECALL_CORRECTION)
         print ">>> FINAL EVAL:", report.summary()
-        report.save("results/"+"{relations}_{context}_{relnb}_{decoders}_{learners}_{heuristics}_{unlabelled}_{post_label}_{rfc}".format(**options.__dict__))
+        report.save("results/"+"{relations}_{context}_{relnb}_{decoders}_{learners}_{heuristics}_{unlabelled}_{post_label}_{rfc}".format(**args.__dict__))
 
 
 
