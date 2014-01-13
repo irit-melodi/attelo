@@ -280,71 +280,61 @@ def process_document(onedoc, model, decoder, data_attach,
     total_pred = len(predicted)
     return one_score, total_pred, total_ref
 
-
-
-
-
-
-# default fold number
-FOLDS_NB = 10
-
-
-
-if __name__ == "__main__":
+def main():
     import sys
     import argparse
     import pprint
     # usage: argv1 is attachment data file
     # if there is an argv2, it is the relation data file
 
-    usage = "usage: %prog [options] attachement_data_file [relation_data_file]"
+    usage = "%(prog)s [options] attachment_data_file [relation_data_file]"
     parser = argparse.ArgumentParser(usage = usage)
     parser.add_argument("data_attach",    metavar="FILE",
                         help="attachment data")
     parser.add_argument("data_relations", metavar="FILE", nargs="?",
                         help="relations data") # optional
-    parser.add_argument("-l", "--learners", default = "bayes",
+    parser.add_argument("--learners", "-l", default = "bayes",
                         help = "comma separated list of learners for attacht [and relations]; implemented: bayes, svm, maxent, perc, struc_perc; default (naive) bayes")
-    parser.add_argument("-d", "--decoders", default = "local",
+    parser.add_argument("--decoders", "-d", default = "local",
                         help = "comma separated list of decoders for attacht [and relations]; implemented: local, last, mst, locallyGreedy, astar (cf also heuristics); default:local")
-    parser.add_argument("-e", "--heuristics", default = "average", choices = ["zero", "max", "best", "average"],
+    parser.add_argument("--heuristics", "-e", default = "average", choices = ["zero", "max", "best", "average"],
                         help = "heuristics used for astar decoding; default = average")
-    parser.add_argument("-n", "--nfold", default = FOLDS_NB, type = int,
+    parser.add_argument("--nfold", "-n", default = 10, type = int,
                         help = "nfold cross-validation number (default 10)")
-    parser.add_argument("-o", "--output", default = None,
+    parser.add_argument("--output", "-o", default = None,
                         help = "if this option is set to an existing path, predicted structures will be saved there; nothing saved otherwise")
-    parser.add_argument("-c", "--correction", default = 1.0, type = float,
+    parser.add_argument("--correction", "-c", default = 1.0, type = float,
                         help = "if input is already a restriction on the full task, this options defines a correction to apply on the final recall score to have the real scores on the full corpus")
-    parser.add_argument("-t", "--threshold", default = None, type = float,
+    parser.add_argument("--threshold", "-t", default = None, type = float,
                         help = "force the classifier to use this threshold value for attachment decisions, unless it is trained explicitely with a threshold")
-    parser.add_argument("-u", "--unlabelled", default = False, action = "store_true",
+    parser.add_argument("--unlabelled", "-u", default = False, action = "store_true",
                         help = "force unlabelled evaluation, even if the prediction is made with relations")
-    parser.add_argument("-p", "--post-label", default = False, action = "store_true",
+    parser.add_argument("--post-label", "-p", default = False, action = "store_true",
                         help = "decode only on attachment, and predict relations afterwards")
-    parser.add_argument("-r", "--rfc", default = "full", choices = ["full","simple","none"],
+    parser.add_argument("--rfc", "-r", default = "full", choices = ["full","simple","none"],
                         help = "with astar decoding, what kind of RFC is applied: simple of full; simple means everything is subordinating")
-    parser.add_argument("-a", "--accuracy", default = False, action = "store_true",
+    parser.add_argument("--accuracy", "-a", default = False, action = "store_true",
                         help = "provide accuracy scores for classifiers used")
-    parser.add_argument("-m", "--averaging", default = False, action = "store_true",
+    parser.add_argument("--averaging", "-m", default = False, action = "store_true",
                         help = "averaged perceptron")
-    parser.add_argument("-i", "--nit", default = 1, type = int,
+    parser.add_argument("--nit", "-i", default = 1, type = int,
                         help = "number of iterations for perceptron models")
-    parser.add_argument("-P", "--use_prob", default = True, action = "store_false",
+    parser.add_argument("--use_prob", "-P", default = True, action = "store_false",
                         help = "convert perceptron scores into probabilities")
     parser.add_argument("-s","--shuffle",default=False, action = "store_true",
                         help="if set, ensure a different cross-validation of files is done, otherwise, the same file splitting is done everytime")
-    parser.add_argument("-C", "--corpus", default = "annodis", choices = ["annodis","stac"],
+    parser.add_argument("--corpus", "-C", default = "annodis", choices = ["annodis","stac"],
                         help = "corpus type (annodis or stac), default: annodis")
-    parser.add_argument("-X", "--config", default = None,
+    parser.add_argument("--config", "-X", default = None,
                         help = "TEST OPTION: corpus specificities config file; if absent, defaults to hard-wired annodis config; when ok, should replace -C")
     # simple parser with separate train/test
-    parser.add_argument("-A", "--attachment-model", default = None,
+    parser.add_argument("--attachment-model", "-A", default = None,
                         help = "provide saved model for prediction of attachment (only with -T option)")
-    parser.add_argument("-R", "--relation-model", default = None,
+    parser.add_argument("--relation-model", "-R", default = None,
                         help = "provide saved model for prediction of relations (only with -T option)")
-    parser.add_argument("-T", "--test-only", default = False, action = "store_true",
+    parser.add_argument("--test-only", "-T", default = False, action = "store_true",
                         help = "predicts on the given  data (requires a model for -A option or two with -A and -R option), save to output directory, forces -o option is not set with output/ as default path; does not make any evaluation, even if the class labels are present")
-    parser.add_argument("-S", "--save-models", default = False, action = "store_true",
+    parser.add_argument("--save-models", "-S", default = False, action = "store_true",
                         help = "train on the whole instance set provided, and save attachment [and relation] models to attach.model and relation.model")
 
     # todo for options
