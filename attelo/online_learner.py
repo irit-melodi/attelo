@@ -2,21 +2,8 @@ import sys
 import time
 from collections import defaultdict
 from numpy import *
-from edu import EDU
 
-# meta-features used for nfold, indexing, etc
-# default is for annodis coling experiments. 
-# best to pass on as argument to constructor for learners
-def_config = {
-"FirstNode" : "SOURCE",
-"SecondNode" : "TARGET",
-"TargetSpanStart" : "TargetSpanStart",
-"TargetSpanEnd" : "TargetSpanEnd",
-"SourceSpanStart" : "SourceSpanStart",
-"SourceSpanEnd" : "SourceSpanEnd",
-"FILE" : "FILE"
-}
-
+from edu import EDU, mk_edu_pairs
 
 """
 TODO:
@@ -29,7 +16,7 @@ TODO:
 
 class Perceptron( object ):
 
-    def __init__( self, domain=None, nber_it=1, avg=False, cfg = def_config ):
+    def __init__( self, features, domain=None, nber_it=1, avg=False):
         self.name = "Perceptron"
         self._weights = None
         self._avg_weights = None
@@ -38,7 +25,7 @@ class Perceptron( object ):
             self._set_domain( domain )
         self._avg = avg
         self._nber_it = nber_it
-        self._cfg = cfg
+        self._features = features
         return
 
     def set_domain(self, domain):
@@ -46,9 +33,6 @@ class Perceptron( object ):
         self._weights = zeros( len(domain.attributes), 'd' )
         self._avg_weights = zeros( len(domain.attributes), 'd' )
         return
-
-    def get_cfg(self,option):
-        return self._cfg.get(option)
 
     def get_current_weights(self):
         """ return current weights """
@@ -70,21 +54,8 @@ class Perceptron( object ):
         return weights
 
 
-    def edu_pair_from_orange( self, orange_instance):
-        domain = self._domain
-        arg1 = domain.index(self.get_cfg("FirstNode"))
-        arg2 = domain.index(self.get_cfg("SecondNode"))
-        TargetSpanStartIndex = domain.index(self.get_cfg("TargetSpanStart"))
-        TargetSpanEndIndex = domain.index(self.get_cfg("TargetSpanEnd"))
-        SourceSpanStartIndex = domain.index(self.get_cfg("SourceSpanStart"))
-        SourceSpanEndIndex = domain.index(self.get_cfg("SourceSpanEnd"))
-        FILEIndex = domain.index(self.get_cfg("FILE"))
-        edu1 = EDU(orange_instance[arg1].value, orange_instance[SourceSpanStartIndex].value,\
-                   orange_instance[SourceSpanEndIndex].value, orange_instance[FILEIndex].value)
-        edu2 = EDU(orange_instance[arg2].value, orange_instance[TargetSpanStartIndex].value, \
-                   orange_instance[TargetSpanEndIndex].value, orange_instance[FILEIndex].value)
-        return edu1, edu2
-
+    def edu_pair_from_orange(self, orange_instance):
+        return mk_edu_pairs(self._features, self._domain)(orange_instance)
 
     def fv_from_orange( self, orange_instance, fv_fct ):
         attr_val_list = []
@@ -92,7 +63,7 @@ class Perceptron( object ):
         for av in orange_instance:
             att_name = av.variable.name
             att_type = str(av.var_type)
-            if att_name == "CLASS": # do not use CLASS as feature :-)
+            if att_name == self.features.label: # do not use desired label as feature :-)
                 classe = 1 if str(av.value) == "True" else -1
             else:
                 if att_type == "Continuous":
@@ -241,8 +212,8 @@ class StructuredPerceptron( Perceptron ):
     """ Perceptron classifier (in primal form) for structured
     problems.""" 
 
-    def __init__( self, decoder, domain=None, nber_it=1, avg=False, cfg = def_config ):
-        Perceptron.__init__(self, domain=domain, nber_it=nber_it, avg=avg, cfg = cfg)
+    def __init__( self, features, decoder, domain=None, nber_it=1, avg=False ):
+        Perceptron.__init__(self, features, domain=domain, nber_it=nber_it, avg=avg)
         self.name = "StructuredPerceptron"
         self._decoder = decoder 
         return
@@ -260,7 +231,7 @@ class StructuredPerceptron( Perceptron ):
         doc2ref_graph = defaultdict(list)
         # edu_id2edu = {}
         for edu_pair_inst in train_orange_data_table:
-            doc_name = edu_pair_inst[self.get_cfg("FILE")].value
+            doc_name = edu_pair_inst[self.features.grouping].value
             edu1, edu2, cl, fv = self.unpack_orange( edu_pair_inst, fv_fct )
             doc2fvs[doc_name][edu1.id,edu2.id] = fv
             if cl == 1:

@@ -14,10 +14,6 @@ example: cf coling_expes.sh
 
 
 TODO:
- - GET RID OF THE FCKG GLOBAL VARIABLES
-        - meta-feature names that are used for indexing/... etc. they mess things up in "online_learner" too
-         FILE, edu ids, and span ids.
-        - class for parser ? would help ! but first put cfg everywhere
  x- might be useful to have project config files for that instead of option switch ...
  - abstract main as processing method, depending on various things: fold nb, learner, decoder, eval function for one discourse
 and within that, abstract layers : fold,document
@@ -48,42 +44,22 @@ from attachment.mst import MST_list_edges as MST_decoder
 from attachment.greedy import locallyGreedy, getSortedEDUs
 from megam_wrapper import MaxentLearner
 from online_learner import Perceptron, StructuredPerceptron
-from edu import EDU
-from report import Report
+
+from edu         import EDU, mk_edu_pairs
+from features    import Features
+from report      import Report
 
 # from MST import MSTdecoder
 
-
-# index names for EDU pairs
-# FirstNode = "SOURCE"
-# SecondNode = "TARGET"
-# TargetSpanStart = "TargetSpanStart"
-# TargetSpanEnd = "TargetSpanEnd"
-# SourceSpanStart = "SourceSpanStart"
-# SourceSpanEnd = "SourceSpanEnd"
-# FILE = "FILE"
-annodis_cfg = {
-            "FirstNode" : "SOURCE",
-            "SecondNode" : "TARGET",
-            "TargetSpanStart" : "TargetSpanStart",
-            "TargetSpanEnd" : "TargetSpanEnd",
-            "SourceSpanStart" : "SourceSpanStart",
-            "SourceSpanEnd" : "SourceSpanEnd",
-            "FILE" : "FILE",
-            "CLASS": "CLASS"
-            }
-
-stac_cfg = {
-        "FirstNode"       : "id_DU1",
-        "SecondNode"      : "id_DU2",
-        "TargetSpanStart" : "start_DU2",
-        "TargetSpanEnd"   : "end_DU2",
-        "SourceSpanStart" : "start_DU1",
-        "SourceSpanEnd"   : "end_DU1",
-        "FILE"            : "dialogue",
-        "CLASS"           : "CLASS" }
-
-def_cfg = annodis_cfg
+annodis_features=Features() # default settings
+stac_features=Features(source="id_DU1",
+                       target="id_DU2",
+                       source_span_start = "start_DU1",
+                       source_span_end   = "end_DU1",
+                       target_span_start = "start_DU2",
+                       target_span_end   = "end_DU2",
+                       grouping          = "dialogue",
+                       label             = "CLASS")
 
 def local_baseline(prob_distrib, threshold = 0.5, use_prob=True):
     """just attach locally if prob is > threshold
@@ -112,19 +88,18 @@ def last_baseline(prob_distrib, use_prob=True):
     return predicted
 
 
-def discourse_eval(predicted, data, labels = None, debug = False, cfg = def_cfg ):
+def discourse_eval(features, predicted, data, labels = None, debug = False):
     """basic eval: counting correct predicted edges (labelled or not)
     data contains the reference attachments
     labels the corresponding relations
-    cfg: stores index names of important meta-features (edu ids, file id, etc)
     """
     #print "REF:", data
     #print "PRED:", predicted
     score = 0
     dict_predicted = dict([((a1, a2), rel) for (a1, a2, rel) in predicted])
     for one in data:
-        arg1 = one[cfg["FirstNode"]].value
-        arg2 = one[cfg["SecondNode"]].value
+        arg1 = one[features.source].value
+        arg2 = one[features.target].value
         if debug:
             print >> sys.stderr, arg1, arg2, dict_predicted.get((arg1, arg2))
         if dict_predicted.has_key((arg1, arg2)):
@@ -132,37 +107,41 @@ def discourse_eval(predicted, data, labels = None, debug = False, cfg = def_cfg 
                 score += 1
                 if debug: print >> sys.stderr, "correct"
             else:
-                relation_ref = labels.filter_ref({cfg["FirstNode"]:[arg1], cfg["SecondNode"]:[arg2]})
+                relation_ref = labels.filter_ref({features.source:[arg1], features.target:[arg2]})
                 if len(relation_ref) == 0:
-                    print >> sys.stderr, "attached pair without corresponding relation", one[cfg["FILE"]], arg1, arg2
+                    print >> sys.stderr, "attached pair without corresponding relation", one[features.grouping], arg1, arg2
                 else:
-                    relation_ref = relation_ref[0][cfg["CLASS"]].value
+                    relation_ref = relation_ref[0][features.label].value
                     score += (dict_predicted[(arg1, arg2)] == relation_ref)
     #print "SCORE:", score
     return score
 
-def combine_probs(attach_instances, relation_instances, attachmt_model, relations_model, cfg = def_cfg):
+def combine_probs(features, attach_instances, relation_instances, attachmt_model, relations_model):
     """retrieve probability of the best relation on an edu pair, given the probability of an attachment
     """
     # !! instances set must correspond to same edu pair in the same order !!
     distrib = []
-    rel = relation_instances.domain[cfg["CLASS"]]
-    attach_instances = sorted(attach_instances, key = lambda x:x.get_metas())
-    relation_instances = sorted(relation_instances, key = lambda x:x.get_metas())
 
-    for (i, one) in enumerate(attach_instances):
-        p_attach = attachmt_model(one, Orange.classification.Classifier.GetProbabilities)[1]
-        p_relations = relations_model(relation_instances[i], Orange.classification.Classifier.GetBoth)
-        if not(instance_check(one, relation_instances[i],cfg=cfg)): print >> sys.stderr, "mismatch of attacht/relation instance, instance number", i, meta_info(one), meta_info(relation_instances[i])
+    edu_pair           = mk_edu_pairs(features, attach_instances.domain)
+    attach_instances   = sorted(attach_instances,   key=lambda x:x.get_metas())
+    relation_instances = sorted(relation_instances, key=lambda x:x.get_metas())
+
+    for i, (attach, relation) in enumerate(zip(attach_instances, relation_instances)):
+        p_attach    = attachmt_model(attach, Orange.classification.Classifier.GetProbabilities)[1]
+        p_relations = relations_model(relation, Orange.classification.Classifier.GetBoth)
+        if not instance_check(features, attach, relation):
+            print >> sys.stderr, "mismatch of attacht/relation instance, instance number", i,
+            meta_info(attach,   features),
+            meta_info(relation, features)
         # this should be investigated
-        try: best_rel = p_relations[0].value
-        except: best_rel = p_relations[0]
+        try:
+            best_rel = p_relations[0].value
+        except:
+            best_rel = p_relations[0]
 
-        rel_prob = max(p_relations[1])
-        distrib.append((EDU(one[arg1].value, one[SourceSpanStartIndex].value, one[SourceSpanEndIndex].value, one[FILEIndex].value),
-                         EDU(one[arg2].value, one[TargetSpanStartIndex].value, one[TargetSpanEndIndex].value, one[FILEIndex].value),
-                         p_attach * rel_prob,
-                         best_rel))
+        rel_prob   = max(p_relations[1])
+        edu1, edu2 = edu_pair(attach)
+        distrib.append((edu1, edu2, p_attach * rel_prob, best_rel))
     return distrib
 
 
@@ -179,10 +158,10 @@ def index_by_metas(instances,metas=None):
 
 
 
-def add_labels(predicted, rel_instances, relations_model, cfg = def_cfg ):
+def add_labels(features, predicted, rel_instances, relations_model):
     """ predict labels for a given set of edges (=post-labelling an unlabelled decoding)
     """
-    rels = index_by_metas(rel_instances,metas=[cfg["FirstNode"],cfg["SecondNode"]])
+    rels = index_by_metas(rel_instances,metas=[features.source,features.target])
     result = []
     for (a1,a2,_r) in predicted:
         instance_rel = rels[(a1,a2)]
@@ -190,11 +169,13 @@ def add_labels(predicted, rel_instances, relations_model, cfg = def_cfg ):
         result.append((a1,a2,rel))
     return result
 
-def instance_check(one, two, cfg = def_cfg ):
-    return (one[cfg["FirstNode"]] == two[cfg["FirstNode"]]) and (one[cfg["SecondNode"]] == two[cfg["SecondNode"]]) and (one[cfg["FILE"]] == two[cfg["FILE"]])
+def instance_check(features, one, two):
+    return  one[features.source]   == two[features.source] and\
+            one[features.target]   == two[features.target] and\
+            one[features.grouping] == two[features.grouping]
 
-def meta_info(instance):
-    return "%s: %s-%s" % (instance[cfg["FILE"]], instance[cfg["FirstNode"]], instance[cfg["SecondNode"]])
+def meta_info(features, instance):
+    return "%s: %s-%s" % (instance[features.grouping], instance[features.source], instance[features.target])
 
 
 def exportGraph(predicted, doc, folder):
@@ -208,14 +189,14 @@ def exportGraph(predicted, doc, folder):
 
 
 
-def process_document(onedoc, model, decoder, data_attach,
+def process_document(features, onedoc, model, decoder, data_attach,
+                     structure_eval,
                      with_relations = False, data_relations = [], model_relations = None,
                      save_results = False, output_folder = None,
                      threshold = None,
                      unlabelled = False,
                      post_labelling=False,
-                     use_prob=True,
-                     cfg = def_cfg):
+                     use_prob=True):
     """decode one document (onedoc), selecting instances for attachment from data_attach, (idem relations if present),
     using trained model,model
 
@@ -223,31 +204,27 @@ def process_document(onedoc, model, decoder, data_attach,
     """
 
 
-    FILE = cfg["FILE"]
-    CLASS = cfg["CLASS"]
-    # TODO: should be added to config at the start
-    TargetSpanStartIndex = data_attach.domain.index(metacfg["TargetSpanStart"])
-    TargetSpanEndIndex = data_attach.domain.index(metacfg["TargetSpanEnd"])
-    SourceSpanStartIndex = data_attach.domain.index(metacfg["SourceSpanStart"])
-    SourceSpanEndIndex = data_attach.domain.index(metacfg["SourceSpanEnd"])
-    FILEIndex = data_attach.domain.index(metacfg["FILE"])
+    FILE  = features.grouping
+    CLASS = features.label
 
     doc_instances = data_attach.filter_ref({FILE : onedoc})
 
     if with_relations:
         rel_instances = data_relations.filter_ref({FILE : onedoc})
     if with_relations and not(post_labelling):
-        prob_distrib = combine_probs(doc_instances, rel_instances, model, model_relations, cfg = cfg)
+        prob_distrib = combine_probs(features, doc_instances, rel_instances, model, model_relations)
     else:
         # home-made online models
         if model.name in ["Perceptron", "StructuredPerceptron"]:
             prob_distrib = model.get_scores( doc_instances, use_prob=use_prob )
         # orange-based models
         else:
-            prob_distrib = [(EDU(one[arg1].value, one[SourceSpanStartIndex].value, one[SourceSpanEndIndex].value, one[FILEIndex].value),
-                             EDU(one[arg2].value, one[TargetSpanStartIndex].value, one[TargetSpanEndIndex].value, one[FILEIndex].value),
-                             model(one, Orange.classification.Classifier.GetProbabilities)[1],
-                             "unlabelled") for one in doc_instances]
+            edu_pair     = mk_edu_pairs(features, doc_instances.domain)
+            prob_distrib = []
+            for one in doc_instances:
+                edu1, edu2 = edu_pair(one)
+                probs      = model(one, Orange.classification.Classifier.GetProbabilities)[1]
+                prob_distrib.append((edu1, edu2, probs, "unlabelled"))
     # print prob_distrib
 
     # get prediction (input is just prob_distrib)
@@ -259,7 +236,7 @@ def process_document(onedoc, model, decoder, data_attach,
         # predicted = decoder(prob_distrib)
 
     if post_labelling:
-        predicted = add_labels(predicted, rel_instances, model_relations, use_prob=use_prob, cfg = cfg)
+        predicted = add_labels(features, predicted, rel_instances, model_relations, use_prob=use_prob)
         # predicted = add_labels(predicted, rel_instances, model_relations)
 
     # print predicted
@@ -354,21 +331,18 @@ def main():
         config.optionxform = lambda option: option
         config.readfp(open(args.config))
         metacfg = dict(config.items("Meta features"))
+        features = Dataset(source=metacfg["FirstNode"],
+                          target=metacfg["SecondNode"],
+                          source_span_start=metacfg["SourceSpanStart"],
+                          source_span_end=metacfg["SourceSpanEnd"],
+                          target_span_start=metacfg["TargetSpanStart"],
+                          target_span_end=metacfg["TargetSpanEnd"],
+                          grouping=metacfg["FILE"],
+                          label=metacfg["CLASS"])
     elif args.corpus.lower() == "stac":
-        metacfg = stac_cfg
+        features = stac_features
     else:# annodis config as default, should not cause regression on coling experiment
-        metacfg =  def_cfg
-
-    # index names for EDU pairs
-    # if args.corpus.lower() == "stac":
-    #     FirstNode = "id_DU1"
-    #     SecondNode = "id_DU2"
-    #     TargetSpanStart = "start_DU2"
-    #     TargetSpanEnd = "end_DU2"
-    #     SourceSpanStart = "start_DU1"
-    #     SourceSpanEnd = "end_DU1"
-    #     FILE = "document"
-
+        features = annodis_features
 
     data_attach = Orange.data.Table(args.data_attach)
     # print "DATA ATTACH:", data_attach
@@ -402,27 +376,14 @@ def main():
     majority.name = "majority"
 
     # home made perceptron
-    perc = Perceptron( nber_it=args.nit, avg=args.averaging , cfg = metacfg)
+    perc = Perceptron( features=features, nber_it=args.nit, avg=args.averaging )
     # home made structured perceptron
-    struc_perc = StructuredPerceptron( all_decoders[0], nber_it=args.nit, avg=args.averaging  , cfg = metacfg)
+    struc_perc = StructuredPerceptron( features, all_decoders[0], nber_it=args.nit, avg=args.averaging )
 
     _learners = {"bayes":bayes, "svm":svm, "maxent":maxent,"majority":majority, "perc":perc, "struc_perc":struc_perc}
     all_learners = [_learners.get(x, bayes) for x in args.learners.split(",")]
 
     RECALL_CORRECTION = args.correction
-
-
-    # id for EDU  (isn't it just the index?)
-    arg1 = data_attach.domain.index(metacfg["FirstNode"])
-    arg2 = data_attach.domain.index(metacfg["SecondNode"])
-
-    # indices for spans and file
-    TargetSpanStartIndex = data_attach.domain.index(metacfg["TargetSpanStart"])
-    TargetSpanEndIndex = data_attach.domain.index(metacfg["TargetSpanEnd"])
-    SourceSpanStartIndex = data_attach.domain.index(metacfg["SourceSpanStart"])
-    SourceSpanEndIndex = data_attach.domain.index(metacfg["SourceSpanEnd"])
-    FILEIndex = data_attach.domain.index(metacfg["FILE"])
-
 
     # prepare n-fold-by-file
     import random
@@ -434,9 +395,10 @@ def main():
     if args.save_models or args.test_only:# training only or testing only => no folds
         args.nfold = 1
 
-    fold_struct = make_n_fold(data_attach, folds = args.nfold,meta_index=metacfg["FILE"])
+    fold_struct = make_n_fold(data_attach, folds = args.nfold,meta_index=features.grouping)
 
-    selection = makeFoldByFileIndex(data_attach, fold_struct,meta_index=metacfg["FILE"])
+    selection = makeFoldByFileIndex(data_attach, fold_struct,meta_index=features.grouping)
+
     # only one learner+decoder for now
     learner = all_learners[0]
     decoder = all_decoders[0]
@@ -446,7 +408,7 @@ def main():
     if args.test_only:
         structure_eval = lambda x,y, labels=None: 0
     else:
-        structure_eval = lambda x,y, labels=None: discourse_eval(x,y, cfg = metacfg, labels=labels)
+        structure_eval = lambda x,y, labels=None: discourse_eval(features, x,y, labels=labels)
     save_results = args.output is not None
 
     # TODO: refactor from here, using above as parameters
@@ -517,7 +479,9 @@ def main():
         for onedoc in fold_struct:
             if fold_struct[onedoc] == test_fold:
                 print >> sys.stderr, "decoding on file : ", onedoc
-                scores = process_document(onedoc, model, decoder, data_attach,
+                scores = process_document(features,
+                                          onedoc, model, decoder, data_attach,
+                                          structure_eval,
                                           with_relations = with_relations,
                                           data_relations = data_relations,
                                           model_relations = model_relations,
@@ -526,7 +490,7 @@ def main():
                                           threshold = threshold,
                                           unlabelled = args.unlabelled,
                                           post_labelling = args.post_label,
-                                          use_prob = args.use_prob , cfg = metacfg )
+                                          use_prob = args.use_prob)
                 if not(args.test_only):
                     evals.append(scores)
                     fold_evals.append(scores)
