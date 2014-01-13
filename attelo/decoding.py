@@ -282,46 +282,11 @@ def process_document(onedoc, model, decoder, data_attach,
 
 
 
-#######################
-
-
-# --first results 10- fold
-# windowed(5)/train/naive bayes
-# - local: Prec=0.619, Recall=0.638, F1=0.628
-# -RFC beam(2):  Prec=0.610, Recall=0.676, F1=0.641
-# - MST Prec=0.671, Recall=0.744, F1=0.706
-# - RFC h_best:
-# - RFC h_moyenne: Prec=0.666, Recall=0.738, F1=0.700
-# auto-svm:
-# MST Prec=0.636, Recall=0.706, F1=0.669
-
-
-# dev+train
-# - local Prec=0.502, Recall=0.487, F1=0.487
-# - RFC beam(2):  Prec=0.639, Recall=0.630, F1=0.634
-# - MST: Prec=0.687, Recall=0.678, F1=0.682
-# - RFC h_moyenne: Prec=0.680, Recall=0.670, F1=0.675 (same as beam=10)
-
-
-# LOO validation
-# windowed
-# local: Prec=0.632, Recall=0.634, F1=0.624
-# RFC beam(2): Prec=0.614, Recall=0.677, F1=0.644
-
 
 
 
 # default fold number
 FOLDS_NB = 10
-# leave-one-out : 66 files
-#FOLDS_NB = 66
-
-
-
-# the windowed instances miss a % of the reference
-#RECALL_CORRECTION = 0.91
-# the full data set
-#RECALL_CORRECTION = 1.0
 
 
 
@@ -592,37 +557,3 @@ if __name__ == "__main__":
         report = Report(evals, params = args, correction = RECALL_CORRECTION)
         print ">>> FINAL EVAL:", report.summary()
         report.save("results/"+"{relations}_{context}_{relnb}_{decoders}_{learners}_{heuristics}_{unlabelled}_{post_label}_{rfc}".format(**args.__dict__))
-
-
-
-# full train test -- 4 relations sdrt
-
-#  attach+relation
-# A*+average: Prec=0.382, Recall=0.377, F1=0.380
-# with full RFC Prec=0.394, Recall=0.388, F1=0.391
-
-# MST: Prec=0.264, Recall=0.260, F1=0.262
-# local: to be done, threshold fucked-up by prob. combination.
-# with arbitray 0.5: Prec=0.376, Recall=0.316, F1=0.343
-
-# same, unlabelled eval (!! not the same as attchmt prediction only)
-# a*: Prec=0.571, Recall=0.564, F1=0.568
-# mst: Prec=0.575, Recall=0.568, F1=0.571
-# local  Prec=0.520, Recall=0.437, F1=0.475
-
-# attachmt pred only
-# a*: Prec=0.618, Recall=0.610, F1=0.614
-# mst: Prec=0.624, Recall=0.616, F1=0.620
-# local: Prec=0.670, Recall=0.464, F1=0.548
-
-# window 5
-# -- local attacht
-#Prec=0.770, Recall=0.557, F1=0.647
-#with recall correction estimate (0.91%), F1=0.611496928675
-# -- mst Prec=0.667, Recall=0.742, F1=0.702
-#with recall correction estimate, F1=0.670959965492
-# -- a* Prec=0.663, Recall=0.737, F1=0.698
-# with recall correction estimate, F1=0.666557822471
-
-# with relations
-
