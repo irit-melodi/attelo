@@ -547,3 +547,6 @@ def main():
         report = Report(evals, params = args, correction = RECALL_CORRECTION)
         print ">>> FINAL EVAL:", report.summary()
         report.save("results/"+"{relations}_{context}_{relnb}_{decoders}_{learners}_{heuristics}_{unlabelled}_{post_label}_{rfc}".format(**args.__dict__))
+
+if __name__ == "__main__":
+    main()
