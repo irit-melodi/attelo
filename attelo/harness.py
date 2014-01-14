@@ -74,6 +74,12 @@ def related_relations(features, table):
     """
     return table.filter_ref({features.label:["UNRELATED"]}, negate = 1)
 
+def entries_in_grouping(features, grouping, table):
+    """Return the entries in the table that belong in the given
+    group
+    """
+    return table.filter_ref({features.grouping:grouping})
+
 # ---------------------------------------------------------------------
 #
 # ---------------------------------------------------------------------
@@ -90,16 +96,16 @@ def save_model(filename, model):
 #
 # ---------------------------------------------------------------------
 
-def discourse_eval(features, predicted, data, labels = None, debug = False):
+def discourse_eval(features, predicted, reference, labels = None, debug = False):
     """basic eval: counting correct predicted edges (labelled or not)
     data contains the reference attachments
     labels the corresponding relations
     """
-    #print "REF:", data
+    #print "REF:", reference
     #print "PRED:", predicted
     score = 0
     dict_predicted = dict([((a1, a2), rel) for (a1, a2, rel) in predicted])
-    for one in data:
+    for one in reference:
         arg1 = one[features.source].value
         arg2 = one[features.target].value
         if debug:
@@ -115,8 +121,10 @@ def discourse_eval(features, predicted, data, labels = None, debug = False):
                 else:
                     relation_ref = relation_ref[0][features.label].value
                     score += (dict_predicted[(arg1, arg2)] == relation_ref)
-    #print "SCORE:", score
-    return score
+
+    total_ref  = len(reference)
+    total_pred = len(predicted)
+    return score, total_pred, total_ref
 
 def combine_probs(features, attach_instances, relation_instances, attachmt_model, relations_model):
     """retrieve probability of the best relation on an edu pair, given the probability of an attachment
@@ -195,33 +203,47 @@ def exportGraph(predicted, doc, folder):
     f.close()
 
 # ---------------------------------------------------------------------
+# learning
+# ---------------------------------------------------------------------
+
+class LearnerConfig(object):
+    def __init__(self, use_prob):
+        self.use_prob = use_prob
+
+def learn_attachments(config, learner, data):
+    # TODO: is it intentional for use_prob to only be used
+    # - for StructuredPerceptron and not Perceptron?
+    # - for attachment and not labelling?
+    #
+    # If it's not intentional, I'd like to make use_prob a
+    # parameter of the perceptron class, and then kill these
+    # two functions
+    if learner.name == "StructuredPerceptron":
+        return learner(data, use_prob=config.use_prob)
+    else:
+        return learner(data)
+
+def learn_relations(config, learner, data):
+    return learner(data)
+
+# ---------------------------------------------------------------------
 # processing a single document
 # ---------------------------------------------------------------------
 
-class HarnessConfig(object):
-    def __init__(self,
-                 features=ANNODIS_FEATURES,
-                 with_relations=False,
-                 model_relations=None,
-                 save_results=False,
-                 output_folder=None,
+class DecoderConfig(object):
+    def __init__(self, features, model_attach, model_relations, decoder,
                  threshold=None,
-                 unlabelled=False,
                  post_labelling=False,
                  use_prob=True):
         self.features         = features
-        self.with_relations   = with_relations
+        self.decoder          = decoder
+        self.model_attach     = model_attach
         self.model_relations  = model_relations
-        self.save_results     = save_results
-        self.output_folder    = output_folder
         self.threshold        = threshold
-        self.unlabelled       = unlabelled
         self.post_labelling   = post_labelling
         self.use_prob         = use_prob
 
-default_config = HarnessConfig()
-
-def decode_document(config, model, decoder, attach_instances, rel_instances=None):
+def decode_document(config, attach_instances, rel_instances=None):
     """
     decode one document (onedoc), selecting instances for attachment from data_attach, (idem relations if present),
     using trained model,model
@@ -231,12 +253,13 @@ def decode_document(config, model, decoder, attach_instances, rel_instances=None
     TODO: check that call to learner can be uniform with 2 parameters (as logistic), as the documentation is inconsistent on this
     """
     features        = config.features
-    with_relations  = config.with_relations
+    decoder         = config.decoder
+    model           = config.model_attach
     model_relations = config.model_relations
     threshold       = config.threshold
     use_prob        = config.use_prob
 
-    if with_relations and not config.post_labelling:
+    if rel_instances and not config.post_labelling:
         prob_distrib = combine_probs(features, attach_instances, rel_instances, model, model_relations)
     elif model.name in ["Perceptron", "StructuredPerceptron"]:
         # home-made online models
@@ -264,51 +287,6 @@ def decode_document(config, model, decoder, attach_instances, rel_instances=None
         # predicted = add_labels(predicted, rel_instances, model_relations)
 
     return predicted
-
-def score_predictions(structure_eval, config,
-                      attach_instances, rel_instances, predicted):
-
-    reference = related_attachments(config.features, attach_instances)
-    if config.with_relations and not config.unlabelled:
-        labels = related_relations(config.features, rel_instances)
-    else:
-        labels = None
-
-    #print "REF:", doc_ref
-    #print "PRED:", predicted
-    one_score  = structure_eval(predicted, reference, labels = labels)
-    total_ref  = len(reference)
-    total_pred = len(predicted)
-    return one_score, total_pred, total_ref
-
-def process_document(onedoc, model, decoder, structure_eval,
-                     data_attach,
-                     data_relations = None,
-                     config = default_config):
-    """
-    decode one document (onedoc) using trained model, model;
-    selecting instances for attachment from
-    data_attach, (idem relations if present)
-
-    save and score results
-
-    Return scores
-    """
-    FILE = config.features.grouping
-
-    attach_instances = data_attach.filter_ref({FILE : onedoc})
-    if config.with_relations:
-        rel_instances = data_relations.filter_ref({FILE : onedoc})
-    else:
-        rel_instances = None
-
-    predicted = decode_document(config, model, decoder, attach_instances, rel_instances)
-
-    if config.save_results:
-        exportGraph(predicted, onedoc, config.output_folder)
-
-    return score_predictions(structure_eval, config,
-                             attach_instances, rel_instances, predicted)
 
 # ---------------------------------------------------------------------
 # evaluation
@@ -372,6 +350,9 @@ def args_to_decoders(args):
         raise argparse.ArgumentTypeError("Unknown heuristics: %s" % args.heuristics)
     heuristic = _heuristics.get(args.heuristics, h_average)
 
+    if not args.data_relations:
+        args.rfc = "simple"
+
     _decoders = {"last":last_baseline,
                  "local":local_baseline,
                  "locallyGreedy":locallyGreedy,
@@ -423,6 +404,28 @@ def args_to_learners(decoder, features, args):
     else:
         return [_learners[x] for x in requests]
 
+def args_to_threshold(model, decoder, requested=None, default=0.5):
+    """Given a model and decoder, return a threshold if
+
+    * we request a specific threshold
+    * or the decoder absolutely requires one
+
+    In these cases, we try to return one of the following thresholds
+    in order:
+
+    1. that supplied by the model (if there is one)
+    2. the requested threshold (if supplied)
+    3. a default value
+    """
+    if requested or str(decoder.__name__) == "local_baseline":
+        try:
+            threshold = model.threshold
+        except:
+            threshold = requested if requested else default
+            print >> sys.stderr, "threshold forced at : ", threshold
+    else:
+        threshold = None
+    return threshold
 
 def main():
     # usage: argv1 is attachment data file
@@ -478,6 +481,8 @@ def main():
                         help="provide saved model for prediction of attachment (only with -T option)")
     parser.add_argument("--relation-model", "-R", default=None,
                         help="provide saved model for prediction of relations (only with -T option)")
+
+    # commands
     parser.add_argument("--test-only", "-T", default=False, action="store_true",
                         help="predicts on the given  data (requires a model for -A option or two with -A and -R option), save to output directory, forces -o option is not set with output/ as default path; does not make any evaluation, even if the class labels are present")
     parser.add_argument("--save-models", "-S", default=False, action="store_true",
@@ -509,7 +514,6 @@ def main():
 
     args = parser.parse_args()
 
-    output_folder = args.output
 
     features = args_to_features(args)
 
@@ -523,7 +527,6 @@ def main():
         data_relations = None
         with_relations = False
         labels = None
-        args.rfc = "simple"
 
     args.relations = ["attach","relations"][with_relations]
     args.context = "window5" if "window" in args.data_attach else "full"
@@ -543,14 +546,14 @@ def main():
     learner = all_learners[0]
     decoder = all_decoders[0]
 
-    use_threshold = args.threshold is not None
     # eval procedures
-    if args.test_only:
-        structure_eval = lambda x,y, labels=None: 0
-    else:
-        structure_eval = lambda x,y, labels=None: discourse_eval(features, x,y, labels=labels)
-    save_results = args.output is not None
+    output_folder = args.output
+    save_results  = args.output is not None
+    score_labels  = with_relations and not args.unlabelled
 
+    learner_config = LearnerConfig(use_prob = args.use_prob)
+
+    #
     # TODO: refactor from here, using above as parameters
     evals = []
     # --- fold level -- to be refactored
@@ -563,27 +566,17 @@ def main():
             else:
                 train_data_attach = data_attach.select_ref(selection, test_fold, negate = 1)
             # train model
-            # TODO - can this use_prob be shuffled into the perceptron initalisation?
-            if args.learners == "struc_perc":
-                model = learner(train_data_attach, use_prob=args.use_prob)
-            else:
-                model = learner(train_data_attach)
+            model = learn_attachments(learner_config, learner, train_data_attach)
+
             if args.save_models:# training only
                 save_model("attach.model",model)
+
         else:# test-only
             if args.attachment_model is None:
-                print >> sys.stderr, "ERROR, attachment model not provided with -A"
-                sys.exit(0)
+                sys.exit("ERROR: [test mode] attachment model must be provided with -A")
             model = load_model(args.attachment_model)
 
-        if use_threshold or str(decoder.__name__) == "local_baseline":
-            try:
-                threshold = model.threshold
-            except:
-                print >> sys.stderr, "treshold forced at : ",  args.threshold
-                threshold = args.threshold if use_threshold else 0.5
-        else:
-            threshold = None
+        threshold = args_to_threshold(model, decoder, requested=args.threshold)
 
         # test
         if not(args.save_models):# else would be training only
@@ -596,7 +589,7 @@ def main():
                 train_data_relations = data_relations.select_ref(selection, test_fold, negate = 1)
             train_data_relations = related_relations(features, train_data_relations)
             # train model
-            model_relations = learner(train_data_relations)
+            model_relations = learn_relations(learner_config, learner, train_data_relations)
             if args.save_models:# training only
                 save_model("relations.model",model_relations)
         elif with_relations and not(args.save_models):
@@ -605,30 +598,40 @@ def main():
                 model_relations = load_model(args.relation_model)
         else:# no relations
             model_relations = None
+
         if args.save_models:# training done, leaving
             print >> sys.stderr, "done with training, exiting"
             sys.exit(0)
 
+        # decoding options for this fold
+        config = DecoderConfig(features=features,
+                               decoder=decoder,
+                               model_attach=model,
+                               model_relations=model_relations,
+                               threshold=threshold,
+                               post_labelling=args.post_label,
+                               use_prob=args.use_prob)
         # -- file level --
         fold_evals = []
         for onedoc in fold_struct:
             if fold_struct[onedoc] == test_fold:
                 print >> sys.stderr, "decoding on file : ", onedoc
-                config = HarnessConfig(features=features,
-                                       with_relations=with_relations,
-                                       model_relations=model_relations,
-                                       save_results=save_results,
-                                       output_folder=output_folder,
-                                       threshold=threshold,
-                                       unlabelled=args.unlabelled,
-                                       post_labelling=args.post_label,
-                                       use_prob=args.use_prob)
 
-                scores = process_document(onedoc, model, decoder, structure_eval,
-                                          data_attach,
-                                          data_relations=data_relations,
-                                          config=config)
-                if not(args.test_only):
+                attach_instances  = entries_in_grouping(features, onedoc, data_attach)
+                if data_relations:
+                    rel_instances = entries_in_grouping(features, onedoc, data_relations)
+                else:
+                    rel_instances = None
+
+                predicted = decode_document(config, model, attach_instances, rel_instances)
+
+                if save_results:
+                    exportGraph(predicted, onedoc, output_folder)
+
+                if not args.test_only:
+                    reference = related_attachments(features, attach_instances)
+                    labels = related_relations(features, rel_instances) if score_labels else None
+                    scores = discourse_eval(predicted, reference, labels = labels)
                     evals.append(scores)
                     fold_evals.append(scores)
 
