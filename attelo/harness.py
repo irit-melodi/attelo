@@ -66,6 +66,37 @@ STAC_FEATURES=Features(source="id_DU1",
                        grouping="dialogue",
                        label="CLASS")
 
+# ---------------------------------------------------------------------
+# utilities
+# ---------------------------------------------------------------------
+
+def related_attachments(features, table):
+    """Return just the entries in the attachments table that
+    represent related EDU pairs
+    """
+    return table.filter_ref({features.label:"True"})
+
+def related_relations(features, table):
+    """Return just the entries in the relations table that represent
+    related EDU pair
+    """
+    return table.filter_ref({features.label:["UNRELATED"]}, negate = 1)
+
+# ---------------------------------------------------------------------
+#
+# ---------------------------------------------------------------------
+
+def load_model(filename):
+    with open(filename, "rb") as f:
+        return cPickle.load(f)
+
+def save_model(filename, model):
+    with open(filename, "wb") as f:
+        cPickle.dump(model, f)
+
+# ---------------------------------------------------------------------
+#
+# ---------------------------------------------------------------------
 
 def discourse_eval(features, predicted, data, labels = None, debug = False):
     """basic eval: counting correct predicted edges (labelled or not)
@@ -171,6 +202,10 @@ def exportGraph(predicted, doc, folder):
         f.write(rel + " ( " + a1 + " / " + a2 + " )\n")
     f.close()
 
+# ---------------------------------------------------------------------
+# processing a single document
+# ---------------------------------------------------------------------
+
 class HarnessConfig(object):
     def __init__(self,
                  features=ANNODIS_FEATURES,
@@ -241,11 +276,9 @@ def decode_document(config, model, decoder, attach_instances, rel_instances=None
 def score_predictions(structure_eval, config,
                       attach_instances, rel_instances, predicted):
 
-    CLASS   = config.features.label
-
-    reference = attach_instances.filter_ref({CLASS : "True"})
+    reference = related_attachments(config.features, attach_instances)
     if config.with_relations and not config.unlabelled:
-        labels = rel_instances.filter_ref({CLASS:["UNRELATED"]}, negate = 1)
+        labels = related_relations(config.features, rel_instances)
     else:
         labels = None
 
@@ -284,6 +317,57 @@ def process_document(onedoc, model, decoder, structure_eval,
 
     return score_predictions(structure_eval, config,
                              attach_instances, rel_instances, predicted)
+
+# ---------------------------------------------------------------------
+# evaluation
+# ---------------------------------------------------------------------
+
+def prepare_folds(features, num_folds, table, shuffle=True):
+    """Return an N-fold validation setup respecting a property where
+    examples in the same grouping stay in the same fold.
+    """
+    import random
+    if shuffle:
+        random.seed()
+    else:
+        random.seed("just an illusion")
+
+    fold_struct = make_n_fold(table, folds=num_folds, meta_index=features.grouping)
+    selection = makeFoldByFileIndex(table, fold_struct, meta_index=features.grouping)
+    return fold_struct, selection
+
+# ---------------------------------------------------------------------
+# arguments and main
+# ---------------------------------------------------------------------
+
+def args_to_features(args):
+    """
+    Given the (parsed) command line arguments, return the set of
+    core feature labels for our incoming dataset.
+
+    We have some hardcoded featuresets for a couple of legacy
+    experiments, but these days, the "right" way to feed these
+    in is via a config file
+    """
+    if args.config:
+        config = ConfigParser()
+        # cancels case-insensitive reading of variables.
+        config.optionxform = lambda option: option
+        with open(args.config) as config_file:
+            config.readfp(config_file)
+            metacfg = dict(config.items("Meta features"))
+            return Features(source=metacfg["FirstNode"],
+                            target=metacfg["SecondNode"],
+                            source_span_start=metacfg["SourceSpanStart"],
+                            source_span_end=metacfg["SourceSpanEnd"],
+                            target_span_start=metacfg["TargetSpanStart"],
+                            target_span_end=metacfg["TargetSpanEnd"],
+                            grouping=metacfg["FILE"],
+                            label=metacfg["CLASS"])
+    elif args.corpus.lower() == "stac":
+        return STAC_FEATURES
+    else:# annodis config as default, should not cause regression on coling experiment
+        return ANNODIS_FEATURES
 
 def args_to_decoders(args):
     """
@@ -415,24 +499,7 @@ def main():
 
     output_folder = args.output
 
-    if args.config is not None:
-        config = ConfigParser()
-        # cancels case-insensitive reading of variables.
-        config.optionxform = lambda option: option
-        config.readfp(open(args.config))
-        metacfg = dict(config.items("Meta features"))
-        features = Features(source=metacfg["FirstNode"],
-                            target=metacfg["SecondNode"],
-                            source_span_start=metacfg["SourceSpanStart"],
-                            source_span_end=metacfg["SourceSpanEnd"],
-                            target_span_start=metacfg["TargetSpanStart"],
-                            target_span_end=metacfg["TargetSpanEnd"],
-                            grouping=metacfg["FILE"],
-                            label=metacfg["CLASS"])
-    elif args.corpus.lower() == "stac":
-        features = STAC_FEATURES
-    else:# annodis config as default, should not cause regression on coling experiment
-        features = ANNODIS_FEATURES
+    features = args_to_features(args)
 
     data_attach = Orange.data.Table(args.data_attach)
     # print "DATA ATTACH:", data_attach
@@ -446,21 +513,17 @@ def main():
         labels = None
         args.rfc = "simple"
 
-    RECALL_CORRECTION = args.correction
+    args.relations = ["attach","relations"][with_relations]
+    args.context = "window5" if "window" in args.data_attach else "full"
+    args.relnb = args.data_relations.split(".")[-2][-6:] if with_relations else "-"
 
-    # prepare n-fold-by-file
-    import random
-    if args.shuffle:
-        random.seed()
-    else:
-        random.seed("just an illusion")
+    RECALL_CORRECTION = args.correction
 
     if args.save_models or args.test_only:# training only or testing only => no folds
         args.nfold = 1
 
-    fold_struct = make_n_fold(data_attach, folds = args.nfold,meta_index=features.grouping)
-
-    selection = makeFoldByFileIndex(data_attach, fold_struct,meta_index=features.grouping)
+    fold_struct, selection = prepare_folds(features, args.nfold, data_attach,
+                                           shuffle=args.shuffle)
 
     all_decoders = args_to_decoders(args)
     all_learners = args_to_learners(all_decoders[0], features, args)
@@ -488,20 +551,18 @@ def main():
             else:
                 train_data_attach = data_attach.select_ref(selection, test_fold, negate = 1)
             # train model
+            # TODO - can this use_prob be shuffled into the perceptron initalisation?
             if args.learners == "struc_perc":
                 model = learner(train_data_attach, use_prob=args.use_prob)
             else:
                 model = learner(train_data_attach)
             if args.save_models:# training only
-                attm = open("attach.model","wb")
-                cPickle.dump(model,attm)
-                attm.close()
+                save_model("attach.model",model)
         else:# test-only
             if args.attachment_model is None:
                 print >> sys.stderr, "ERROR, attachment model not provided with -A"
                 sys.exit(0)
-            attm = open(args.attachment_model,"rb")
-            model = cPickle.load(attm)
+            model = load_model(args.attachment_model)
 
         if use_threshold or str(decoder.__name__) == "local_baseline":
             try:
@@ -512,7 +573,6 @@ def main():
         else:
             threshold = None
 
-
         # test
         if not(args.save_models):# else would be training only
             test_data_attach = data_attach.select_ref(selection, test_fold)
@@ -522,23 +582,21 @@ def main():
                 train_data_relations = data_relations.select_ref(selection, test_fold)
             else:
                 train_data_relations = data_relations.select_ref(selection, test_fold, negate = 1)
-            train_data_relations = train_data_relations.filter_ref({"CLASS":["UNRELATED"]}, negate = 1)
+            train_data_relations = related_relations(features, train_data_relations)
             # train model
             model_relations = learner(train_data_relations)
             if args.save_models:# training only
-                relm = open("relations.model","wb")
-                cPickle.dump(model_relations,relm)
-                relm.close()
+                save_model("relations.model",model_relations)
         elif with_relations and not(args.save_models):
             test_data_relations = data_relations.select_ref(selection, test_fold)
             if args.test_only:
-                relm=open(args.relation_model,"rb")
-                model_relations = cPickle.load(relm)
+                model_relations = load_model(args.relation_model)
         else:# no relations
             model_relations = None
         if args.save_models:# training done, leaving
             print >> sys.stderr, "done with training, exiting"
             sys.exit(0)
+
         # -- file level --
         fold_evals = []
         for onedoc in fold_struct:
@@ -561,9 +619,7 @@ def main():
                 if not(args.test_only):
                     evals.append(scores)
                     fold_evals.append(scores)
-        args.relations = ["attach","relations"][with_relations]
-        args.context = "window5" if "window" in args.data_attach else "full"
-        args.relnb = args.data_relations.split(".")[-2][-6:] if with_relations else "-"
+
         if not(args.test_only):
             fold_report = Report(fold_evals, params = args, correction = RECALL_CORRECTION)
             print "Fold eval:", fold_report.summary()
@@ -571,9 +627,6 @@ def main():
        # --- end of fold level
     # end of test for a set of parameter
     # report: summing : TODO: must register many runs with change of parameters
-    args.relations = ["attach","relations"][with_relations]
-    args.context = "window5" if "window" in args.data_attach else "full"
-    args.relnb = args.data_relations.split(".")[-2][-6:] if with_relations else "-"
     if not(args.test_only):
         report = Report(evals, params = args, correction = RECALL_CORRECTION)
         print ">>> FINAL EVAL:", report.summary()
