@@ -3,7 +3,7 @@ import time
 from collections import defaultdict
 from numpy import *
 
-from edu import EDU, mk_edu_pairs
+from attelo.edu import EDU, mk_edu_pairs
 
 """
 TODO:

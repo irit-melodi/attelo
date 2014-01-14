@@ -17,7 +17,8 @@ import math
 import sys
 import numpy
 from collections import defaultdict
-from optimisation.Astar import State, Search, BeamSearch
+
+from attelo.optimisation.Astar import State, Search, BeamSearch
 
 
 _class_schemes = {

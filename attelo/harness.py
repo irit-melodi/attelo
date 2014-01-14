@@ -38,19 +38,19 @@ except:
     print >> sys.stderr, "no module scipy.stats, cannot test stat. significance of results"
     STATS=False
 
-from decoding.astar    import astar_decoder, h0, h_best, h_max, h_average
-from decoding.baseline import local_baseline, last_baseline
-from decoding.mst      import MST_list_edges as MST_decoder
-from decoding.greedy   import locallyGreedy, getSortedEDUs
+from attelo.decoding.astar    import astar_decoder, h0, h_best, h_max, h_average
+from attelo.decoding.baseline import local_baseline, last_baseline
+from attelo.decoding.mst      import MST_list_edges as MST_decoder
+from attelo.decoding.greedy   import locallyGreedy, getSortedEDUs
 
-from learning.megam      import MaxentLearner
-from learning.perceptron import Perceptron, StructuredPerceptron
+from attelo.learning.megam      import MaxentLearner
+from attelo.learning.perceptron import Perceptron, StructuredPerceptron
 
-from edu         import EDU, mk_edu_pairs
-from features    import Features
+from attelo.edu         import EDU, mk_edu_pairs
+from attelo.features    import Features
 
-from fileNfold import make_n_fold, makeFoldByFileIndex
-from report      import Report
+from attelo.fileNfold   import make_n_fold, makeFoldByFileIndex
+from attelo.report      import Report
 
 # from MST import MSTdecoder
 
