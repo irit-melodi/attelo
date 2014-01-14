@@ -38,13 +38,13 @@ except:
     print >> sys.stderr, "no module scipy.stats, cannot test stat. significance of results"
     STATS=False
 
-from ParseSearch import astar_decoder, h0, h_best, h_max, h_average
-from attachment.baseline import local_baseline, last_baseline
-from attachment.mst import MST_list_edges as MST_decoder
-from attachment.greedy import locallyGreedy, getSortedEDUs
+from decoding.astar    import astar_decoder, h0, h_best, h_max, h_average
+from decoding.baseline import local_baseline, last_baseline
+from decoding.mst      import MST_list_edges as MST_decoder
+from decoding.greedy   import locallyGreedy, getSortedEDUs
 
-from megam_wrapper import MaxentLearner
-from online_learner import Perceptron, StructuredPerceptron
+from learning.megam      import MaxentLearner
+from learning.perceptron import Perceptron, StructuredPerceptron
 
 from edu         import EDU, mk_edu_pairs
 from features    import Features
