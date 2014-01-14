@@ -57,14 +57,6 @@ from attelo.report      import Report
 # from MST import MSTdecoder
 
 ANNODIS_FEATURES=Features() # default settings
-STAC_FEATURES=Features(source="id_DU1",
-                       target="id_DU2",
-                       source_span_start="start_DU1",
-                       source_span_end="end_DU1",
-                       target_span_start="start_DU2",
-                       target_span_end="end_DU2",
-                       grouping="dialogue",
-                       label="CLASS")
 
 # ---------------------------------------------------------------------
 # utilities
@@ -345,9 +337,8 @@ def args_to_features(args):
     Given the (parsed) command line arguments, return the set of
     core feature labels for our incoming dataset.
 
-    We have some hardcoded featuresets for a couple of legacy
-    experiments, but these days, the "right" way to feed these
-    in is via a config file
+    If no configuration file is provided, we default to the
+    Annodis experiment settings
     """
     if args.config:
         config = ConfigParser()
@@ -362,10 +353,8 @@ def args_to_features(args):
                             source_span_end=metacfg["SourceSpanEnd"],
                             target_span_start=metacfg["TargetSpanStart"],
                             target_span_end=metacfg["TargetSpanEnd"],
-                            grouping=metacfg["FILE"],
-                            label=metacfg["CLASS"])
-    elif args.corpus.lower() == "stac":
-        return STAC_FEATURES
+                            grouping=metacfg["Grouping"],
+                            label=metacfg["Label"])
     else:# annodis config as default, should not cause regression on coling experiment
         return ANNODIS_FEATURES
 
@@ -445,12 +434,12 @@ def main():
                         help="attachment data")
     parser.add_argument("data_relations", metavar="FILE", nargs="?",
                         help="relations data") # optional
-    parser.add_argument("--corpus", "-C", default="annodis", choices=["annodis","stac"],
-                        help="corpus type (annodis or stac), default: annodis")
-    parser.add_argument("--config", "-X", default=None,
-                        help="TEST OPTION: corpus specificities config file; if absent, defaults to hard-wired annodis config; when ok, should replace -C")
-    # classifier prefs
-    parser.add_argument("--learners", "-l", default="bayes",
+    parser.add_argument("--config", "-C", metavar="FILE",
+                        default=None,
+                        help="corpus specificities config file; if absent, defaults to hard-wired annodis config")
+
+    parser.add_argument("--learners", "-l",
+                        default="bayes",
                         help="comma separated list of learners for attacht [and relations]; implemented: bayes, svm, maxent, perc, struc_perc; default (naive) bayes")
     parser.add_argument("--decoders", "-d", default="local",
                         help="comma separated list of decoders for attacht [and relations]; implemented: local, last, mst, locallyGreedy, astar (cf also heuristics); default:local")
