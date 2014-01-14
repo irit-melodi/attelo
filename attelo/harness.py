@@ -14,7 +14,6 @@ example: cf coling_expes.sh
 
 
 TODO:
- x- might be useful to have project config files for that instead of option switch ...
  - abstract main as processing method, depending on various things: fold nb, learner, decoder, eval function for one discourse
 and within that, abstract layers : fold,document
  - more generic descriptions of features names
@@ -74,11 +73,21 @@ def related_relations(features, table):
     """
     return table.filter_ref({features.label:["UNRELATED"]}, negate = 1)
 
-def entries_in_grouping(features, grouping, table):
+def _subtable_in_grouping(features, grouping, table):
     """Return the entries in the table that belong in the given
     group
     """
     return table.filter_ref({features.grouping:grouping})
+
+def select_data_in_grouping(features, grouping, data_attach, data_relations):
+    """Return only the data that belong in the given group
+    """
+    attach_instances  = _subtable_in_grouping(features, grouping, data_attach)
+    if data_relations:
+        rel_instances = _subtable_in_grouping(features, grouping, data_relations)
+    else:
+        rel_instances = None
+    return attach_instances, rel_instances
 
 # ---------------------------------------------------------------------
 #
@@ -126,7 +135,7 @@ def discourse_eval(features, predicted, reference, labels = None, debug = False)
     total_pred = len(predicted)
     return score, total_pred, total_ref
 
-def combine_probs(features, attach_instances, relation_instances, attachmt_model, relations_model):
+def combine_probs(features, attach_instances, rel_instances, attachmt_model, relations_model):
     """retrieve probability of the best relation on an edu pair, given the probability of an attachment
     """
     # !! instances set must correspond to same edu pair in the same order !!
@@ -134,9 +143,9 @@ def combine_probs(features, attach_instances, relation_instances, attachmt_model
 
     edu_pair           = mk_edu_pairs(features, attach_instances.domain)
     attach_instances   = sorted(attach_instances,   key=lambda x:x.get_metas())
-    relation_instances = sorted(relation_instances, key=lambda x:x.get_metas())
+    rel_instances = sorted(rel_instances, key=lambda x:x.get_metas())
 
-    for i, (attach, relation) in enumerate(zip(attach_instances, relation_instances)):
+    for i, (attach, relation) in enumerate(zip(attach_instances, rel_instances)):
         p_attach    = attachmt_model(attach, Orange.classification.Classifier.GetProbabilities)[1]
         p_relations = relations_model(relation, Orange.classification.Classifier.GetBoth)
         if not instance_check(features, attach, relation):
@@ -231,19 +240,19 @@ def learn_relations(config, learner, data):
 # ---------------------------------------------------------------------
 
 class DecoderConfig(object):
-    def __init__(self, features, model_attach, model_relations, decoder,
+    def __init__(self, features, decoder,
                  threshold=None,
                  post_labelling=False,
                  use_prob=True):
         self.features         = features
         self.decoder          = decoder
-        self.model_attach     = model_attach
-        self.model_relations  = model_relations
         self.threshold        = threshold
         self.post_labelling   = post_labelling
         self.use_prob         = use_prob
 
-def decode_document(config, attach_instances, rel_instances=None):
+def decode_document(config,
+                    model_attach, attach_instances,
+                    model_relations=None, rel_instances=None):
     """
     decode one document (onedoc), selecting instances for attachment from data_attach, (idem relations if present),
     using trained model,model
@@ -254,23 +263,21 @@ def decode_document(config, attach_instances, rel_instances=None):
     """
     features        = config.features
     decoder         = config.decoder
-    model           = config.model_attach
-    model_relations = config.model_relations
     threshold       = config.threshold
     use_prob        = config.use_prob
 
     if rel_instances and not config.post_labelling:
-        prob_distrib = combine_probs(features, attach_instances, rel_instances, model, model_relations)
-    elif model.name in ["Perceptron", "StructuredPerceptron"]:
+        prob_distrib = combine_probs(features, attach_instances, rel_instances, model_attach, model_relations)
+    elif model_attach.name in ["Perceptron", "StructuredPerceptron"]:
         # home-made online models
-        prob_distrib = model.get_scores( attach_instances, use_prob=use_prob )
+        prob_distrib = model_attach.get_scores( attach_instances, use_prob=use_prob )
     else:
         # orange-based models
         edu_pair     = mk_edu_pairs(features, attach_instances.domain)
         prob_distrib = []
         for one in attach_instances:
             edu1, edu2 = edu_pair(one)
-            probs      = model(one, Orange.classification.Classifier.GetProbabilities)[1]
+            probs      = model_attach(one, Orange.classification.Classifier.GetProbabilities)[1]
             prob_distrib.append((edu1, edu2, probs, "unlabelled"))
     # print prob_distrib
 
@@ -335,6 +342,18 @@ def args_to_features(args):
                             label=metacfg["Label"])
     else:# annodis config as default, should not cause regression on coling experiment
         return ANNODIS_FEATURES
+
+def args_to_data(args):
+    """
+    Given the (parsed) command line arguments, return the data in
+    table form
+    """
+    data_attach = Orange.data.Table(args.data_attach)
+    if args.data_relations:
+        data_relations = Orange.data.Table(args.data_relations)
+    else:
+        data_relations = None
+    return data_attach, data_relations
 
 def args_to_decoders(args):
     """
@@ -427,124 +446,88 @@ def args_to_threshold(model, decoder, requested=None, default=0.5):
         threshold = None
     return threshold
 
-def main():
-    # usage: argv1 is attachment data file
-    # if there is an argv2, it is the relation data file
+def command_save_models(args):
+    data_attach, data_relations = args_to_data(args)
+    features     = args_to_features(args)
+    all_decoders = args_to_decoders(args)
+    all_learners = args_to_learners(all_decoders[0], features, args)
+    # only one learner+decoder for now
+    learner = all_learners[0]
+    decoder = all_decoders[0]
 
-    usage="%(prog)s [options] attachment_data_file [relation_data_file]"
-    parser=argparse.ArgumentParser(usage=usage)
-    parser.add_argument("data_attach",    metavar="FILE",
-                        help="attachment data")
-    parser.add_argument("data_relations", metavar="FILE", nargs="?",
-                        help="relations data") # optional
-    parser.add_argument("--config", "-C", metavar="FILE",
-                        default=None,
-                        help="corpus specificities config file; if absent, defaults to hard-wired annodis config")
+    print >> sys.stderr, ">>> training ... "
+    learner_config       = LearnerConfig(use_prob = args.use_prob)
 
-    parser.add_argument("--learners", "-l",
-                        default="bayes",
-                        help="comma separated list of learners for attacht [and relations]; implemented: bayes, svm, maxent, perc, struc_perc; default (naive) bayes")
-    parser.add_argument("--decoders", "-d", default="local",
-                        help="comma separated list of decoders for attacht [and relations]; implemented: local, last, mst, locallyGreedy, astar (cf also heuristics); default:local")
+    model_attach = learn_attachments(learner_config, learner, data_attach)
+    save_model("attach.model", model_attach)
 
-    # classifier prefs
-    classifier_group = parser.add_argument_group('classifier arguments')
-    classifier_group.add_argument("--threshold", "-t",
-                                  default=None, type=float,
-                                  help="force the classifier to use this threshold value for attachment decisions, unless it is trained explicitely with a threshold")
-    ## classifier prefs (perceptron)
-    classifier_group.add_argument("--averaging", "-m",
-                                  default=False, action="store_true",
-                                  help="averaged perceptron")
-    classifier_group.add_argument("--nit", "-i",
-                                  default=1, type=int,
-                                  help="number of iterations for perceptron models")
-    classifier_group.add_argument("--use_prob", "-P",
-                                  default=True, action="store_false",
-                                  help="convert perceptron scores into probabilities")
+    if data_relations:
+        model_relations = learn_relations(learner_config, learner, data_relations)
+        save_model("relations.model",model_relations)
 
-    # decoder prefs
-    decoder_group = parser.add_argument_group('decoder arguments')
-    decoder_group.add_argument("--heuristics", "-e",
-                               default="average", choices=["zero", "max", "best", "average"],
-                               help="heuristics used for astar decoding; default=average")
-    decoder_group.add_argument("--rfc", "-r",
-                               default="full", choices=["full","simple","none"],
-                               help="with astar decoding, what kind of RFC is applied: simple of full; simple means everything is subordinating")
+    print >> sys.stderr, "done with training, exiting"
+    sys.exit(0)
 
-    # harness prefs
-    parser.add_argument("--output", "-o", default=None,
-                        help="if this option is set to an existing path, predicted structures will be saved there; nothing saved otherwise")
-    parser.add_argument("--post-label", "-p", default=False, action="store_true",
-                        help="decode only on attachment, and predict relations afterwards")
-    parser.add_argument("--attachment-model", "-A", default=None,
-                        help="provide saved model for prediction of attachment (only with -T option)")
-    parser.add_argument("--relation-model", "-R", default=None,
-                        help="provide saved model for prediction of relations (only with -T option)")
+def command_test_only(args):
+    data_attach, data_relations = args_to_data(args)
+    features     = args_to_features(args)
+    all_decoders = args_to_decoders(args)
+    # only one learner+decoder for now
+    decoder = all_decoders[0]
 
-    # commands
-    parser.add_argument("--test-only", "-T", default=False, action="store_true",
-                        help="predicts on the given  data (requires a model for -A option or two with -A and -R option), save to output directory, forces -o option is not set with output/ as default path; does not make any evaluation, even if the class labels are present")
-    parser.add_argument("--save-models", "-S", default=False, action="store_true",
-                        help="train on the whole instance set provided, and save attachment [and relation] models to attach.model and relation.model")
+    if not args.attachment_model:
+        sys.exit("ERROR: [test mode] attachment model must be provided with -A")
+    if data_relations and not args.relation_model:
+        sys.exit("ERROR: [test mode] relation model must be provided if relation data is provided")
 
-    # scoring profs
-    evaluation_group = parser.add_argument_group('evaluation/scoring arguments')
-    evaluation_group.add_argument("--nfold", "-n",
-                                  default=10, type=int,
-                                  help="nfold cross-validation number (default 10)")
-    evaluation_group.add_argument("-s","--shuffle",
-                                  default=False, action="store_true",
-                                  help="if set, ensure a different cross-validation of files is done, otherwise, the same file splitting is done everytime")
-    evaluation_group.add_argument("--correction", "-c",
-                                  default=1.0, type=float,
-                                  help="if input is already a restriction on the full task, this options defines a correction to apply on the final recall score to have the real scores on the full corpus")
-    evaluation_group.add_argument("--unlabelled", "-u",
-                                  default=False, action="store_true",
-                                  help="force unlabelled evaluation, even if the prediction is made with relations")
-    evaluation_group.add_argument("--accuracy", "-a",
-                                  default=False, action="store_true",
-                                  help="provide accuracy scores for classifiers used")
-    # simple parser with separate train/test
-    # todo for options
-    # RFC type
-    # beam size
-    # nbest eval (when implemented)
-    #
+    model_attach = load_model(args.attachment_model)
+    model_relations = load_model(args.relation_model) if data_relations else None
 
-    args = parser.parse_args()
+    threshold = args_to_threshold(model_attach, decoder, requested=args.threshold)
 
+    config = DecoderConfig(features=features,
+                           decoder=decoder,
+                           threshold=threshold,
+                           post_labelling=args.post_label,
+                           use_prob=args.use_prob)
 
-    features = args_to_features(args)
+    grouping_index = data_attach.domain.index(features.grouping)
+    all_groupings  = set()
+    for inst in data_attach:
+        all_groupings.add(inst[grouping_index].value)
 
-    data_attach = Orange.data.Table(args.data_attach)
-    # print "DATA ATTACH:", data_attach
+    for onedoc in all_groupings:
+        print >> sys.stderr, "decoding on file : ", onedoc
 
-    if args.data_relations:
-        data_relations = Orange.data.Table(args.data_relations)
-        with_relations = True
-    else:
-        data_relations = None
-        with_relations = False
-        labels = None
+        attach_instances, rel_instances =\
+                select_data_in_grouping(features, onedoc, data_attach, data_relations)
 
-    args.relations = ["attach","relations"][with_relations]
-    args.context = "window5" if "window" in args.data_attach else "full"
-    args.relnb = args.data_relations.split(".")[-2][-6:] if with_relations else "-"
+        predicted = decode_document(config,
+                                    model_attach, attach_instances,
+                                    model_relations, rel_instances)
 
-    RECALL_CORRECTION = args.correction
+        if args.output:
+            exportGraph(predicted, onedoc, args.output)
 
-    if args.save_models or args.test_only:# training only or testing only => no folds
-        args.nfold = 1
-
-    fold_struct, selection = prepare_folds(features, args.nfold, data_attach,
-                                           shuffle=args.shuffle)
+def command_nfold_eval(args):
+    features                    = args_to_features(args)
+    data_attach, data_relations = args_to_data(args)
 
     all_decoders = args_to_decoders(args)
     all_learners = args_to_learners(all_decoders[0], features, args)
     # only one learner+decoder for now
     learner = all_learners[0]
     decoder = all_decoders[0]
+
+    RECALL_CORRECTION = args.correction
+
+    fold_struct, selection = prepare_folds(features, args.nfold, data_attach,
+                                           shuffle=args.shuffle)
+
+    with_relations = bool(data_relations)
+    args.relations = ["attach","relations"][with_relations]
+    args.context = "window5" if "window" in args.data_attach else "full"
+    args.relnb = args.data_relations.split(".")[-2][-6:] if with_relations else "-"
 
     # eval procedures
     output_folder = args.output
@@ -553,99 +536,162 @@ def main():
 
     learner_config = LearnerConfig(use_prob = args.use_prob)
 
-    #
-    # TODO: refactor from here, using above as parameters
     evals = []
     # --- fold level -- to be refactored
     for test_fold in range(args.nfold):
         print >> sys.stderr, ">>> doing fold ", test_fold + 1
-        if not(args.test_only):
-            print >> sys.stderr, ">>> training ... "
-            if args.save_models:# training only
-                train_data_attach = data_attach.select_ref(selection, test_fold)
-            else:
-                train_data_attach = data_attach.select_ref(selection, test_fold, negate = 1)
-            # train model
-            model = learn_attachments(learner_config, learner, train_data_attach)
+        print >> sys.stderr, ">>> training ... "
 
-            if args.save_models:# training only
-                save_model("attach.model",model)
-
-        else:# test-only
-            if args.attachment_model is None:
-                sys.exit("ERROR: [test mode] attachment model must be provided with -A")
-            model = load_model(args.attachment_model)
-
-        threshold = args_to_threshold(model, decoder, requested=args.threshold)
+        train_data_attach = data_attach.select_ref(selection, test_fold, negate = 1)
+        # train model
+        model_attach = learn_attachments(learner_config, learner, train_data_attach)
 
         # test
-        if not(args.save_models):# else would be training only
-            test_data_attach = data_attach.select_ref(selection, test_fold)
-        #
-        if with_relations  and not(args.test_only):
-            if args.save_models:
-                train_data_relations = data_relations.select_ref(selection, test_fold)
-            else:
-                train_data_relations = data_relations.select_ref(selection, test_fold, negate = 1)
+        test_data_attach = data_attach.select_ref(selection, test_fold)
+
+        if with_relations:
+            train_data_relations = data_relations.select_ref(selection, test_fold, negate = 1)
             train_data_relations = related_relations(features, train_data_relations)
             # train model
             model_relations = learn_relations(learner_config, learner, train_data_relations)
-            if args.save_models:# training only
-                save_model("relations.model",model_relations)
-        elif with_relations and not(args.save_models):
-            test_data_relations = data_relations.select_ref(selection, test_fold)
-            if args.test_only:
-                model_relations = load_model(args.relation_model)
         else:# no relations
             model_relations = None
 
-        if args.save_models:# training done, leaving
-            print >> sys.stderr, "done with training, exiting"
-            sys.exit(0)
-
         # decoding options for this fold
+        threshold = args_to_threshold(model_attach, decoder, requested=args.threshold)
         config = DecoderConfig(features=features,
                                decoder=decoder,
-                               model_attach=model,
-                               model_relations=model_relations,
                                threshold=threshold,
                                post_labelling=args.post_label,
                                use_prob=args.use_prob)
+
         # -- file level --
         fold_evals = []
         for onedoc in fold_struct:
             if fold_struct[onedoc] == test_fold:
                 print >> sys.stderr, "decoding on file : ", onedoc
 
-                attach_instances  = entries_in_grouping(features, onedoc, data_attach)
-                if data_relations:
-                    rel_instances = entries_in_grouping(features, onedoc, data_relations)
-                else:
-                    rel_instances = None
+                attach_instances, rel_instances =\
+                        select_data_in_grouping(features, onedoc, data_attach, data_relations)
 
-                predicted = decode_document(config, model, attach_instances, rel_instances)
+                predicted = decode_document(config,
+                                            model_attach, attach_instances,
+                                            model_relations, rel_instances)
 
                 if save_results:
                     exportGraph(predicted, onedoc, output_folder)
 
-                if not args.test_only:
-                    reference = related_attachments(features, attach_instances)
-                    labels = related_relations(features, rel_instances) if score_labels else None
-                    scores = discourse_eval(predicted, reference, labels = labels)
-                    evals.append(scores)
-                    fold_evals.append(scores)
+                reference = related_attachments(features, attach_instances)
+                labels = related_relations(features, rel_instances) if score_labels else None
+                scores = discourse_eval(features, predicted, reference, labels = labels)
+                evals.append(scores)
+                fold_evals.append(scores)
 
-        if not(args.test_only):
-            fold_report = Report(fold_evals, params = args, correction = RECALL_CORRECTION)
-            print "Fold eval:", fold_report.summary()
+        fold_report = Report(fold_evals, params = args, correction = RECALL_CORRECTION)
+        print "Fold eval:", fold_report.summary()
         # --end of file level
        # --- end of fold level
     # end of test for a set of parameter
     # report: summing : TODO: must register many runs with change of parameters
-    if not(args.test_only):
-        report = Report(evals, params = args, correction = RECALL_CORRECTION)
-        print ">>> FINAL EVAL:", report.summary()
-        report.save("results/"+"{relations}_{context}_{relnb}_{decoders}_{learners}_{heuristics}_{unlabelled}_{post_label}_{rfc}".format(**args.__dict__))
+    report = Report(evals, params = args, correction = RECALL_CORRECTION)
+    print ">>> FINAL EVAL:", report.summary()
+    report.save("results/"+"{relations}_{context}_{relnb}_{decoders}_{learners}_{heuristics}_{unlabelled}_{post_label}_{rfc}".format(**args.__dict__))
+
+def main():
+    # TODO for options
+    # RFC type
+    # beam size
+    # nbest eval (when implemented)
+    usage="%(prog)s [options] attachment_data_file [relation_data_file]"
+    parser=argparse.ArgumentParser(usage=usage)
+    subparsers = parser.add_subparsers()
+
+    common_args=argparse.ArgumentParser(add_help=False)
+
+    common_args.add_argument("data_attach",    metavar="FILE",
+                        help="attachment data")
+    common_args.add_argument("data_relations", metavar="FILE", nargs="?",
+                        help="relations data") # optional
+    common_args.add_argument("--config", "-C", metavar="FILE",
+                        default=None,
+                        help="corpus specificities config file; if absent, defaults to hard-wired annodis config")
+
+    learner_args=argparse.ArgumentParser(add_help=False)
+    learner_args.add_argument("--learners", "-l",
+                              default="bayes",
+                              help="comma separated list of learners for attacht [and relations]; implemented: bayes, svm, maxent, perc, struc_perc; default (naive) bayes")
+
+    # classifier prefs
+    classifier_group = learner_args.add_argument_group('classifier arguments')
+    ## classifier prefs (perceptron)
+    classifier_group.add_argument("--averaging", "-m",
+                                  default=False, action="store_true",
+                                  help="averaged perceptron")
+    classifier_group.add_argument("--nit", "-i",
+                                  default=1, type=int,
+                                  help="number of iterations for perceptron models")
+
+    # FIXME: this perceptron arg is for both learning/decoding
+    common_args.add_argument("--use_prob", "-P",
+                             default=True, action="store_false",
+                             help="convert perceptron scores into probabilities")
+
+    # decoder prefs
+    decoder_args=argparse.ArgumentParser(add_help=False)
+    decoder_group = common_args.add_argument_group('decoder arguments')
+    decoder_group.add_argument("--threshold", "-t",
+                               default=None, type=float,
+                               help="force the classifier to use this threshold value for attachment decisions, unless it is trained explicitely with a threshold")
+    # FIXME: decoder_group in common_args for now as struct_perceptron seems to rely on a decoder
+    decoder_group.add_argument("--decoders", "-d", default="local",
+                               help="comma separated list of decoders for attacht [and relations]; implemented: local, last, mst, locallyGreedy, astar (cf also heuristics); default:local")
+    decoder_group.add_argument("--heuristics", "-e",
+                               default="average", choices=["zero", "max", "best", "average"],
+                               help="heuristics used for astar decoding; default=average")
+    decoder_group.add_argument("--rfc", "-r",
+                               default="full", choices=["full","simple","none"],
+                               help="with astar decoding, what kind of RFC is applied: simple of full; simple means everything is subordinating")
+
+    # harness prefs (shared between eval)
+    decoder_args.add_argument("--output", "-o", default=None,
+                              help="if this option is set to an existing path, predicted structures will be saved there; nothing saved otherwise")
+    decoder_args.add_argument("--post-label", "-p", default=False, action="store_true",
+                              help="decode only on attachment, and predict relations afterwards")
+
+
+    # learn command
+    cmd_learn  = subparsers.add_parser('learn', parents=[common_args, learner_args])
+    cmd_learn.set_defaults(func=command_save_models)
+
+    # decode command
+    cmd_decode = subparsers.add_parser('decode', parents=[common_args, decoder_args])
+    cmd_decode.add_argument("--attachment-model", "-A", default=None,
+                            help="provide saved model for prediction of attachment (only with -T option)")
+    cmd_decode.add_argument("--relation-model", "-R", default=None,
+                            help="provide saved model for prediction of relations (only with -T option)")
+    cmd_decode.set_defaults(func=command_test_only)
+
+    # scoring profs
+    cmd_eval   = subparsers.add_parser('evaluate', parents=[common_args, learner_args, decoder_args])
+    cmd_eval.set_defaults(func=command_nfold_eval)
+    cmd_eval.add_argument("--nfold", "-n",
+                          default=10, type=int,
+                          help="nfold cross-validation number (default 10)")
+    cmd_eval.add_argument("-s","--shuffle",
+                          default=False, action="store_true",
+                          help="if set, ensure a different cross-validation of files is done, otherwise, the same file splitting is done everytime")
+    cmd_eval.add_argument("--correction", "-c",
+                          default=1.0, type=float,
+                          help="if input is already a restriction on the full task, this options defines a correction to apply on the final recall score to have the real scores on the full corpus")
+    cmd_eval.add_argument("--unlabelled", "-u",
+                          default=False, action="store_true",
+                          help="force unlabelled evaluation, even if the prediction is made with relations")
+    cmd_eval.add_argument("--accuracy", "-a",
+                          default=False, action="store_true",
+                          help="provide accuracy scores for classifiers used")
+
+    args = parser.parse_args()
+    args.func(args)
 
 if __name__ == "__main__":
     main()
