@@ -44,7 +44,7 @@ class Experiment:
                 bayes = orange.BayesLearner(self._train,adjustThreshold=True) 
                 bayes.name="naive bayes"
                 self._model = bayes
-            elif:
+            else:
                 print >> sys.stderr, "method not callable", method
                 sys.exit(0)
 
