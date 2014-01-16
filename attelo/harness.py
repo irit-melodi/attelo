@@ -505,9 +505,7 @@ def command_test_only(args):
         predicted = decode_document(config,
                                     model_attach, attach_instances,
                                     model_relations, rel_instances)
-
-        if args.output:
-            exportGraph(predicted, onedoc, args.output)
+        exportGraph(predicted, onedoc, args.output)
 
 def command_nfold_eval(args):
     features                    = args_to_features(args)
@@ -530,8 +528,6 @@ def command_nfold_eval(args):
     args.relnb = args.data_relations.split(".")[-2][-6:] if with_relations else "-"
 
     # eval procedures
-    output_folder = args.output
-    save_results  = args.output is not None
     score_labels  = with_relations and not args.unlabelled
 
     learner_config = LearnerConfig(use_prob = args.use_prob)
@@ -577,9 +573,6 @@ def command_nfold_eval(args):
                 predicted = decode_document(config,
                                             model_attach, attach_instances,
                                             model_relations, rel_instances)
-
-                if save_results:
-                    exportGraph(predicted, onedoc, output_folder)
 
                 reference = related_attachments(features, attach_instances)
                 labels = related_relations(features, rel_instances) if score_labels else None
@@ -653,8 +646,6 @@ def main():
                                help="with astar decoding, what kind of RFC is applied: simple of full; simple means everything is subordinating")
 
     # harness prefs (shared between eval)
-    decoder_args.add_argument("--output", "-o", default=None,
-                              help="if this option is set to an existing path, predicted structures will be saved there; nothing saved otherwise")
     decoder_args.add_argument("--post-label", "-p", default=False, action="store_true",
                               help="decode only on attachment, and predict relations afterwards")
 
@@ -669,6 +660,8 @@ def main():
                             help="provide saved model for prediction of attachment (only with -T option)")
     cmd_decode.add_argument("--relation-model", "-R", default=None,
                             help="provide saved model for prediction of relations (only with -T option)")
+    cmd_decode.add_argument("--output", "-o", default=None, required=True, metavar="DIR",
+                            help="save predicted structures here")
     cmd_decode.set_defaults(func=command_test_only)
 
     # scoring profs
