@@ -222,7 +222,21 @@ class LearnerConfig(object):
 def learn_attachments(config, learner, data):
     # TODO: is it intentional for use_prob to only be used
     # - for StructuredPerceptron and not Perceptron?
+    #   (it appears to be the case because StructuredPerceptron has some sort
+    #   of interleaved decoding as part of its learning; and decoders take
+    #   use_prob)
     # - for attachment and not labelling?
+    #   2013-01-07: Philippe says
+    #   ok so it seems normal that it's ignored for relations, since there is no
+    #   choice there: relations must have a prob distrib in all cases.
+    #   if use_prob is used for attachment, relations' probs should be multiplied to
+    #   attachmt probs. for mst and astar, probs should be used
+    #   anyway (they're "logged" since we need additive cost on decisions for these
+    #   methods, mst maximizes, astar minimizes and needs >0 costs, hence the
+    #   negate+log for astar).
+    #
+    #   EYK note - note that for the structured perceptrons, use_prob defaults
+    #   to False
     #
     # If it's not intentional, I'd like to make use_prob a
     # parameter of the perceptron class, and then kill these
