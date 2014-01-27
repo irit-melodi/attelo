@@ -2,10 +2,32 @@ class EDU(object):
     """ a class representing the EDU (id, span start and end, file) """
 
     def __init__(self, id, start, end, file):
-        self.id = id
-        self.start = start
-        self.end = end
-        self.file = file
+        self._id = id
+        self._start = start
+        self._end = end
+        self._file = file
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def start(self):
+        return self._start
+
+    @property
+    def end(self):
+        return self._end
+
+    @property
+    def file(self):
+        return self._file
+
+    def __deepcopy__(self, memo):
+        # edu.deepcopy here returns the EDU itself
+        # this is (presumably) safe to do if we make all of the
+        # members read-only
+        return self
 
     def __str__(self):
         return "EDU {}: ({}, {}) from {}".format(self.id, int(self.start), int(self.end), self.file)

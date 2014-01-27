@@ -19,7 +19,7 @@ import numpy
 from collections import defaultdict
 
 from attelo.optimisation.Astar import State, Search, BeamSearch
-
+from attelo.edu                import EDU
 
 _class_schemes = {
     "subord_coord":{
@@ -343,22 +343,10 @@ if __name__=="__main__":
     import time
     from pprint import pprint
 
-    class FakeEDU(object):
-        def __init__(self, id):
-            self.id = id
-            self.start = 0
+    def mkFakeEDU(id):
+        return EDU(id, 0, 0, "x");
 
-        def __repr__(self):
-            return str(self)
-
-        def __str__(self):
-            return "e" + self.id
-
-        def __deepcopy__(self, memo):
-            # we assume that FakeEDU objects are immutable
-            return self
-
-    edus = map(FakeEDU, ["x0","x1","x2","x3","x4"])
+    edus = map(mkFakeEDU, ["x0","x1","x2","x3","x4"])
 
     # would result of prob models  max_relation (p(attachement)*p(relation|attachmt))  
     prob_distrib=[
