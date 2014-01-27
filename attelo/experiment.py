@@ -80,7 +80,7 @@ class Experiment:
 
         score = 0
         self._result = {}
-        if method="local":
+        if method=="local":
             base = len(self._test)
             self._base = base
         else:

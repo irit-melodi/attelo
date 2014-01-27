@@ -1,6 +1,7 @@
+[![Build Status](https://secure.travis-ci.org/kowey/attelo.png)](http://travis-ci.org/kowey/attelo)
+
 attelo
 ======
-
 discourse parser
 
 Authors
