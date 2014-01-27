@@ -102,7 +102,7 @@ class DiscData:
             self._RF.append(from_edu)
 
     def __str__(self):
-        return str(self._link)+"/ RF="+str(self._RF)+"/ to attach = "+" ".join(self._tolink)
+        return str(self._link)+"/ RF="+str(self._RF)+"/ to attach = "+" ".join(map(str,self._tolink))
 
     def __repr__(self):
         return str(self)
@@ -158,6 +158,8 @@ class DiscourseState(State):
         one=self.data().tobedone()[0]
         #print ">> taking care of node ", one
         for attachmt in self.data().accessible():
+            # FIXME: this might is problematic because we use things like
+            # checking if an EDU is in some list, which fails on object id
             new = copy.deepcopy(self.data())
             new.tobedone().pop(0)
             relation,pr = self.proba((attachmt,one))
@@ -192,7 +194,7 @@ class DiscourseState(State):
             transform = lambda x: -math.log(x) if x!=0 else -numpy.inf
         else:
             transform = lambda x:x
-        pr = sum(map(transform,[self.shared()["heuristics"]["average"][x] for x in missing_links]))
+        pr = sum(map(transform,[self.shared()["heuristics"]["average"][x.id] for x in missing_links]))
         #except:
         #print >> sys.stderr, missing_links
         #print >> sys.stderr, self.shared()["heuristics"]["average"][x] 
@@ -341,16 +343,31 @@ if __name__=="__main__":
     import time
     from pprint import pprint
 
-    edus = ["1","2","3","4"]
+    class FakeEDU(object):
+        def __init__(self, id):
+            self.id = id
+            self.start = 0
+
+        def __repr__(self):
+            return str(self)
+
+        def __str__(self):
+            return "e" + self.id
+
+        def __deepcopy__(self, memo):
+            # we assume that FakeEDU objects are immutable
+            return self
+
+    edus = map(FakeEDU, ["x0","x1","x2","x3","x4"])
 
     # would result of prob models  max_relation (p(attachement)*p(relation|attachmt))  
     prob_distrib=[
-        ('1','2',0.6,'elaboration'),
-        ('2','3',0.3,'narration'),
-        ('1','3',0.4,'continuation'),
+        (edus[1],edus[2],0.6,'elaboration'),
+        (edus[2],edus[3],0.3,'narration'),
+        (edus[1],edus[3],0.4,'continuation'),
         ]
-    for one in edus[:-1]:
-        prob_distrib.append((one,'4',0.1,'continuation'))
+    for one in edus[1:-1]:
+        prob_distrib.append((one,edus[4],0.1,'continuation'))
 
 
     pre_heurist = preprocess_heuristics(prob_distrib)
@@ -363,16 +380,17 @@ if __name__=="__main__":
 
 
     t0=time.time()
-    a = DiscourseSearch(heuristic=h_average,shared={"probs":prob,"heuristics":pre_heurist})
-    endstate = a.launch(DiscData(RF=[edus[0]],tolink=edus[1:]),norepeat=True,verbose=True)
+    a = DiscourseSearch(heuristic=h_average,shared={"probs":prob,"heuristics":pre_heurist,"use_prob":True,"RFC":"full"})
+    genall = a.launch(DiscData(RF=[edus[1]],tolink=edus[2:]),norepeat=True,verbose=True)
+    endstate = genall.next()
     print "total time:",time.time()-t0
     sol =  a.recover_solution(endstate)
     print "solution:", sol
     print "cost:", endstate.cost()
     print a.iterations
     print "total time:", time.time()-t0
-    # a = DiscourseSearch(heuristic=h2, shared={"probs":prob,"nodes":edus[1:]})
-    # sol=a.launch(DiscData(nodes=edus[:1],RF=edus[:1]),norepeat=True)
+    # a = DiscourseSearch(heuristic=h2, shared={"probs":prob,"nodes":edus[2:]})
+    # sol=a.launch(DiscData(nodes=edus[1:2],RF=edus[1:2]),norepeat=True)
     # print sol
     # print sol.cost()
     # print a.iterations
