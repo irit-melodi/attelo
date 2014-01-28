@@ -27,6 +27,7 @@ and within that, abstract layers : fold,document
 """
 
 import argparse
+import csv
 import os
 import sys
 import cPickle
@@ -210,6 +211,24 @@ def exportGraph(predicted, doc, folder):
     for (a1, a2, rel) in predicted:
         f.write(rel + " ( " + a1 + " / " + a2 + " )\n")
     f.close()
+
+def export_csv(features, predicted, doc, rel_instances, folder):
+    fname = os.path.join(folder, doc + ".csv")
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    predicted_map = { (e1,e2):label for e1,e2,label in predicted }
+    metas = rel_instances.domain.getmetas().values()
+
+    with open(fname, 'wb') as f:
+        writer = csv.writer(f)
+        writer.writerow(["m#" + x.name for x in metas] + ["c#" + features.label])
+        for r in rel_instances:
+            row = [ r[x].value for x in metas ]
+            e1  = r[features.source].value
+            e2  = r[features.target].value
+            epair = (e1, e2)
+            label = predicted_map.get((e1,e2),"UNRELATED")
+            writer.writerow(row + [label])
 
 # ---------------------------------------------------------------------
 # learning
@@ -520,6 +539,8 @@ def command_test_only(args):
                                     model_attach, attach_instances,
                                     model_relations, rel_instances)
         exportGraph(predicted, onedoc, args.output)
+        export_csv(features, predicted, onedoc, rel_instances, args.output)
+
 
 def command_nfold_eval(args):
     features                    = args_to_features(args)
