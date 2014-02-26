@@ -1,6 +1,6 @@
 import sys
 import time
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from numpy import *
 
 from attelo.edu import EDU, mk_edu_pairs
@@ -13,6 +13,7 @@ TODO:
 - integrate relation prediction.
 """
 
+PerceptronArgs = namedtuple('PerceptronArgs', 'iterations averaging')
 
 class Perceptron( object ):
 

@@ -52,7 +52,8 @@ from attelo.decoding.baseline import local_baseline, last_baseline
 from attelo.decoding.mst import MST_list_edges as MST_decoder
 from attelo.decoding.greedy import locallyGreedy
 from attelo.learning.megam import MaxentLearner
-from attelo.learning.perceptron import Perceptron, StructuredPerceptron
+from attelo.learning.perceptron import\
+    PerceptronArgs, Perceptron, StructuredPerceptron
 from attelo.edu import mk_edu_pairs
 from attelo.features import Features
 from attelo.fileNfold import make_n_fold, makeFoldByFileIndex
@@ -460,43 +461,40 @@ def args_to_data(args):
     return data_attach, data_relations
 
 
-def args_to_decoders(args):
+def _mk_astar_decoder(heuristics, rfc):
     """
-    Given the (parsed) command line arguments, return a sequence of
-    decoders in the order they were requested on the command line
+    Return an A* decoder using the given heuristics and
+    right frontier constraint parameter
     """
-    _heuristics = {"average": h_average,
-                   "best": h_best,
-                   "max": h_max,
-                   "zero": h0}
-
-    if args.heuristics not in _heuristics:
-        raise argparse.ArgumentTypeError("Unknown heuristics: %s" %
-                                         args.heuristics)
-    heuristic = _heuristics.get(args.heuristics, h_average)
-
-    if not args.data_relations:
-        args.rfc = "simple"
-
-    _decoders =\
-        {"last": last_baseline,
-         "local": local_baseline,
-         "locallyGreedy": locallyGreedy,
-         "mst": MST_decoder,
-         "astar": lambda x, **kargs: astar_decoder(x,
-                                                   heuristics=heuristic,
-                                                   RFC=args.rfc,
-                                                   **kargs)}
-
-    requests = args.decoders.split(",")
-    unknown = ",".join(r for r in requests if r not in _decoders)
-    if unknown:
-        raise argparse.ArgumentTypeError("Unknown decoders: %s" % unknown)
-    else:
-        return [_decoders[x] for x in requests]
+    return lambda x, **kargs:\
+        astar_decoder(x, heuristics=heuristics, RFC=rfc, **kargs)
 
 
-def args_to_learners(decoder, features, args):
+def _known_heuristics():
+    """
+    Return a dictionary of possible A* heuristics.
+    This lets us grab at the names of known heuristics
+    for command line restruction
+    """
+    return {"average": h_average,
+            "best": h_best,
+            "max": h_max,
+            "zero": h0}
+
+
+def _known_decoders(heuristics, rfc):
+    """
+    Return a dictionary of possible decoders.
+    This lets us grab at the names of known decoders
+    """
+    return {"last": last_baseline,
+            "local": local_baseline,
+            "locallyGreedy": locallyGreedy,
+            "mst": MST_decoder,
+            "astar": _mk_astar_decoder(heuristics, rfc)}
+
+
+def _known_learners(decoder, features, perc_args):
     """
     Given the (parsed) command line arguments, return a sequence of
     learners in the order they were requested on the command line
@@ -514,19 +512,58 @@ def args_to_learners(decoder, features, args):
     majority.name = "majority"
 
     # home made perceptron
-    perc = Perceptron(features=features, nber_it=args.nit, avg=args.averaging)
+    perc = Perceptron(features=features,
+                      nber_it=perc_args.iterations,
+                      avg=perc_args.averaging)
     # home made structured perceptron
     struc_perc = StructuredPerceptron(features, decoder,
-                                      nber_it=args.nit,
-                                      avg=args.averaging)
+                                      nber_it=perc_args.iterations,
+                                      avg=perc_args.averaging)
 
-    _learners = {"bayes": bayes,
-                 "svm": svm,
-                 "maxent": maxent,
-                 "majority": majority,
-                 "perc": perc,
-                 "struc_perc": struc_perc}
+    return {"bayes": bayes,
+            "svm": svm,
+            "maxent": maxent,
+            "majority": majority,
+            "perc": perc,
+            "struc_perc": struc_perc}
 
+
+# these are just dummy values (we just want the keys here)
+KNOWN_HEURISTICS = _known_heuristics().keys()
+KNOWN_DECODERS = _known_decoders([], False).keys()
+KNOWN_LEARNERS = _known_learners(last_baseline, {},
+                                 PerceptronArgs(0, False)).keys()
+
+def args_to_decoders(args):
+    """
+    Given the (parsed) command line arguments, return a sequence of
+    decoders in the order they were requested on the command line
+    """
+    if args.heuristics not in _known_heuristics():
+        raise argparse.ArgumentTypeError("Unknown heuristics: %s" %
+                                         args.heuristics)
+    heuristic = _known_heuristics().get(args.heuristics, h_average)
+    if not args.data_relations:
+        args.rfc = "simple"
+
+    _decoders = _known_decoders(heuristic, args.rfc)
+    requests = args.decoders.split(",")
+    unknown = ",".join(r for r in requests if r not in _decoders)
+    if unknown:
+        raise argparse.ArgumentTypeError("Unknown decoders: %s" % unknown)
+    else:
+        return [_decoders[x] for x in requests]
+
+
+def args_to_learners(decoder, features, args):
+    """
+    Given the (parsed) command line arguments, return a sequence of
+    learners in the order they were requested on the command line
+    """
+
+    perc_args = PerceptronArgs(iterations=args.nit,
+                               averaging=args.averaging)
+    _learners = _known_learners(decoder, features, perc_args)
     requests = args.learners.split(",")
     unknown = ",".join(r for r in requests if r not in _learners)
     if unknown:
@@ -775,10 +812,9 @@ def main():
     learner_args = argparse.ArgumentParser(add_help=False)
     learner_args.add_argument("--learners", "-l",
                               default="bayes",
+                              choices=KNOWN_LEARNERS,
                               help="comma separated list of learners for "
-                              "attacht [and relations]; implemented: bayes, "
-                              "svm, maxent, perc, struc_perc; "
-                              "default (naive) bayes")
+                              "attachment [and relations]")
 
     # classifier prefs
     classifier_grp = learner_args.add_argument_group('classifier arguments')
@@ -808,13 +844,12 @@ def main():
     # FIXME: decoder_grp in common_args for now as struct_perceptron seems to
     # rely on a decoder
     decoder_grp.add_argument("--decoders", "-d", default="local",
+                             choices=KNOWN_DECODERS,
                              help="comma separated list of decoders for "
-                             "attacht [and relations]; implemented: local, "
-                             "last, mst, locallyGreedy, astar (cf also "
-                             "heuristics); default:local")
+                             "attachment (cf also heuristics for astar)")
     decoder_grp.add_argument("--heuristics", "-e",
                              default="average",
-                             choices=["zero", "max", "best", "average"],
+                             choices=KNOWN_HEURISTICS,
                              help="heuristics used for astar decoding; "
                              "default=average")
     decoder_grp.add_argument("--rfc", "-r",
