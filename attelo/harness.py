@@ -30,6 +30,7 @@ TODO:
  - nicer report for scores (table, latex, figures)
 """
 
+from collections import namedtuple
 import argparse
 import csv
 import os
@@ -277,48 +278,6 @@ def export_csv(features, predicted, doc, attach_instances, folder):
             writer.writerow(row + [label])
 
 # ---------------------------------------------------------------------
-# learning
-# ---------------------------------------------------------------------
-
-
-# TODO: replace with named tuple
-class LearnerConfig(object):
-    def __init__(self, use_prob):
-        self.use_prob = use_prob
-
-
-def learn_attachments(config, learner, data):
-    # TODO: is it intentional for use_prob to only be used
-    # - for StructuredPerceptron and not Perceptron?
-    #   (it appears to be the case because StructuredPerceptron has some sort
-    #   of interleaved decoding as part of its learning; and decoders take
-    #   use_prob)
-    # - for attachment and not labelling?
-    #   2013-01-07: Philippe says
-    #   ok so it seems normal that it's ignored for relations, since there is
-    #   no choice there: relations must have a prob distrib in all cases.
-    #   if use_prob is used for attachment, relations' probs should be
-    #   multiplied to attachmt probs. for mst and astar, probs should be used
-    #   anyway (they're "logged" since we need additive cost on decisions for
-    #   these methods, mst maximizes, astar minimizes and needs >0 costs, hence
-    #   the negate+log for astar).
-    #
-    #   EYK note - note that for the structured perceptrons, use_prob defaults
-    #   to False
-    #
-    # If it's not intentional, I'd like to make use_prob a
-    # parameter of the perceptron class, and then kill these
-    # two functions
-    if learner.name == "StructuredPerceptron":
-        return learner(data, use_prob=config.use_prob)
-    else:
-        return learner(data)
-
-
-def learn_relations(config, learner, data):
-    return learner(data)
-
-# ---------------------------------------------------------------------
 # processing a single document
 # ---------------------------------------------------------------------
 
@@ -518,7 +477,8 @@ def _known_learners(decoder, features, perc_args):
     # home made structured perceptron
     struc_perc = StructuredPerceptron(features, decoder,
                                       nber_it=perc_args.iterations,
-                                      avg=perc_args.averaging)
+                                      avg=perc_args.averaging,
+                                      use_prob=perc_args.use_prob)
 
     return {"bayes": bayes,
             "svm": svm,
@@ -532,7 +492,7 @@ def _known_learners(decoder, features, perc_args):
 KNOWN_HEURISTICS = _known_heuristics().keys()
 KNOWN_DECODERS = _known_decoders([], False).keys()
 KNOWN_LEARNERS = _known_learners(last_baseline, {},
-                                 PerceptronArgs(0, False)).keys()
+                                 PerceptronArgs(0, False, False)).keys()
 
 def args_to_decoders(args):
     """
@@ -562,7 +522,8 @@ def args_to_learners(decoder, features, args):
     """
 
     perc_args = PerceptronArgs(iterations=args.nit,
-                               averaging=args.averaging)
+                               averaging=args.averaging,
+                               use_prob=args.use_prob)
     _learners = _known_learners(decoder, features, perc_args)
     requests = args.learners.split(",")
     unknown = ",".join(r for r in requests if r not in _learners)
@@ -606,15 +567,11 @@ def command_save_models(args):
     decoder = all_decoders[0]
 
     print >> sys.stderr, ">>> training ... "
-    learner_config = LearnerConfig(use_prob=args.use_prob)
-
-    model_attach = learn_attachments(learner_config, learner, data_attach)
+    model_attach = learner(data_attach)
     save_model("attach.model", model_attach)
 
     if data_relations:
-        model_relations = learn_relations(learner_config,
-                                          learner,
-                                          data_relations)
+        model_relations = learner(data_relations)
         save_model("relations.model", model_relations)
 
     print >> sys.stderr, "done with training, exiting"
@@ -697,8 +654,6 @@ def command_nfold_eval(args):
     # eval procedures
     score_labels = with_relations and not args.unlabelled
 
-    learner_config = LearnerConfig(use_prob=args.use_prob)
-
     evals = []
     # --- fold level -- to be refactored
     for test_fold in range(args.nfold):
@@ -709,9 +664,7 @@ def command_nfold_eval(args):
                                                    test_fold,
                                                    negate=1)
         # train model
-        model_attach = learn_attachments(learner_config,
-                                         learner,
-                                         train_data_attach)
+        model_attach = learner(train_data_attach)
 
         # test
         test_data_attach = data_attach.select_ref(selection, test_fold)
@@ -723,9 +676,7 @@ def command_nfold_eval(args):
             train_data_relations = related_relations(features,
                                                      train_data_relations)
             # train model
-            model_relations = learn_relations(learner_config,
-                                              learner,
-                                              train_data_relations)
+            model_relations = learner(train_data_relations)
         else:  # no relations
             model_relations = None
 
