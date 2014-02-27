@@ -2,6 +2,9 @@
 Baseline decoders
 """
 
+from attelo.decoding.greedy import getSortedEDUs
+
+
 def local_baseline(prob_distrib, threshold = 0.5, use_prob=True):
     """just attach locally if prob is > threshold
     """

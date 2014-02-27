@@ -1,6 +1,6 @@
 import sys
 import time
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from numpy import *
 
 from attelo.edu import EDU, mk_edu_pairs
@@ -17,6 +17,7 @@ TODO:
 - integrate relation prediction.
 """
 
+PerceptronArgs = namedtuple('PerceptronArgs', 'iterations averaging use_prob')
 
 """
 REMINDER:
@@ -213,14 +214,16 @@ class StructuredPerceptron( Perceptron ):
     """ Perceptron classifier (in primal form) for structured
     problems.""" 
 
+
     def __init__( self, features, decoder, nber_it=1, avg=False ):
         Perceptron.__init__(self, features, nber_it=nber_it, avg=avg)
         self.name = "StructuredPerceptron"
         self._decoder = decoder 
+        self._use_prob = use_prob
         return
     
 
-    def __call__(self, train_orange_data_table, use_prob=False):
+    def __call__(self, train_orange_data_table):
         print >> sys.stderr, "Instance conversion...",
         # set domain for feature vector creation
         domain = train_orange_data_table.domain
@@ -240,12 +243,12 @@ class StructuredPerceptron( Perceptron ):
         print >> sys.stderr, "done."
         # learn from feature vectors
         print >> sys.stderr, "Learning..."
-        self.learn( doc2fvs, doc2ref_graph, use_prob=use_prob )
+        self.learn( doc2fvs, doc2ref_graph, use_prob=self._use_prob )
         print >> sys.stderr, "done."
         return self 
 
 
-    def learn( self, doc2fvs, doc2ref_graph, use_prob=False ):
+    def learn( self, doc2fvs, doc2ref_graph ):
         """ update model paramater vector in a round-like fashion
         based on comparison between the outcome predicted by current
         parameter vector and true outcome"""
@@ -263,7 +266,7 @@ class StructuredPerceptron( Perceptron ):
                 # make prediction based on current weight vector
                 predicted_graph = self.classify( fvs,
                                                  self._weights, # use current weight vector
-                                                 use_prob=use_prob) 
+                                                 use_prob=self._use_prob) 
                 # print doc_id,  predicted_graph 
                 loss += self.update( predicted_graph,
                                      doc2ref_graph[doc_id],
@@ -327,7 +330,7 @@ class StructuredPerceptron( Perceptron ):
         return int(error)
 
 
-    def classify( self, fvs, weights, use_prob=False ):
+    def classify( self, fvs, weights ):
         """ return predicted graph """
         decoder = self._decoder
         scores = []
@@ -342,7 +345,7 @@ class StructuredPerceptron( Perceptron ):
                              score,
                              "unlabelled" ) )
         # print "SCORES:", scores
-        pred_graph = decoder( scores, use_prob=use_prob )
+        pred_graph = decoder( scores, use_prob=self._use_prob )
         return pred_graph
 
 
@@ -356,14 +359,14 @@ class StructuredPerceptron( Perceptron ):
     #     return self.classify( fvs, w )
     
 
-    def get_scores( self, doc_instances, use_prob=False ): # get local scores
+    def get_scores(self, doc_instances): # get local scores
         fv_fct = self.feature_vector
         w = self._avg_weights if self._avg else self._weights
         scores = []
         for one in doc_instances:
             edu1, edu2, _, fv = self.unpack_orange( one, fv_fct )
             score = dot( w, fv )
-            if use_prob:
+            if self._use_prob:
                 # logit
                 score = 1.0/(1.0+exp(-score))
             scores.append( (edu1, edu2, score, "unlabelled" ) )
