@@ -7,138 +7,161 @@ from attelo.edu import EDU, mk_edu_pairs
 
 """
 TODO:
-- allow decoder parameter: done.
+- use_prob in constructor of StructurePerc
+- separate perc code from orange interface
+- handle with redundant features
+- feature counts and cutoff low freqs
+- allow decoder parameter for struct perc
 - aggressive updates
 - feature combinations or kernels
 - integrate relation prediction.
 """
 
 
-class Perceptron( object ):
+"""
+REMINDER:
 
-    def __init__( self, features, domain=None, nber_it=1, avg=False):
-        self.name = "Perceptron"
-        self._weights = None
-        self._avg_weights = None
-        self._domain = domain
-        if domain:
-            self._set_domain( domain )
-        self._avg = avg
-        self._nber_it = nber_it
-        self._features = features
+functions to expose:
+- __call__( orange_data )
+- get_probs( doc_instances )
+
+"""
+
+
+class OrangeInterface( object ):
+
+    def __init__(self, data, meta_features):
+        self.__data = data
+        self.__meta_features = meta_features
+        self.set_feature_map()
         return
 
-    def set_domain(self, domain):
-        self._domain = domain
-        self._weights = zeros( len(domain.attributes), 'd' )
-        self._avg_weights = zeros( len(domain.attributes), 'd' )
+    def set_feature_map( self ): # FIXME: remove redundant features: True/False
+        """ binarizing all features and construct feature-to-integer map """
+        domain = self.__domain = self.__data.domain
+        fmap = {} 
+        pos = 0
+        print >> sys.stderr, "# of orange features", len(domain.features)
+        for feat in domain.features:
+            if str(feat.var_type) == "Continuous":
+                fmap[feat.name] = pos
+                pos += 1
+            elif str(feat.var_type) == "Discrete":
+                for val in feat.values:
+                    fmap[feat.name,val] = pos
+                    pos += 1
+            else:
+                raise TypeError("Unsupported orange feature type: %s" %feat.var_type)
+        print >> sys.stderr, "# of binarized features", len(fmap)
+        self.__feature_map = fmap
         return
 
-    def get_current_weights(self):
-        """ return current weights """
-        return self._get_weights(avg=False)
 
-    def get_avg_weights(self):
-        """ return averaged weights """
-        return self._get_weights(avg=True)
-
-    def _get_weights(self, avg=False):
-        w = self._get_weights(avg=avg)
-        return w
-
-    def _get_weights(self, avg=False):
-        """ return current weights or averaged weights """
-        weights = self._weights
-        if avg == True:
-            weights = self._avg_weights
-        return weights
+    def get_feature_map( self ):
+        return self.__feature_map
 
 
-    def edu_pair_from_orange(self, orange_instance):
-        return mk_edu_pairs(self._features, self._domain)(orange_instance)
+    def get_edu_pair(self, orange_inst):
+        return mk_edu_pairs(self.__meta_features, self.__domain)(orange_inst)
+    
 
-    def fv_from_orange( self, orange_instance, fv_fct ):
-        attr_val_list = []
+    def instance_convertor( self, orange_inst ):
+        """ convert orange instance into feature vector """
+        fmap = self.__feature_map
+        fv = zeros( len(fmap) )
         classe = None
-        for av in orange_instance:
+        edu_pair = self.get_edu_pair( orange_inst )            
+        for av in orange_inst:
             att_name = av.variable.name
             att_type = str(av.var_type)
-            if att_name == self.features.label: # do not use desired label as feature :-)
-                classe = 1 if str(av.value) == "True" else -1
+            att_val = av.value
+            # get class label (do not use it as feature :-))
+            if att_name == self.__meta_features.label: 
+                if av.value == "True":
+                    classe = 1
+                elif av.value == "False":
+                    classe = -1
+                else:
+                    raise NotImplementedError("Only binary classes for now!")
             else:
+                # build feature vector by looking up the feature map
                 if att_type == "Continuous":
-                    att_val = av.value
-                elif av.value in ["True", "true"]: # FIXME: super ad hoc
-                    att_val = 1.0
-                elif av.value in ["False", "false"]:
-                    att_val = 0.0
+                    fv[fmap[att_name]] = att_val
+                elif att_type == "Discrete":
+                    try:
+                        fv[fmap[att_name,att_val]] = 1.0
+                    except KeyError:
+                        pass
+                        # print >> sys.stderr, "Unseen feature:", (att_name,att_val) 
                 else:
                     raise TypeError("Unknown feature type/value: '%s'/'%s'" %(att_type,av.value))
-                attr_val_list.append( (att_name,att_val) )
-        assert classe in [-1,1]
-        return fv_fct( attr_val_list ), classe
+        assert classe in [-1,1], "label (%s) not in {-1,1}" %classe
+        return edu_pair, classe, fv
 
 
-    def unpack_orange( self, orange_instance, fv_fct ):
-        edu1, edu2 = self.edu_pair_from_orange( orange_instance )
-        fv, cl = self.fv_from_orange( orange_instance, fv_fct ) 
-        return edu1, edu2, cl, fv
-
-
-    def feature_vector(self, attr_val_list):
-        """ build feature vector from attribute-value list by looking
-        up domain index"""
-        domain = self._domain
-        fv = zeros( len(domain.attributes), 'd' )
-        for feat,val in attr_val_list: 
-            pos = domain.index( feat )
-            try:
-                fv[pos] = float(val)
-            except ValueError:
-                sys.exit("FeatureVector Error: non float (%s) value found!" %type(val))
-        return fv
-
-
-    def __call__(self, train_orange_data_table):
-        # set domain for feature vector creation
-        domain = train_orange_data_table.domain
-        self.set_domain( domain )
-        # learn from instances
-        self.learn( train_orange_data_table ) 
-        return self 
-
+    def train_instance_generator( self ):
+        return self.instance_generator( self.__data )
     
-    def learn( self, instances ):
-        """ update model paramater vector in a round-like fashion
-        based on comparison between the outcome predicted by current
-        parameter vector and true outcome"""
+    
+    def instance_generator( self, data ):
+        for instance in data:
+            yield self.instance_convertor( instance )
+
+            
+
+
+class Perceptron( object ):
+    """ Vanilla binary perceptron learner """
+    def __init__(self, meta_features, nber_it=1, avg=False):
+        self.name = "Perceptron"
+        self.__meta_features = meta_features
+        self.__nber_it = nber_it
+        self.__avg = avg
+        self.__weights = None
+        self.__avg_weights = None
+        self.__orange_interface = None
+        return
+    
+    
+    def __call__(self, orange_train_data):
+        """ learn perceptron weights """
+        interface = OrangeInterface( orange_train_data, self.__meta_features )
+        train_instances = interface.train_instance_generator()
+        self.__init_model( interface.get_feature_map() )
+        # self.__learn( train_instances ) 
+        self.__orange_interface = interface
+        return self
+
+
+    def get_probs( self, doc_orange_instances ):
+        """ return scores obtained for instances with learned weights """
+        interface = self.__orange_interface
+        doc_instances = interface.instance_generator( doc_orange_instances )
+        return self.__get_scores( doc_instances, use_prob=True )
+
+
+    def __init_model( self, feature_map ):
+        dim = len( feature_map )
+        self.__weights = zeros( dim, 'd' )
+        self.__avg_weights = zeros( dim, 'd' )
+        return
+
+
+    def __learn( self, instances ):
         start_time = time.time()
         print >> sys.stderr, "-"*100
         print >> sys.stderr, "Training..."
-        nber_it = self._nber_it
-        fv_fct = self.feature_vector
-        # caching for multiple iterations
-        edu_pair2fv = {}
+        nber_it = self.__nber_it
         for n in range( nber_it ):
             print >> sys.stderr, "it. %3s \t" %n, 
             loss = 0.0
             t0 = time.time()
             inst_ct = 0
-            for one in instances:
+            for _, ref_cl, fv in instances:
                 inst_ct += 1
                 sys.stderr.write("%s" %"\b"*len(str(inst_ct))+str(inst_ct))
-                # edu1, edu2, ref_cl, fv = self.unpack_orange( one, fv_fct )
-                if n == 0:
-                    edu1, edu2, ref_cl, fv = self.unpack_orange( one, fv_fct )
-                    # caching for next iterations
-                    edu_pair2fv[edu1.id,edu2.id] = (fv, ref_cl)
-                else:
-                    edu1, edu2 = self.edu_pair_from_orange( one )
-                    fv, ref_cl = edu_pair2fv[edu1.id,edu2.id]
-                pred_cl, _ = self.classify( fv, self._weights )
-                # print "\t", edu1, edu2, pred_cl == ref_cl
-                loss += self.update( pred_cl, ref_cl, fv )
-            # print >> sys.stderr, inst_ct,
+                pred_cl, _ = self.__classify( fv, self.__weights )
+                loss += self.__update( pred_cl, ref_cl, fv )
             avg_loss = loss / float(inst_ct)
             t1 = time.time()
             print >> sys.stderr, "\tavg loss = %-7s" %round(avg_loss,6),
@@ -147,59 +170,37 @@ class Perceptron( object ):
         print >> sys.stderr, "done in %s sec." %(round(elapsed_time,3))
         return
 
-        
-    def update( self, pred, ref, fv, rate=1.0 ): 
+    def __update( self, pred, ref, fv, rate=1.0 ): 
         """ simple perceptron update rule"""
         error = (pred != ref)
-        w = self._weights
+        w = self.__weights
         if error:
             w = w + rate * ref * fv
-            self._weights = w
-        if self._avg:
-            self._avg_weights += w
+            self.__weights = w
+        if self.__avg:
+            self.__avg_weights += w
         return int(error)
 
 
-    def classify( self, fv, w ):
+    def __classify( self, fv, w ):
         """ classify feature vector fv using weight vector w into
         {-1,+1}"""
-        # print instance
         score = dot( w, fv )
         label = 1 if score >= 0 else -1
         return label, score
 
 
-    def get_scores( self, doc_instances, use_prob=False ):
-        fv_fct = self.feature_vector
+    def __get_scores( self, doc_instances, use_prob=False ):
         scores = []
-        w = self._avg_weights if self._avg else self._weights
-        for one in doc_instances:
-            edu1, edu2, _ref_cl, fv = self.unpack_orange( one, fv_fct ) 
-            _, score = self.classify( fv, w )
+        w = self.__avg_weights if self.__avg else self.__weights
+        for edu_pair, _, fv in doc_instances:
+            _, score = self.__classify( fv, w )
             # print "\t", edu1, edu2, pred_cl, score
             if use_prob:
                 # logit
                 score = 1.0/(1.0+exp(-score)) 
-            scores.append( (edu1, edu2, score, "unlabelled") )
+            scores.append( (edu_pair[0], edu_pair[1], score, "unlabelled") )
         return scores
-
-
-    def get_probs( self, doc_instances ):
-        return self.get_scores( doc_instances, use_prob=True )
-
-
-    # def predict( self, doc_instances ): # FIXME: not needed (use local decoder instead!)
-    #     """ local decoding """
-    #     fv_fct = self.feature_vector
-    #     pred_graph = []
-    #     w = self._avg_weights if self._avg else self._weights
-    #     for one in doc_instances:
-    #         edu1, edu2, _ref_cl, fv = self.unpack_orange( one, fv_fct ) 
-    #         pred_cl, _score = self.classify( fv, w )
-    #         # print "\t", edu1, edu2, pred_cl, _ref_cl, _score
-    #         if pred_cl == 1:
-    #             pred_graph.append( (edu1.id, edu2.id, "unlabelled" ) )
-    #     return pred_graph       
 
 
 
@@ -212,8 +213,8 @@ class StructuredPerceptron( Perceptron ):
     """ Perceptron classifier (in primal form) for structured
     problems.""" 
 
-    def __init__( self, features, decoder, domain=None, nber_it=1, avg=False ):
-        Perceptron.__init__(self, features, domain=domain, nber_it=nber_it, avg=avg)
+    def __init__( self, features, decoder, nber_it=1, avg=False ):
+        Perceptron.__init__(self, features, nber_it=nber_it, avg=avg)
         self.name = "StructuredPerceptron"
         self._decoder = decoder 
         return
@@ -250,7 +251,7 @@ class StructuredPerceptron( Perceptron ):
         parameter vector and true outcome"""
         start_time = time.time()
         print >> sys.stderr, "-"*100
-        print >> sys.stderr, "Training..." 
+        print >> sys.stderr, "Training struct. perc..." 
         for n in range( self._nber_it ):
             print >> sys.stderr, "it. %3s \t" %n, 
             loss = 0.0
