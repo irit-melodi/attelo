@@ -571,7 +571,8 @@ def command_save_models(args):
     save_model("attach.model", model_attach)
 
     if data_relations:
-        model_relations = learner(data_relations)
+        related_only = related_relations(features, data_relations)
+        model_relations = learner(related_only)
         save_model("relations.model", model_relations)
 
     print >> sys.stderr, "done with training, exiting"
