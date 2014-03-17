@@ -1,27 +1,12 @@
-class EDU(object):
+"""
+Uniquely identifying information for an EDU
+"""
+
+from collections import namedtuple
+
+
+class EDU(namedtuple("EDU_", "id start end file")):
     """ a class representing the EDU (id, span start and end, file) """
-
-    def __init__(self, id, start, end, file):
-        self._id = id
-        self._start = start
-        self._end = end
-        self._file = file
-
-    @property
-    def id(self):
-        return self._id
-
-    @property
-    def start(self):
-        return self._start
-
-    @property
-    def end(self):
-        return self._end
-
-    @property
-    def file(self):
-        return self._file
 
     def __deepcopy__(self, memo):
         # edu.deepcopy here returns the EDU itself
@@ -30,10 +15,20 @@ class EDU(object):
         return self
 
     def __str__(self):
-        return "EDU {}: ({}, {}) from {}".format(self.id, int(self.start), int(self.end), self.file)
+        return "EDU {}: ({}, {}) from {}".format(self.id,
+                                                 int(self.start),
+                                                 int(self.end),
+                                                 self.file)
 
     def __repr__(self):
-        return "EDU {}: ({}, {}) from {}".format(self.id, int(self.start), int(self.end), self.file)
+        return str(self)
+
+    def span(self):
+        """
+        Starting and ending position of the EDU as an integer pair
+        """
+        return (int(self.start), int(self.end))
+
 
 def mk_edu_pairs(features, domain):
     """

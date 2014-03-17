@@ -10,6 +10,9 @@
 import sys
 from pprint import pprint
 
+from .util import get_sorted_edus
+
+
 def areStrictlyAdjacent(one, two, edus):
     """ returns true in the following cases:
 
@@ -41,27 +44,10 @@ def isEmbedded(one, two):
 
     return two.id != one.id and two.start <= one.start and one.end <= two.end
 
-def getSortedEDUs(instances):
-    edus_ids = set()
-    edus = set()
-    for (a1, a2, p, r) in instances:
-        if a1.id not in edus_ids:
-            edus_ids.add(a1.id)
-            edus.add(a1)
-        if a2.id not in edus_ids:
-            edus_ids.add(a2.id)
-            edus.add(a2)
-
-
-    edus = list(edus)
-    edus.sort(key = lambda x: int(x.start))
-
-    return edus
-
 def getNeigbours(instances):
 
     neighbours = dict()
-    edus = getSortedEDUs(instances)
+    edus = get_sorted_edus(instances)
 
     for one in edus :
         theNeighbours = []
@@ -89,7 +75,7 @@ def locallyGreedy(instances, prob=True, use_prob=True):
         probabilityDistribution[(s.id, t.id)] = (p, r)
 
     neighbours = getNeigbours(instances)
-    edus = getSortedEDUs(instances)
+    edus = get_sorted_edus(instances)
 
     attachments = []
     edus_id = set([x.id for x in edus])

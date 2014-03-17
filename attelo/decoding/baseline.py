@@ -2,7 +2,7 @@
 Baseline decoders
 """
 
-from attelo.decoding.greedy import getSortedEDUs
+from .util import get_sorted_edus, DecoderException
 
 
 def local_baseline(prob_distrib, threshold = 0.5, use_prob=True):
@@ -22,11 +22,28 @@ def local_baseline(prob_distrib, threshold = 0.5, use_prob=True):
 
 def last_baseline(prob_distrib, use_prob=True):
     "attach to last, always"
-    edus = getSortedEDUs(prob_distrib)
-    ordered_pairs = zip(edus[:-1],edus[1:])
-    dict_prob = {}
-    for (a1,a2,p,r) in prob_distrib:
-        dict_prob[(a1.id,a2.id)]=(r,p)
 
-    predicted=[(a1.id,a2.id,dict_prob[(a1.id,a2.id)][0]) for (a1,a2) in ordered_pairs]
-    return predicted
+    labels = {(edu1, edu2): lab for edu1, edu2, _, lab in prob_distrib}
+
+    def get_prediction(edu1, edu2):
+        "Return triple of EDU ids and label from the probability distribution"
+
+        span1 = edu1.span()
+        span2 = edu2.span()
+        if (edu1, edu2) in labels:
+            label = labels[(edu1, edu2)]
+            return (edu1.id, edu2.id, label)
+        elif span1 == span2:
+            return None
+        else:
+            raise DecoderException("Could not find row with EDU pairs "
+                                   "%s and %s: " % (edu1.id, edu2.id))
+
+    edus = get_sorted_edus(prob_distrib)
+    ordered_pairs = zip(edus[:-1], edus[1:])
+    results = []
+    for edu1, edu2 in ordered_pairs:
+        prediction = get_prediction(edu1, edu2)
+        if prediction:
+            results.append(prediction)
+    return results
