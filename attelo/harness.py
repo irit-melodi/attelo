@@ -480,7 +480,7 @@ def _known_learners(decoder, features, perc_args=None):
 
     if perc_args:
         # home made perceptron
-        perc = Perceptron(features=features,
+        perc = Perceptron(features,
                           nber_it=perc_args.iterations,
                           avg=perc_args.averaging)
         # home made structured perceptron
