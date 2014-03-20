@@ -248,7 +248,7 @@ def meta_info(features, instance):
                           instance[features.target])
 
 
-def exportGraph(predicted, doc, folder):
+def export_graph(predicted, doc, folder):
     fname = os.path.join(folder, doc + ".rel")
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -624,7 +624,7 @@ def command_test_only(args):
         predicted = decode_document(config,
                                     model_attach, attach_instances,
                                     model_relations, rel_instances)
-        exportGraph(predicted, onedoc, args.output)
+        export_graph(predicted, onedoc, args.output)
         export_csv(features, predicted, onedoc, attach_instances, args.output)
 
 
