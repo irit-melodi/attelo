@@ -331,6 +331,8 @@ def decode_document(config,
     # print prob_distrib
 
     # get prediction (input is just prob_distrib)
+    # not all decoders support the threshold keyword argument
+    # hence the apparent redundancy here
     if threshold:
         predicted = decoder(prob_distrib,
                             threshold=threshold,
