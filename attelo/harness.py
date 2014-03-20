@@ -30,6 +30,7 @@ TODO:
  - nicer report for scores (table, latex, figures)
 """
 
+from argparse import ArgumentTypeError
 from collections import namedtuple
 import argparse
 import csv
@@ -455,7 +456,7 @@ def _known_decoders(heuristics, rfc):
             "astar": _mk_astar_decoder(heuristics, rfc)}
 
 
-def _known_learners(decoder, features, perc_args):
+def _known_learners(decoder, features, perc_args=None):
     """
     Given the (parsed) command line arguments, return a sequence of
     learners in the order they were requested on the command line
@@ -472,67 +473,98 @@ def _known_learners(decoder, features, perc_args):
     majority = Orange.classification.majority.MajorityLearner()
     majority.name = "majority"
 
-    # home made perceptron
-    perc = Perceptron(features=features,
-                      nber_it=perc_args.iterations,
-                      avg=perc_args.averaging)
-    # home made structured perceptron
-    struc_perc = StructuredPerceptron(features, decoder,
-                                      nber_it=perc_args.iterations,
-                                      avg=perc_args.averaging,
-                                      use_prob=perc_args.use_prob)
+    learners = {"bayes": bayes,
+                "svm": svm,
+                "maxent": maxent,
+                "majority": majority}
 
-    return {"bayes": bayes,
-            "svm": svm,
-            "maxent": maxent,
-            "majority": majority,
-            "perc": perc,
-            "struc_perc": struc_perc}
+    if perc_args:
+        # home made perceptron
+        perc = Perceptron(features=features,
+                          nber_it=perc_args.iterations,
+                          avg=perc_args.averaging)
+        # home made structured perceptron
+        struc_perc = StructuredPerceptron(features, decoder,
+                                          nber_it=perc_args.iterations,
+                                          avg=perc_args.averaging,
+                                          use_prob=perc_args.use_prob)
 
+        learners["perc"] = perc
+        learners["struc_perc"] = struc_perc
+
+    return learners
+
+
+def _is_perceptron_learner_name(learner_name):
+    """
+    True if the given string corresponds to the command line
+    argument for one of our perceptron based learners
+    """
+    return learner_name in ["perc", "struc_perc"]
 
 # these are just dummy values (we just want the keys here)
 KNOWN_HEURISTICS = _known_heuristics().keys()
 KNOWN_DECODERS = _known_decoders([], False).keys()
-KNOWN_LEARNERS = _known_learners(last_baseline, {},
-                                 PerceptronArgs(0, False, False)).keys()
+KNOWN_ATTACH_LEARNERS = _known_learners(last_baseline, {},
+                                        PerceptronArgs(0, False, False)).keys()
+KNOWN_RELATION_LEARNERS = _known_learners(last_baseline, {}, None)
 
-def args_to_decoders(args):
+
+def args_to_decoder(args):
     """
-    Given the (parsed) command line arguments, return a sequence of
-    decoders in the order they were requested on the command line
+    Given the (parsed) command line arguments, return the
+    decoder that was requested from the command line
     """
     if args.heuristics not in _known_heuristics():
-        raise argparse.ArgumentTypeError("Unknown heuristics: %s" %
-                                         args.heuristics)
+        raise ArgumentTypeError("Unknown heuristics: %s" %
+                                args.heuristics)
     heuristic = _known_heuristics().get(args.heuristics, h_average)
     if not args.data_relations:
         args.rfc = "simple"
 
     _decoders = _known_decoders(heuristic, args.rfc)
-    requests = args.decoders.split(",")
-    unknown = ",".join(r for r in requests if r not in _decoders)
-    if unknown:
-        raise argparse.ArgumentTypeError("Unknown decoders: %s" % unknown)
+
+    if args.decoder in _decoders:
+        return _decoders[args.decoder]
     else:
-        return [_decoders[x] for x in requests]
+        ArgumentTypeError("Unknown decoder: " + args.decoder)
 
 
 def args_to_learners(decoder, features, args):
     """
-    Given the (parsed) command line arguments, return a sequence of
-    learners in the order they were requested on the command line
+    Given the (parsed) command line arguments, return a
+    learner to use for attachment, and one to use for
+    relation labeling.
+
+    By default the relations learner is just the attachment
+    learner, but the user can make a point of specifying a
+    different one
     """
 
     perc_args = PerceptronArgs(iterations=args.nit,
                                averaging=args.averaging,
                                use_prob=args.use_prob)
     _learners = _known_learners(decoder, features, perc_args)
-    requests = args.learners.split(",")
-    unknown = ",".join(r for r in requests if r not in _learners)
-    if unknown:
-        raise argparse.ArgumentTypeError("Unknown learners: %s" % unknown)
+
+    if args.learner in _learners:
+        attach_learner = _learners[args.learner]
     else:
-        return [_learners[x] for x in requests]
+        raise ArgumentTypeError("Unknown learner: " + args.learner)
+
+    has_perc = _is_perceptron_learner_name(args.learner)
+    if has_perc and not args.relation_learner:
+        msg = "The learner '" + args.learner + "' needs a" +\
+            "a non-perceptron relation learner to go with it"
+        raise ArgumentTypeError(msg)
+    if not args.relation_learner:
+        relation_learner = attach_learner
+    elif args.relation_learner in _learners:
+        relation_learner = _learners[args.relation_learner]
+    else:
+        raise ArgumentTypeError("Unknown relation learner: "
+                                + args.relation_learner)
+
+    return attach_learner, relation_learner
 
 
 def args_to_threshold(model, decoder, requested=None, default=0.5):
@@ -562,19 +594,17 @@ def args_to_threshold(model, decoder, requested=None, default=0.5):
 def command_save_models(args):
     data_attach, data_relations = args_to_data(args)
     features = args_to_features(args)
-    all_decoders = args_to_decoders(args)
-    all_learners = args_to_learners(all_decoders[0], features, args)
-    # only one learner+decoder for now
-    learner = all_learners[0]
-    decoder = all_decoders[0]
+    decoder = args_to_decoder(args)
+    attach_learner, relation_learner = \
+        args_to_learners(decoder, features, args)
 
     print >> sys.stderr, ">>> training ... "
-    model_attach = learner(data_attach)
+    model_attach = attach_learner(data_attach)
     save_model("attach.model", model_attach)
 
     if data_relations:
         related_only = related_relations(features, data_relations)
-        model_relations = learner(related_only)
+        model_relations = relation_learner(related_only)
         save_model("relations.model", model_relations)
 
     print >> sys.stderr, "done with training, exiting"
@@ -584,9 +614,8 @@ def command_save_models(args):
 def command_test_only(args):
     data_attach, data_relations = args_to_data(args)
     features = args_to_features(args)
-    all_decoders = args_to_decoders(args)
     # only one learner+decoder for now
-    decoder = all_decoders[0]
+    decoder = args_to_decoder(args)
 
     if not args.attachment_model:
         sys.exit("ERROR: [test mode] attachment model must be provided " +
@@ -634,11 +663,9 @@ def command_nfold_eval(args):
     features = args_to_features(args)
     data_attach, data_relations = args_to_data(args)
 
-    all_decoders = args_to_decoders(args)
-    all_learners = args_to_learners(all_decoders[0], features, args)
-    # only one learner+decoder for now
-    learner = all_learners[0]
-    decoder = all_decoders[0]
+    decoder = args_to_decoder(args)
+    attach_learner, relation_learner = \
+        args_to_learners(decoder, features, args)
 
     RECALL_CORRECTION = args.correction
 
@@ -667,7 +694,7 @@ def command_nfold_eval(args):
                                                    test_fold,
                                                    negate=1)
         # train model
-        model_attach = learner(train_data_attach)
+        model_attach = attach_learner(train_data_attach)
 
         # test
         test_data_attach = data_attach.select_ref(selection, test_fold)
@@ -679,7 +706,7 @@ def command_nfold_eval(args):
             train_data_relations = related_relations(features,
                                                      train_data_relations)
             # train model
-            model_relations = learner(train_data_relations)
+            model_relations = relation_learner(train_data_relations)
         else:  # no relations
             model_relations = None
 
@@ -736,6 +763,7 @@ def command_nfold_eval(args):
                           "relnb",
                           "decoders",
                           "learners",
+                          "relation_learners",
                           "heuristics",
                           "unlabelled",
                           "post_label",
@@ -764,11 +792,14 @@ def main():
                              "absent, defaults to hard-wired annodis config")
 
     learner_args = argparse.ArgumentParser(add_help=False)
-    learner_args.add_argument("--learners", "-l",
+    learner_args.add_argument("--learner", "-l",
                               default="bayes",
-                              choices=KNOWN_LEARNERS,
-                              help="comma separated list of learners for "
-                              "attachment [and relations]")
+                              choices=KNOWN_ATTACH_LEARNERS,
+                              help="learner for attachment [and relations]")
+    learner_args.add_argument("--relation-learner",
+                              choices=KNOWN_RELATION_LEARNERS,
+                              help="learners for relation labeling "
+                              "[default same as attachment]")
 
     # classifier prefs
     classifier_grp = learner_args.add_argument_group('classifier arguments')
@@ -797,10 +828,10 @@ def main():
                              "trained explicitely with a threshold")
     # FIXME: decoder_grp in common_args for now as struct_perceptron seems to
     # rely on a decoder
-    decoder_grp.add_argument("--decoders", "-d", default="local",
+    decoder_grp.add_argument("--decoder", "-d", default="local",
                              choices=KNOWN_DECODERS,
-                             help="comma separated list of decoders for "
-                             "attachment (cf also heuristics for astar)")
+                             help="decoders for attachment "
+                             "(cf also heuristics for astar)")
     decoder_grp.add_argument("--heuristics", "-e",
                              default="average",
                              choices=KNOWN_HEURISTICS,
