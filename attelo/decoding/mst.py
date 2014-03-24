@@ -37,21 +37,23 @@ def MST_graph(instances, root='1', use_prob=True):
     """
 
     targets = defaultdict(list)
+    labels = defaultdict(list)
     scores = dict()
 
-    for source, target, prob, r in instances:
+    for source, target, prob, rel in instances:
         src = source.id
         tgt = target.id
         if tgt == root:
             continue
         scores[src, tgt] = prob
+        labels[src, tgt] = rel
         if use_prob:  # probability scores
             scores[src, tgt] = log(prob if prob != 0.0 else sys.float_info.min)
         targets[src].append(tgt)
 
     return Digraph(targets,
                    lambda s, t: scores[s, t],
-                   lambda s, t: r).mst()
+                   lambda s, t: labels[s, t]).mst()
 
 
 def MST_list_edges(instances, root='1', use_prob=True):
