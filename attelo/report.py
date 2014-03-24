@@ -69,7 +69,7 @@ class Report:
         pass
 
     def summary(self):
-        output = ["{relations} {context} ({relnb}) : \t {decoders}+{learners}, h={heuristics}, unlabelled={unlabelled},post={post_label},rfc={rfc}".format(**self.params.__dict__)]
+        output = ["{relations} {context} ({relnb}) : \t {decoder}+{learner}+{relation_learner}, h={heuristics}, unlabelled={unlabelled},post={post_label},rfc={rfc}".format(**self.params.__dict__)]
         prec, recall, f1 = self.prec, self.recall, self.f1
         try:
             m,(a,b) = self.confidence_interval()
