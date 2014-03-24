@@ -6,10 +6,11 @@ Created on Jun 27, 2012
 
 '''
 
-
-from depparse.graph import Digraph
+from collections import defaultdict
 from math import log
 import sys
+
+from depparse.graph import Digraph
 
 
 def get_root(data):
@@ -23,47 +24,47 @@ def get_root(data):
     """
     return '1'
 
-def MST_graph(instances, root = '1', use_prob=True):
+
+def MST_graph(instances, root='1', use_prob=True):
     """ instances are quadruplets of the form:
 
             source, target, probability_of_attachment, relation
 
-        root is the "root" of the graph, that is the node that has no incoming nodes
+        root is the "root" of the graph, that is the node that has no incoming
+        nodes
 
         returns the Maximum Spanning Tree
     """
 
-    map = dict()
+    targets = defaultdict(list)
     scores = dict()
 
-    for source, target, p, r in instances :
-        s = source.id
-        t = target.id
-        if t == root:
+    for source, target, prob, r in instances:
+        src = source.id
+        tgt = target.id
+        if tgt == root:
             continue
-        scores[s, t] = p
-        if use_prob: # probability scores
-            if p == 0.0:
-                scores[s, t] = log(sys.float_info.min) 
-            else :
-                scores[s, t] = log(p)
-        if s in map :
-            map[s].append(t)
-        else :
-            map[s] = [t]
+        scores[src, tgt] = prob
+        if use_prob:  # probability scores
+            scores[src, tgt] = log(prob if prob != 0.0 else sys.float_info.min)
+        targets[src].append(tgt)
 
-    return Digraph(map, lambda s, t: scores[s, t], lambda s, t: r).mst()
+    return Digraph(targets,
+                   lambda s, t: scores[s, t],
+                   lambda s, t: r).mst()
 
-def MST_list_edges(instances, root = '1', use_prob=True):
+
+def MST_list_edges(instances, root='1', use_prob=True):
     """ instances are quadruplets of the form:
 
             source, target, probability_of_attachment, relation
 
-        root is the "root" of the graph, that is the node that has no incoming nodes
+        root is the "root" of the graph, that is the node that has no incoming
+        nodes
 
         returns a list of edges for the MST graph
     """
     mst = MST_graph(instances, root, use_prob=use_prob)
 
-    return [(s, t, mst.get_label(s, t)) for (s, t) in  mst.iteredges()]
-
+    return [(src, tgt, mst.get_label(src, tgt))
+            for src, tgt in mst.iteredges()]
