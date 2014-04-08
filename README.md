@@ -8,10 +8,10 @@ Authors
 -------
 In alphabetical order:
 
-Stergos  Afantenos
-Pascal   Denis
-Eric Kow
-Philippe Muller
+Stergos Afantenos<br/>
+Pascal Denis<br/>
+Eric Kow<br/>
+Philippe Muller<br/>
 
 License (GPL-3)
 ---------------
