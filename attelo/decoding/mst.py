@@ -13,7 +13,7 @@ import sys
 from depparse.graph import Digraph
 
 
-def get_root(data):
+def get_root(_):
     """ This is used for the construction of the graph. Since we are
     using the Chu-Liu Edmonds algorithm in it's dependency parsing
     incarnation, there should be a node that is the root, i.e.  a node
@@ -25,7 +25,7 @@ def get_root(data):
     return '1'
 
 
-def MST_graph(instances, root='1', use_prob=True):
+def _graph(instances, root='1', use_prob=True):
     """ instances are quadruplets of the form:
 
             source, target, probability_of_attachment, relation
@@ -37,7 +37,7 @@ def MST_graph(instances, root='1', use_prob=True):
     """
 
     targets = defaultdict(list)
-    labels = defaultdict(list)
+    labels = dict()
     scores = dict()
 
     for source, target, prob, rel in instances:
@@ -56,7 +56,7 @@ def MST_graph(instances, root='1', use_prob=True):
                    lambda s, t: labels[s, t]).mst()
 
 
-def MST_list_edges(instances, root='1', use_prob=True):
+def _list_edges(instances, root='1', use_prob=True):
     """ instances are quadruplets of the form:
 
             source, target, probability_of_attachment, relation
@@ -66,7 +66,14 @@ def MST_list_edges(instances, root='1', use_prob=True):
 
         returns a list of edges for the MST graph
     """
-    mst = MST_graph(instances, root, use_prob=use_prob)
+    mst = _graph(instances, root, use_prob=use_prob)
 
     return [(src, tgt, mst.get_label(src, tgt))
             for src, tgt in mst.iteredges()]
+
+
+def mst_decoder(*args, **kwargs):
+    """ attach in such a way that the resulting subgraph is a
+    maximum spanning tree of the original
+    """
+    return _list_edges(*args, **kwargs)

@@ -51,7 +51,7 @@ except:
 
 from attelo.decoding.astar import astar_decoder, h0, h_best, h_max, h_average
 from attelo.decoding.baseline import local_baseline, last_baseline
-from attelo.decoding.mst import MST_list_edges as MST_decoder
+from attelo.decoding.mst import mst_decoder
 from attelo.decoding.greedy import locallyGreedy
 from attelo.learning.megam import MaxentLearner
 from attelo.learning.perceptron import\
@@ -60,8 +60,6 @@ from attelo.edu import mk_edu_pairs
 from attelo.features import Features
 from attelo.fileNfold import make_n_fold, makeFoldByFileIndex
 from attelo.report import Report
-
-# from MST import MSTdecoder
 
 ANNODIS_FEATURES = Features()  # default settings
 
@@ -452,7 +450,7 @@ def _known_decoders(heuristics, rfc):
     return {"last": last_baseline,
             "local": local_baseline,
             "locallyGreedy": locallyGreedy,
-            "mst": MST_decoder,
+            "mst": mst_decoder,
             "astar": _mk_astar_decoder(heuristics, rfc)}
 
 
