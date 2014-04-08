@@ -10,6 +10,7 @@ In alphabetical order:
 
 Stergos  Afantenos
 Pascal   Denis
+Eric Kow
 Philippe Muller
 
 License (GPL-3)
