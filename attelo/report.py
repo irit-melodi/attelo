@@ -2,6 +2,8 @@
 Experiment results
 """
 
+import copy
+import json
 import os
 import sys
 import cPickle
@@ -67,6 +69,31 @@ class Report:
     def plot(self, mode = "roc"):
         # plot curve:  learning curve, nbest solutions, what else ?
         pass
+
+    def json_scores(self):
+        "Return a JSON-serialisable dictionary representing the scores for this run"
+
+        scores =\
+            {"precision": self.prec,
+             "recall": self.recall,
+             "f1": self.f1,
+             "f1_error": self.standard_error()}
+
+        try:
+            mean, (int0, int1) = self.confidence_interval()
+            scores["confidence_mean"] = mean
+            scores["confidence_interval"] = mean - int0
+        except Exception as e:
+            print >> sys.stderr, "warning: not able to compute confidence interval"
+        return scores
+
+    def json_params(self):
+        "Return a JSON-serialisable dictionary representing the params for this run"
+
+        res = {}
+        res["params"] = copy.copy(self.params.__dict__)
+        del res["params"]["func"]
+        return res
 
     def summary(self):
         output = ["{relations} {context} ({relnb}) : \t {decoder}+{learner}+{relation_learner}, h={heuristics}, unlabelled={unlabelled},post={post_label},rfc={rfc}".format(**self.params.__dict__)]

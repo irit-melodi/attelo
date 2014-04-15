@@ -34,6 +34,7 @@ from argparse import ArgumentTypeError
 from collections import namedtuple
 import argparse
 import csv
+import json
 import os
 import sys
 import cPickle
@@ -683,6 +684,7 @@ def command_nfold_eval(args):
     score_labels = with_relations and not args.unlabelled
 
     evals = []
+    json_scores = []
     # --- fold level -- to be refactored
     for test_fold in range(args.nfold):
         print >> sys.stderr, ">>> doing fold ", test_fold + 1
@@ -748,12 +750,16 @@ def command_nfold_eval(args):
         fold_report = Report(fold_evals,
                              params=args,
                              correction=RECALL_CORRECTION)
+        json_scores.append(fold_report.json_scores())
         print "Fold eval:", fold_report.summary()
         # --end of file level
        # --- end of fold level
     # end of test for a set of parameter
     # report: summing : TODO: must register many runs with change of parameters
     report = Report(evals, params=args, correction=RECALL_CORRECTION)
+    json_report = {"params": report.json_params(),
+                   "combined_scores": report.json_scores(),
+                   "fold_scores": json_scores}
     print ">>> FINAL EVAL:", report.summary()
     fname_fmt = "_".join("{" + x + "}" for x in
                          ["relations",
@@ -767,6 +773,8 @@ def command_nfold_eval(args):
                           "post_label",
                           "rfc"])
     report.save("results/"+fname_fmt.format(**args.__dict__))
+    with open("results/"+fname_fmt.format(**args.__dict__) + ".json", "wb") as fout:
+        json.dump(json_report, fout, indent=2)
 
 
 def main():
