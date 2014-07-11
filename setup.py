@@ -5,5 +5,6 @@ setup(
       author   = "Philippe Muller, Stergos Afantenos, Pascal Denis",
       author_email = "Philippe.Muller@irit.fr",
       packages = find_packages(exclude=["scripts","experiments","tests"]),
-      scripts  = [ "scripts/attelo" ]
-);
+      scripts  = [ "scripts/attelo" ],
+      install_requires = ['nltk','numpy','Orange','scipy'],
+)
