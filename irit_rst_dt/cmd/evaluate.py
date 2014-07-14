@@ -75,4 +75,4 @@ Please run `irit-rst-dt gather`""")
                         cmd += ["--relation-learner", learner_r]
                     cmd += [mk_csv_path("edu-pairs"),
                             mk_csv_path("relations")]
-                    subprocess.call(cmd, stdout=scores)
+                    subprocess.check_call(cmd, stdout=scores)

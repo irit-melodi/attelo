@@ -36,9 +36,9 @@ def main(_):
     """
     tdir = current_tmp()
     for corpus in TRAINING_CORPORA:
-        subprocess.call(["rst-dt-learning", "extract", corpus, tdir])
+        subprocess.check_call(["rst-dt-learning", "extract", corpus, tdir])
     with open(os.path.join(tdir, "features.txt"), "w") as stream:
-        subprocess.call(["rst-dt-learning", "features"], stdout=stream)
+        subprocess.check_call(["rst-dt-learning", "features"], stdout=stream)
     with open(os.path.join(tdir, "versions.txt"), "w") as stream:
         subprocess.check_call(["pip", "freeze"], stdout=stream)
     latest_dir = latest_tmp()
