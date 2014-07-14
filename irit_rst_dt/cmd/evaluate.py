@@ -50,6 +50,8 @@ def main(_):
     data_dir = latest_tmp()
     eval_dir = os.path.join(data_dir, "eval-" + timestamp())
     os.makedirs(eval_dir)
+    with open(os.path.join(eval_dir, "versions.txt"), "w") as stream:
+        subprocess.check_call(["pip", "freeze"], stdout=stream)
 
     if not os.path.exists(data_dir):
         sys.exit("""No data to run experiments on.
