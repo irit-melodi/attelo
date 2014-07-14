@@ -1,0 +1,3 @@
+-e git+https://github.com/kowey/educe.git#egg=educe
+-e git+https://github.com/kowey/attelo.git#egg=attelo
+-e .
