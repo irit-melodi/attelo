@@ -1,11 +1,42 @@
 [![Build Status](https://secure.travis-ci.org/kowey/attelo.png)](http://travis-ci.org/kowey/attelo)
 
-attelo
-======
-discourse parser
+## About
 
-Authors
--------
+Attelo is a discourse parser. It predicts a discourse graph out of a set
+of elementary discourse units. These predictions are informed by models
+that allow the parser to assign probabilities to the links.
+
+Attelo can be used as a library, or (more likely) as a standalone
+program with the following subcommands:
+
+attelo learn
+~ Build attachment/relation models from (CSV) feature files
+
+attelo decode
+~ (the parser proper) Predict links given models (from `attelo learn`)
+  and a set of features
+
+attelo evaluate
+~ Cross-fold evaluation a pair of feature files
+
+## Requirements
+
+As a minimum, you will need a way to extract features from your
+discourse corpus, and from any new inputs outside of your corpus. The
+[educe library][educe] provides this functionality for a handful of
+pre-existing corpora, and can also be used to build feature extractors
+for your own corpora.
+
+If you are using attelo in the context of discourse parsing experiments,
+we highly recommend setting up some sort of project-specific
+experimental harness[^harness] to manage all of the variables you may want throw
+into your experiment. See the [irit-rst-dt][irit-rst-dt] experiment
+for an example of what such a harness would look like. (See also the
+[Shake build system][shake]).
+
+
+## Authors
+
 In alphabetical order:
 
 Stergos Afantenos<br/>
@@ -13,8 +44,25 @@ Pascal Denis<br/>
 Eric Kow<br/>
 Philippe Muller<br/>
 
-License (GPL-3)
----------------
+## Usage
+
+Discourse parsing (rough sketch, see the `--help`):
+
+1. extract features (DIY)
+2. attelo learn
+3. attelo decode
+
+Running experiments:
+
+1. extract features (DIY)
+2. attelo evaluate
+
+See the requirements above. We recommend building an experimental
+harness around attelo instead of trying to use it by hand. Even
+a couple of shell scripts would be better than nothing.
+
+## License (GPL-3)
+
 Attelo is based on the Orange machine learning toolkit, which is
 licensed under the GPL-3.
 
@@ -51,3 +99,14 @@ requirement mentioned in article 5.3.4 quoted below:
 > If the Software, whether or not modified, is distributed with an
 > External Module designed for use in connection with the Software, the
 > Licensee shall submit said External Module to the foregoing obligations.
+
+[^harness] The `attelo evaluate` command can be seen as a harness of
+sorts but is bit limited at the moment. Our project harnessses use it
+as one of its component, but throw in things like feature extraction,
+and some basic looping around decoder/learner types. That said, it is
+possible that `attelo evaluate` will grow some features of its own
+and reduce the amount of infrastructure you need to build.
+
+[educe]: http://github.com/kowey/educe
+[irit-rst-dt]: http://github.com/kowey/irit-rst-dt
+[shake]: http://community.haskell.org/~ndm/shake/
