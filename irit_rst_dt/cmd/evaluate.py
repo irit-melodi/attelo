@@ -69,7 +69,8 @@ Please run `irit-rst-dt gather`""")
                     cmd = ["attelo",
                            "evaluate",
                            "-C", ATTELO_CONFIG_FILE,
-                           "-l", learner_a]
+                           "-l", learner_a,
+                           "-d", decoder]
                     if learner_r:
                         cmd += ["--relation-learner", learner_r]
                     cmd += [mk_csv_path("edu-pairs"),
