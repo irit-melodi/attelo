@@ -36,15 +36,6 @@ and some basic looping around decoder/learner types. That said, it is
 possible that `attelo evaluate` will grow some features of its own
 and reduce the amount of infrastructure you need to build.
 
-## Authors
-
-In alphabetical order:
-
-Stergos Afantenos<br/>
-Pascal Denis<br/>
-Eric Kow<br/>
-Philippe Muller<br/>
-
 ## Usage
 
 Discourse parsing (rough sketch, see the `--help`):
@@ -61,6 +52,15 @@ Running experiments:
 See the requirements above. We recommend building an experimental
 harness around attelo instead of trying to use it by hand. Even
 a couple of shell scripts would be better than nothing.
+
+## Authors
+
+In alphabetical order:
+
+Stergos Afantenos<br/>
+Pascal Denis<br/>
+Eric Kow<br/>
+Philippe Muller<br/>
 
 ## License (GPL-3)
 
