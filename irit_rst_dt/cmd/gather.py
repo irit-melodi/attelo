@@ -5,6 +5,15 @@
 gather features
 """
 
+from __future__ import print_function
+import os
+import subprocess
+
+from ..config import\
+    TRAINING_CORPORA
+from ..util import\
+    current_tmp, latest_tmp
+
 NAME = 'gather'
 
 
@@ -18,11 +27,19 @@ def config_argparser(parser):
     parser.set_defaults(func=main)
 
 
-def main(args):
+def main(_):
     """
     Subcommand main.
 
     You shouldn't need to call this yourself if you're using
     `config_argparser`
     """
-    pass
+    tdir = current_tmp()
+    for corpus in TRAINING_CORPORA:
+        subprocess.call(["rst-dt-learning", "extract", corpus, tdir])
+    with open(os.path.join(tdir, "features.txt"), "w") as stream:
+        subprocess.call(["rst-dt-learning", "features"], stdout=stream)
+    latest_dir = latest_tmp()
+    if os.path.exists(latest_dir):
+        os.unlink(latest_dir)
+    os.symlink(os.path.basename(tdir), latest_dir)

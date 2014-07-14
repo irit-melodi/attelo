@@ -5,7 +5,6 @@ irit-rst-dt subcommands
 # Author: Eric Kow
 # License: CeCILL-B (French BSD3)
 
-from . import\
-    gather
+from . import evaluate, gather
 
-SUBCOMMANDS = [gather]
+SUBCOMMANDS = [gather, evaluate]
