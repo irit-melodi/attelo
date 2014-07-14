@@ -9,15 +9,10 @@ that allow the parser to assign probabilities to the links.
 Attelo can be used as a library, or (more likely) as a standalone
 program with the following subcommands:
 
-attelo learn
-~ Build attachment/relation models from (CSV) feature files
-
-attelo decode
-~ (the parser proper) Predict links given models (from `attelo learn`)
-  and a set of features
-
-attelo evaluate
-~ Cross-fold evaluation a pair of feature files
+* attelo learn: Build attachment/relation models from (CSV) feature files
+* attelo decode: (the parser proper) Predict links given models (from
+  `attelo learn`) and a set of features
+* attelo evaluate: Cross-fold evaluation a pair of feature files
 
 ## Requirements
 
@@ -29,11 +24,17 @@ for your own corpora.
 
 If you are using attelo in the context of discourse parsing experiments,
 we highly recommend setting up some sort of project-specific
-experimental harness[^harness] to manage all of the variables you may want throw
-into your experiment. See the [irit-rst-dt][irit-rst-dt] experiment
-for an example of what such a harness would look like. (See also the
-[Shake build system][shake]).
+experimental harness to manage all of the variables you may
+want throw into your experiment. See the [irit-rst-dt][irit-rst-dt]
+experiment for an example of what such a harness would look like. (See
+also the [Shake build system][shake]).
 
+NB: The `attelo evaluate` command can be seen as a harness of
+sorts but is bit limited at the moment. Our project harnessses use it
+as one of its component, but throw in things like feature extraction,
+and some basic looping around decoder/learner types. That said, it is
+possible that `attelo evaluate` will grow some features of its own
+and reduce the amount of infrastructure you need to build.
 
 ## Authors
 
@@ -99,13 +100,6 @@ requirement mentioned in article 5.3.4 quoted below:
 > If the Software, whether or not modified, is distributed with an
 > External Module designed for use in connection with the Software, the
 > Licensee shall submit said External Module to the foregoing obligations.
-
-[^harness] The `attelo evaluate` command can be seen as a harness of
-sorts but is bit limited at the moment. Our project harnessses use it
-as one of its component, but throw in things like feature extraction,
-and some basic looping around decoder/learner types. That said, it is
-possible that `attelo evaluate` will grow some features of its own
-and reduce the amount of infrastructure you need to build.
 
 [educe]: http://github.com/kowey/educe
 [irit-rst-dt]: http://github.com/kowey/irit-rst-dt
