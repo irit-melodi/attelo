@@ -34,7 +34,9 @@ def _banner(dataset, decoder, learner_a, learner_r):
     """
     learner_str = learner_a + (":" + learner_r if learner_r else "")
     return "\n".join(["==========" * 6,
-                      " ".join([dataset, decoder, learner_str]),
+                      " ".join(["corpus:", dataset + ",",
+                                "learner(s):", learner_str + ",",
+                                "decoder:", decoder]),
                       "==========" * 6])
 
 
