@@ -1,18 +1,9 @@
 """
-July 2012
+Attelo subcommands (build, learn, evaluate).
+This module should probably be broken up into pieces.
 
-attachment decoding: from local prediction, optimize a discourse structure
-while respecting a chosen set of constraints, such as: MST decoding,
-incremental decoding with a right frontier constraint, etc
-
-should regroup
-      x- MST decoding
-      x- A* decoding with various heuristics
-      x- baseline: local, small beam search
-
-example: cf coling_expes.sh
-
-
+Note: you probably don't want to run this directly.
+See the README
 
 TODO:
  - abstract main as processing method, depending on various things: fold nb,
