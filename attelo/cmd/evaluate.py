@@ -102,7 +102,6 @@ def _save_scores(evals, args):
     fname_fmt = "_".join("{" + x + "}" for x in
                          ["relations",
                           "context",
-                          "relnb",
                           "decoder",
                           "learner",
                           "relation_learner",
@@ -165,11 +164,6 @@ def main(args):
     with_relations = bool(data_relations)
     args.relations = ["attach", "relations"][with_relations]
     args.context = "window5" if "window" in args.data_attach else "full"
-
-    # FIXME: this appears to be an Annodis internal filename convention
-    # and should be kicked out altogether
-    args.relnb = args.data_relations.split(".")[-2][-6:] if with_relations\
-        else "-"
 
     # eval procedures
     score_labels = with_relations and not args.unlabelled
