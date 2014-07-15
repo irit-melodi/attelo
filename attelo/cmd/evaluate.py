@@ -178,7 +178,7 @@ def main(args):
     # --- fold level -- to be refactored
     for test_fold in range(args.nfold):
         print(">>> doing fold ", test_fold + 1, file=sys.stderr)
-        print(">>> training ... ", sys.stderr)
+        print(">>> training ... ", file=sys.stderr)
 
         train_data_attach = data_attach.select_ref(selection,
                                                    test_fold,
