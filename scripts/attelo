@@ -1,5 +1,22 @@
 #!/usr/bin/env python
 
-from attelo.harness import main
+import argparse
+
+from attelo.cmd import SUBCOMMANDS
+
+
+def main():
+    "set up args and launch the appropriate subcommand"
+    arg_parser = argparse.ArgumentParser(description='Attelo '
+                                         'Discourse Parsing Toolkit')
+    subparsers = arg_parser.add_subparsers(help='sub-command help')
+
+    for module in SUBCOMMANDS:
+        subparser = subparsers.add_parser(module.NAME,
+                                          help=module.__doc__)
+        module.config_argparser(subparser)
+
+    args = arg_parser.parse_args()
+    args.func(args)
 
 main()
