@@ -5,7 +5,6 @@ Managing command line arguments
 from __future__ import print_function
 from argparse import ArgumentTypeError
 from ConfigParser import ConfigParser
-import argparse
 import Orange
 import sys
 
@@ -216,6 +215,10 @@ def args_to_threshold(model, decoder, requested=None, default=0.5):
         threshold = None
     return threshold
 
+# ---------------------------------------------------------------------
+# argparse
+# ---------------------------------------------------------------------
+
 
 def add_common_args(psr):
     "add usual attelo args to subcommand parser"
@@ -290,6 +293,3 @@ def add_learner_args(psr):
                                 default=1, type=int,
                                 help="number of iterations for "
                                 "perceptron models")
-
-
-
