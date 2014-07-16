@@ -208,7 +208,7 @@ def main(args):
         fold_evals = []
         for onedoc in fold_struct:
             if fold_struct[onedoc] == test_fold:
-                print("decoding on file : ", onedoc, sys.stderr)
+                print("decoding on file : ", onedoc, file=sys.stderr)
 
                 attach_instances, rel_instances = \
                     select_data_in_grouping(features,
