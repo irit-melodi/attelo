@@ -96,12 +96,12 @@ class Report:
         return res
 
     def summary(self):
-        pieces = "{relations} {context} : \t "
-        "{decoder}+{learner}+{relation_learner}, "
-        "h={heuristics}, "
-        "unlabelled={unlabelled},"
-        "post={post_label},"
-        "rfc={rfc}"
+        pieces = "{relations} {context} : \t "\
+            "{decoder}+{learner}+{relation_learner}, "\
+            "h={heuristics}, "\
+            "unlabelled={unlabelled},"\
+            "post={post_label},"\
+            "rfc={rfc}"
         output = [pieces.format(**self.params.__dict__)]
         prec, recall, f1 = self.prec, self.recall, self.f1
         try:
