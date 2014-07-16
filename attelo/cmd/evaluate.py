@@ -93,7 +93,7 @@ def _save_scores(evals, args):
         fold_report = Report(fold_evals,
                              params=args,
                              correction=args.correction)
-        json_scores.append(fold_report.json_scores)
+        json_scores.append(fold_report.json_scores())
 
     json_report = {"params": report.json_params(),
                    "combined_scores": report.json_scores(),
