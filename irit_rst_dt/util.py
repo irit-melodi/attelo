@@ -8,6 +8,8 @@ Miscellaneous utility functions
 
 import os
 from datetime import datetime, date
+import subprocess
+import sys
 
 from .config import LOCAL_TMP
 
@@ -33,3 +35,13 @@ def latest_tmp():
     Directory for last run (usually a symlink)
     """
     return os.path.join(LOCAL_TMP, "latest")
+
+
+def call(args, **kwargs):
+    """
+    Execute a command and die prettily if it fails
+    """
+    try:
+        subprocess.check_call(args, **kwargs)
+    except subprocess.CalledProcessError as err:
+        sys.exit(err)

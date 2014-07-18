@@ -7,11 +7,11 @@ gather features
 
 from __future__ import print_function
 import os
-import subprocess
 
 from ..config import\
     TRAINING_CORPORA
 from ..util import\
+    call,\
     current_tmp, latest_tmp
 
 NAME = 'gather'
@@ -36,11 +36,11 @@ def main(_):
     """
     tdir = current_tmp()
     for corpus in TRAINING_CORPORA:
-        subprocess.check_call(["rst-dt-learning", "extract", corpus, tdir])
+        call(["rst-dt-learning", "extract", corpus, tdir])
     with open(os.path.join(tdir, "features.txt"), "w") as stream:
-        subprocess.check_call(["rst-dt-learning", "features"], stdout=stream)
+        call(["rst-dt-learning", "features"], stdout=stream)
     with open(os.path.join(tdir, "versions.txt"), "w") as stream:
-        subprocess.check_call(["pip", "freeze"], stdout=stream)
+        call(["pip", "freeze"], stdout=stream)
     latest_dir = latest_tmp()
     if os.path.exists(latest_dir):
         os.unlink(latest_dir)
