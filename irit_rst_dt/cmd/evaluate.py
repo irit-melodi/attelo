@@ -50,6 +50,13 @@ def main(_):
     data_dir = latest_tmp()
     eval_dir = os.path.join(data_dir, "eval-" + timestamp())
     os.makedirs(eval_dir)
+    # hard-link all data files to the eval dir
+    # it doesn't cost space and it makes future archiving
+    # straightforward
+    for data_file in os.listdir(data_dir):
+        if os.path.isfile(data_file):
+            os.link(os.path.join(data_dir, data_file),
+                    os.path.join(eval_dir, data_file))
     with open(os.path.join(eval_dir, "versions.txt"), "w") as stream:
         subprocess.check_call(["pip", "freeze"], stdout=stream)
 
