@@ -12,7 +12,7 @@ from ..args import\
     args_to_learners,\
     args_to_threshold
 from ..decoding import DecoderConfig, decode_document
-from ..fileNfold import make_n_fold, makeFoldByFileIndex
+from ..fold import make_n_fold, folds_to_Orange
 from ..io import read_data
 from ..report import Report
 from ..table import\
@@ -36,9 +36,9 @@ def _prepare_folds(features, num_folds, table, shuffle=True):
     fold_struct = make_n_fold(table,
                               folds=num_folds,
                               meta_index=features.grouping)
-    selection = makeFoldByFileIndex(table,
-                                    fold_struct,
-                                    meta_index=features.grouping)
+    selection = folds_to_Orange(table,
+                                fold_struct,
+                                meta_index=features.grouping)
     return fold_struct, selection
 
 
