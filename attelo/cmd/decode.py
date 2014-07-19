@@ -1,6 +1,7 @@
 "build a discourse graph from edu pairs and a model"
 
 from __future__ import print_function
+from functools import wraps
 import csv
 import json
 import os
@@ -52,33 +53,46 @@ def _select_data(args, features):
 
 
 def export_graph(predicted, doc, folder):
+    """
+    Write the graph out in an adhoc format, representing by
+    lines of the form ::
+
+        pred ( arg1 / arg2 )
+
+    The output will be saved to FOLDER/DOC.rel
+    """
     fname = os.path.join(folder, doc + ".rel")
     if not os.path.exists(folder):
         os.makedirs(folder)
-    f = open(fname, 'w')
-    for (a1, a2, rel) in predicted:
-        f.write(rel + " ( " + a1 + " / " + a2 + " )\n")
-    f.close()
+    with open(fname, 'w') as fout:
+        for arg1, arg2, rel in predicted:
+            print("%s ( %s / %s )" % (rel, arg1, arg2),
+                  file=fout)
 
 
 def export_csv(features, predicted, doc, attach_instances, folder):
+    """
+    Write the predictions out as a CSV table in the Orange CSV
+    format, with columns for the identifying meta features, and
+    the assigned class.
+
+    The output will be saved to FOLDER/DOC.csv
+    """
     fname = os.path.join(folder, doc + ".csv")
     if not os.path.exists(folder):
         os.makedirs(folder)
     predicted_map = {(e1, e2): label for e1, e2, label in predicted}
     metas = attach_instances.domain.getmetas().values()
 
-    with open(fname, 'wb') as f:
-        writer = csv.writer(f)
+    with open(fname, 'wb') as fout:
+        writer = csv.writer(fout)
         writer.writerow(["m#" + x.name for x in metas] +
                         ["c#" + features.label])
-        for r in attach_instances:
-            row = [r[x].value for x in metas]
-            e1 = r[features.source].value
-            e2 = r[features.target].value
-            epair = (e1, e2)
-            label = predicted_map.get((e1, e2), "UNRELATED")
-            writer.writerow(row + [label])
+        for inst in attach_instances:
+            du1 = inst[features.source].value
+            du2 = inst[features.target].value
+            label = predicted_map.get((du1, du2), "UNRELATED")
+            writer.writerow([inst[x].value for x in metas] + [label])
 
 # ---------------------------------------------------------------------
 # main
@@ -92,11 +106,10 @@ def config_argparser(psr):
     add_decoder_args(psr)
     add_fold_choice_args(psr)
     psr.add_argument("--attachment-model", "-A", default=None,
-                     help="provide saved model for prediction of "
-                     "attachment (only with -T option)")
+                     required=True,
+                     help="model needed for attachment prediction")
     psr.add_argument("--relation-model", "-R", default=None,
-                     help="provide saved model for prediction of "
-                     "relations (only with -T option)")
+                     help="model needed for relations prediction")
     psr.add_argument("--output", "-o",
                      default=None,
                      required=True,
@@ -105,6 +118,34 @@ def config_argparser(psr):
     psr.set_defaults(func=main)
 
 
+def validate_model_args(wrapped):
+    """
+    Given a function that accepts an argparsed object, check
+    the model arguments before carrying on.
+
+    Basically, the relation model is needed if you supply a
+    relations file
+
+    This is meant to be used as a decorator, eg.::
+
+        @validate_fold_choice_args
+        def main(args):
+            blah
+    """
+    @wraps(wrapped)
+    def inner(args):
+        "die model args are incomplete"
+        if args.data_relations and not args.relation_model:
+            sys.exit("arg error: --relation-model is required if a "
+                     "relation file is given")
+        if args.relation_model and not args.data_relations:
+            sys.exit("arg error: --relation-model is not needed "
+                     "unless a relation data file is also given")
+        wrapped(args)
+    return inner
+
+
+@validate_model_args
 @validate_fold_choice_args
 def main(args):
     "subcommand main"
@@ -113,13 +154,6 @@ def main(args):
     data_attach, data_relations = _select_data(args, features)
     # only one learner+decoder for now
     decoder = args_to_decoder(args)
-
-    if not args.attachment_model:
-        sys.exit("ERROR: [test mode] attachment model must be provided " +
-                 "with -A")
-    if data_relations and not args.relation_model:
-        sys.exit("ERROR: [test mode] relation model must be provided if " +
-                 "relation data is provided")
 
     model_attach = load_model(args.attachment_model)
     model_relations = load_model(args.relation_model) if data_relations\
@@ -136,9 +170,8 @@ def main(args):
                            use_prob=args.use_prob)
 
     grouping_index = data_attach.domain.index(features.grouping)
-    all_groupings = set()
-    for inst in data_attach:
-        all_groupings.add(inst[grouping_index].value)
+    all_groupings = frozenset(inst[grouping_index].value for
+                              inst in data_attach)
 
     for onedoc in all_groupings:
         print("decoding on file : ", onedoc, file=sys.stderr)
