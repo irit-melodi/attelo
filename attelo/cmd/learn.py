@@ -2,10 +2,9 @@
 
 from __future__ import print_function
 import json
-import sys
 
 from ..args import\
-    add_common_args, add_decoder_args, add_learner_args,\
+    add_common_args, add_learner_args,\
     add_fold_choice_args, validate_fold_choice_args,\
     args_to_features, args_to_decoder, args_to_learners
 from ..fold import folds_to_orange
