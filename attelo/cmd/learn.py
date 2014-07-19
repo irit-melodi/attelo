@@ -1,16 +1,55 @@
 "learn and save models"
 
 from __future__ import print_function
+import json
 import sys
 
 from ..args import\
     add_common_args, add_decoder_args, add_learner_args,\
+    add_fold_choice_args, validate_fold_choice_args,\
     args_to_features, args_to_decoder, args_to_learners
+from ..fold import folds_to_orange
 from ..io import read_data, save_model, Torpor
 from ..table import related_relations
 
 
 NAME = 'learn'
+
+_DEFAULT_MODEL_ATTACH = "attach.model"
+_DEFAULT_MODEL_RELATION = "relations.model"
+
+# ---------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------
+
+
+def _select_data(args, features):
+    """
+    read data into a pair of tables, filtering out test
+    data if a fold is specified
+    """
+
+    data_attach, data_relations =\
+        read_data(args.data_attach, args.data_relations,
+                  verbose=not args.quiet)
+    if args.fold:
+        fold_struct = json.load(args.fold_file)
+        selection = folds_to_orange(data_attach,
+                                    fold_struct,
+                                    meta_index=features.grouping)
+        data_attach = data_attach.select_ref(selection,
+                                             args.fold,
+                                             negate=1)
+        if data_relations:
+            data_relations = data_relations.select_ref(selection,
+                                                       args.fold,
+                                                       negate=1)
+
+    return data_attach, data_relations
+
+# ---------------------------------------------------------------------
+# main
+# ---------------------------------------------------------------------
 
 
 def config_argparser(psr):
@@ -18,27 +57,33 @@ def config_argparser(psr):
 
     add_common_args(psr)
     add_learner_args(psr)
-    psr.add_argument("--attachment-model", "-A",
-                     default="attach.model",
-                     help="save attachment model here")
-    psr.add_argument("--relation-model", "-R",
-                     default="relations.model",
-                     help="save relation model here")
+    add_fold_choice_args(psr)
+    psr.add_argument("--attachment-model", "-A", metavar="FILE",
+                     default=_DEFAULT_MODEL_ATTACH,
+                     help="save attachment model here "
+                     "(default: %s)" % _DEFAULT_MODEL_ATTACH)
+    psr.add_argument("--relation-model", "-R", metavar="FILE",
+                     default=_DEFAULT_MODEL_RELATION,
+                     help="save relation model here "
+                     "(default: %s)" % _DEFAULT_MODEL_RELATION)
     psr.set_defaults(func=main)
 
 
+@validate_fold_choice_args
 def main(args):
     "subcommand main (invoked from outer script)"
 
-    data_attach, data_relations =\
-        read_data(args.data_attach, args.data_relations,
-                  verbose=not args.quiet)
     features = args_to_features(args)
+    data_attach, data_relations = _select_data(args, features)
     decoder = args_to_decoder(args)
     attach_learner, relation_learner = \
         args_to_learners(decoder, features, args)
 
-    torpor = lambda msg: Torpor(msg, sameline=False, quiet=args.quiet)
+    def torpor(msg):
+        "training feedback"
+        if args.fold:
+            msg += " (fold %d)" % args.fold
+        return Torpor(msg, sameline=False, quiet=args.quiet)
 
     with torpor("training attachment model"):
         model_attach = attach_learner(data_attach)

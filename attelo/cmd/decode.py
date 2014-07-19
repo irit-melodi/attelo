@@ -2,12 +2,15 @@
 
 from __future__ import print_function
 import csv
+import json
 import os
 import sys
 
 from ..args import\
     add_common_args, add_decoder_args,\
+    add_fold_choice_args, validate_fold_choice_args,\
     args_to_decoder, args_to_features, args_to_threshold
+from ..fold import folds_to_orange
 from ..io import\
     read_data, load_model
 from ..table import select_data_in_grouping
@@ -16,6 +19,36 @@ from ..decoding import\
 
 
 NAME = 'decode'
+
+# ---------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------
+
+
+def _select_data(args, features):
+    """
+    read data into a pair of tables, filtering out training
+    data if a fold is specified
+
+    NB: in contrast, the learn._select_data filters out
+    the test data
+    """
+
+    data_attach, data_relations =\
+        read_data(args.data_attach, args.data_relations,
+                  verbose=not args.quiet)
+    if args.fold:
+        fold_struct = json.load(args.fold_file)
+        selection = folds_to_orange(data_attach,
+                                    fold_struct,
+                                    meta_index=features.grouping)
+        data_attach = data_attach.select_ref(selection,
+                                             args.fold)
+        if data_relations:
+            data_relations = data_relations.select_ref(selection,
+                                                       args.fold)
+
+    return data_attach, data_relations
 
 
 def export_graph(predicted, doc, folder):
@@ -47,12 +80,17 @@ def export_csv(features, predicted, doc, attach_instances, folder):
             label = predicted_map.get((e1, e2), "UNRELATED")
             writer.writerow(row + [label])
 
+# ---------------------------------------------------------------------
+# main
+# ---------------------------------------------------------------------
+
 
 def config_argparser(psr):
     "add subcommand arguments to subparser"
 
     add_common_args(psr)
     add_decoder_args(psr)
+    add_fold_choice_args(psr)
     psr.add_argument("--attachment-model", "-A", default=None,
                      help="provide saved model for prediction of "
                      "attachment (only with -T option)")
@@ -71,9 +109,8 @@ def config_argparser(psr):
 def main(args):
     "subcommand main"
 
-    data_attach, data_relations =\
-        read_data(args.data_attach, args.data_relations, verbose=True)
     features = args_to_features(args)
+    data_attach, data_relations = _select_data(args, features)
     # only one learner+decoder for now
     decoder = args_to_decoder(args)
 
