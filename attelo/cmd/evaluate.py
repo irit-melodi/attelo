@@ -145,7 +145,6 @@ def config_argparser(psr):
                      help="provide accuracy scores for classifiers used")
 
 
-
 def main(args):
     features = args_to_features(args)
     data_attach, data_relations = read_data(args.data_attach,
