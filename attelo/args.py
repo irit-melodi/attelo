@@ -228,6 +228,7 @@ def add_common_args(psr):
     psr.add_argument("data_relations", metavar="FILE", nargs="?",
                      help="relations data")  # optional
     psr.add_argument("--config", "-C", metavar="FILE",
+                     required=True,
                      default=None,
                      help="corpus specificities config file; if "
                      "absent, defaults to hard-wired annodis config")
