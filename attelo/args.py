@@ -28,26 +28,20 @@ def args_to_features(args):
     If no configuration file is provided, we default to the
     Annodis experiment settings
     """
-    if args.config:
-        config = ConfigParser()
-        # cancels case-insensitive reading of variables.
-        config.optionxform = lambda option: option
-        with open(args.config) as config_file:
-            config.readfp(config_file)
-            metacfg = dict(config.items("Meta features"))
-            return Features(source=metacfg["FirstNode"],
-                            target=metacfg["SecondNode"],
-                            source_span_start=metacfg["SourceSpanStart"],
-                            source_span_end=metacfg["SourceSpanEnd"],
-                            target_span_start=metacfg["TargetSpanStart"],
-                            target_span_end=metacfg["TargetSpanEnd"],
-                            grouping=metacfg["Grouping"],
-                            label=metacfg["Label"])
-    else:
-        # annodis config as default, should not cause regression on coling
-        # experiment
-        # TODO: should do away with this
-        return Features()  # default settings
+    config = ConfigParser()
+    # cancels case-insensitive reading of variables.
+    config.optionxform = lambda option: option
+    with open(args.config) as config_file:
+        config.readfp(config_file)
+        metacfg = dict(config.items("Meta features"))
+        return Features(source=metacfg["FirstNode"],
+                        target=metacfg["SecondNode"],
+                        source_span_start=metacfg["SourceSpanStart"],
+                        source_span_end=metacfg["SourceSpanEnd"],
+                        target_span_start=metacfg["TargetSpanStart"],
+                        target_span_end=metacfg["TargetSpanEnd"],
+                        grouping=metacfg["Grouping"],
+                        label=metacfg["Label"])
 
 
 def _mk_astar_decoder(heuristics, rfc):
