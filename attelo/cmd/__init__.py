@@ -7,7 +7,8 @@ attelo subcommands
 
 from . import\
     decode,\
+    enfold,\
     evaluate,\
     learn
 
-SUBCOMMANDS = [learn, decode, evaluate]
+SUBCOMMANDS = [learn, decode, enfold, evaluate]
