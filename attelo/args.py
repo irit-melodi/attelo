@@ -5,6 +5,7 @@ Managing command line arguments
 from __future__ import print_function
 from argparse import ArgumentTypeError
 from ConfigParser import ConfigParser
+import argparse
 import Orange
 import sys
 
@@ -232,11 +233,8 @@ def add_common_args(psr):
                      default=None,
                      help="corpus specificities config file; if "
                      "absent, defaults to hard-wired annodis config")
-    # FIXME: this perceptron arg is for both learning/decoding
-    psr.add_argument("--use_prob", "-P",
-                     default=True, action="store_false",
-                     help="convert perceptron scores "
-                     "into probabilities")
+    psr.add_argument("--quiet", action="store_true",
+                     help="Supress all feedback")
 
 
 def add_common_args_lite(psr):
@@ -251,31 +249,91 @@ def add_common_args_lite(psr):
                      "absent, defaults to hard-wired annodis config")
 
 
+def add_fold_choice_args(psr):
+    "ability to select a subset of the data according to a fold"
+
+    fold_grp = psr.add_argument_group('fold selection')
+    fold_grp.add_argument("--fold-file", metavar="FILE",
+                          type=argparse.FileType('r'),
+                          help="read folds from this file")
+    fold_grp.add_argument("--fold", metavar="INT",
+                          type=int,
+                          help="fold to select")
+
+
+def validate_fold_choice_args(wrapped):
+    """
+    Given a function that accepts an argparsed object, check
+    the fold arguments before carrying on.
+
+    The idea here is that --fold and --fold-file are meant to
+    be used together (xnor)
+
+    This is meant to be used as a decorator, eg.::
+
+        @validate_fold_choice_args
+        def main(args):
+            blah
+    """
+    @wraps(wrapped)
+    def inner(args):
+        "die if fold args are incomplete"
+        if args.fold_file and not args.fold:
+            # I'd prefer to use something like ArgumentParser.error
+            # here, but I can't think of a convenient way of passing
+            # the parser object in or otherwise obtaining it
+            sys.exit("arg error: --fold is required when "
+                     "--fold-file is present")
+        elif args.fold and not args.fold_file:
+            sys.exit("arg error: --fold-file is required when "
+                     "--fold is present")
+        wrapped(args)
+    return inner
+
+
 def add_decoder_args(psr):
-    "add decoding related args to subcommand parser"
+    """
+    add decoding related args to subcommand parser
+
+    NB: already included by add_learner_args
+    """
+    _add_decoder_args(psr)
+
+
+def _add_decoder_args(psr):
+    """
+    core of add_decoder_args, returns a dictionary of groups
+    """
+
     decoder_grp = psr.add_argument_group('decoder arguments')
     decoder_grp.add_argument("--threshold", "-t",
                              default=None, type=float,
                              help="force the classifier to use this threshold "
                              "value for attachment decisions, unless it is "
                              "trained explicitely with a threshold")
-    # FIXME: decoder_grp in common_args for now as struct_perceptron seems to
-    # rely on a decoder
     decoder_grp.add_argument("--decoder", "-d", default="local",
                              choices=KNOWN_DECODERS,
                              help="decoders for attachment "
                              "(cf also heuristics for astar)")
-    decoder_grp.add_argument("--heuristics", "-e",
-                             default="average",
-                             choices=KNOWN_HEURISTICS,
-                             help="heuristics used for astar decoding; "
-                             "default=average")
-    decoder_grp.add_argument("--rfc", "-r",
-                             default="full",
-                             choices=["full", "simple", "none"],
-                             help="with astar decoding, what kind of RFC is "
-                             "applied: simple of full; simple means "
-                             "everything is subordinating")
+
+    astar_grp = psr.add_argument_group("A* decoder arguments")
+    astar_grp.add_argument("--heuristics", "-e",
+                           default="average",
+                           choices=KNOWN_HEURISTICS,
+                           help="heuristics used for astar decoding; "
+                           "default=average")
+    astar_grp.add_argument("--rfc", "-r",
+                           default="full",
+                           choices=["full", "simple", "none"],
+                           help="with astar decoding, what kind of RFC is "
+                           "applied: simple of full; simple means "
+                           "everything is subordinating")
+
+    perc_grp = psr.add_argument_group('perceptron arguments')
+    perc_grp.add_argument("--use_prob", "-P",
+                          default=True, action="store_false",
+                          help="convert perceptron scores "
+                          "into probabilities")
 
     # harness prefs (shared between eval)
     psr.add_argument("--post-label", "-p",
@@ -283,9 +341,19 @@ def add_decoder_args(psr):
                      help="decode only on attachment, and predict "
                      "relations afterwards")
 
+    return {"astar": astar_grp,
+            "perceptron": perc_grp,
+            "decoder": decoder_grp}
+
 
 def add_learner_args(psr):
-    "add classifier related args to subcommand parser"
+    """
+    add classifier related args to subcommand parser
+
+    NB: includes add_decoder_args
+    """
+
+    groups = _add_decoder_args(psr)
 
     psr.add_argument("--learner", "-l",
                      default="bayes",
@@ -296,13 +364,13 @@ def add_learner_args(psr):
                      help="learners for relation labeling "
                      "[default same as attachment]")
 
-    # classifier prefs
-    classifier_grp = psr.add_argument_group('classifier arguments')
-    ## classifier prefs (perceptron)
-    classifier_grp.add_argument("--averaging", "-m",
-                                default=False, action="store_true",
-                                help="averaged perceptron")
-    classifier_grp.add_argument("--nit", "-i",
-                                default=1, type=int,
-                                help="number of iterations for "
-                                "perceptron models")
+    # perceptron prefs
+    perc_grp = groups.get("perceptron",
+                          psr.add_argument_group('perceptron arguments'))
+    perc_grp.add_argument("--averaging", "-m",
+                          default=False, action="store_true",
+                          help="averaged perceptron")
+    perc_grp.add_argument("--nit", "-i",
+                          default=1, type=int,
+                          help="number of iterations for "
+                          "perceptron models")

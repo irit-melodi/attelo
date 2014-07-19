@@ -67,9 +67,12 @@ def config_argparser(psr):
     psr.set_defaults(func=main)
 
 
+@validate_fold_choice_args
 def main(args):
-    data_attach, data_relations = read_data(args.data_attach,
-                                            args.data_relations)
+    "subcommand main"
+
+    data_attach, data_relations =\
+        read_data(args.data_attach, args.data_relations, verbose=True)
     features = args_to_features(args)
     # only one learner+decoder for now
     decoder = args_to_decoder(args)

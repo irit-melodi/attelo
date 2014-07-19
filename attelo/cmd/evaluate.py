@@ -120,7 +120,6 @@ def config_argparser(psr):
 
     add_common_args(psr)
     add_learner_args(psr)
-    add_decoder_args(psr)
     psr.set_defaults(func=main)
     psr.add_argument("--nfold", "-n",
                      default=10, type=int,
