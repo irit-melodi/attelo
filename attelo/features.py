@@ -1,10 +1,28 @@
-class Features(object):
-    """
-    Mapping from examples to features.
+"""
+Feature vectors
+"""
 
-    The parser works with almost an arbitrary set of features,
-    but there is a minimal core that should be present in some
-    form, basically
+# Author: Eric Kow <eric@erickow.com>
+# License: CeCILL-B (French BSD3, but see caveat in README)
+
+from collections import namedtuple
+
+_Phrasebook = namedtuple("Phrasebook",
+                         ["source",
+                          "target",
+                          "target_span_start",
+                          "target_span_end",
+                          "source_span_start",
+                          "source_span_end",
+                          "grouping",
+                          "label"])
+
+
+class Phrasebook(_Phrasebook):
+    """
+    Distinguished feature names. Any attelo feature vector must
+    contain at least these features (but they can have any name)
+    ::
 
     * for a source and a target node:
         * its id
@@ -14,25 +32,7 @@ class Features(object):
     * some grouping of nodes into larger units (for example,
       the nodes for annotations in the same file)
 
-    Dataset merely some indirection to deal with the fact that
-    these features can have different names in different data,
-    just use eg. `dataset.grouping` as a dictionary key
+    The phrasebook tells attelo what are the names for these key
+    features.
     """
-
-    def __init__(self,
-                 source="SOURCE",
-                 target="TARGET",
-                 target_span_start="TargetSpanStart",
-                 target_span_end="TargetSpanEnd",
-                 source_span_start="SourceSpanStart",
-                 source_span_end="SourceSpanEnd",
-                 grouping="FILE",
-                 label="CLASS"):
-        self.source=source
-        self.target=target
-        self.target_span_start=target_span_start
-        self.target_span_end=target_span_end
-        self.source_span_start=source_span_start
-        self.source_span_end=source_span_end
-        self.grouping=grouping
-        self.label=label
+    pass

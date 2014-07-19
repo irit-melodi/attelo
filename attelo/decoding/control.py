@@ -3,6 +3,7 @@ Central interface to the decoders
 """
 
 from __future__ import print_function
+from collections import namedtuple
 from Orange.classification import Classifier
 import sys
 
@@ -10,24 +11,34 @@ from attelo.edu import mk_edu_pairs
 from attelo.table import index_by_metas
 
 
-# TODO: replace with named tuple and constructor
-class DecoderConfig(object):
-    def __init__(self, features, decoder,
+_DecoderConfig = namedtuple("DecoderConfig",
+                            ["phrasebook",
+                             "decoder",
+                             "threshold",
+                             "post_labelling",
+                             "use_prob"])
+
+
+class DecoderConfig(_DecoderConfig):
+    """
+    Parameters needed by decoder.
+    """
+    def __init__(self, phrasebook, decoder,
                  threshold=None,
                  post_labelling=False,
                  use_prob=True):
-        self.features = features
-        self.decoder = decoder
-        self.threshold = threshold
-        self.post_labelling = post_labelling
-        self.use_prob = use_prob
+        super(DecoderConfig, self).__init__(phrasebook=phrasebook,
+                                            decoder=decoder,
+                                            threshold=threshold,
+                                            post_labelling=post_labelling,
+                                            use_prob=use_prob)
 
 # ---------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------
 
 
-def _combine_probs(features,
+def _combine_probs(phrasebook,
                    attach_instances,
                    rel_instances,
                    attachmt_model,
@@ -38,7 +49,7 @@ def _combine_probs(features,
     # !! instances set must correspond to same edu pair in the same order !!
     distrib = []
 
-    edu_pair = mk_edu_pairs(features, attach_instances.domain)
+    edu_pair = mk_edu_pairs(phrasebook, attach_instances.domain)
     attach_instances = sorted(attach_instances, key=lambda x: x.get_metas())
     rel_instances = sorted(rel_instances, key=lambda x: x.get_metas())
 
@@ -46,13 +57,13 @@ def _combine_probs(features,
     for i, (attach, relation) in enumerate(inst_pairs):
         p_attach = attachmt_model(attach, Classifier.GetProbabilities)[1]
         p_relations = relations_model(relation, Classifier.GetBoth)
-        if not _instance_check(features, attach, relation):
+        if not _instance_check(phrasebook, attach, relation):
             print("mismatch of attachment/relation instance, "
                   "instance number", i,
-                  meta_info(attach, features),
-                  meta_info(relation, features),
+                  _instance_help(attach, phrasebook),
+                  _instance_help(relation, phrasebook),
                   file=sys.stderr)
-        # this should be investigated
+        # FIXME: this should be investigated
         try:
             best_rel = p_relations[0].value
         except:
@@ -64,12 +75,12 @@ def _combine_probs(features,
     return distrib
 
 
-def _add_labels(features, predicted, rel_instances, relations_model):
+def _add_labels(phrasebook, predicted, rel_instances, relations_model):
     """ predict labels for a given set of edges (=post-labelling an unlabelled
     decoding)
     """
     rels = index_by_metas(rel_instances,
-                          metas=[features.source, features.target])
+                          metas=[phrasebook.source, phrasebook.target])
     result = []
     for (a1, a2, _r) in predicted:
         instance_rel = rels[(a1, a2)]
@@ -79,22 +90,26 @@ def _add_labels(features, predicted, rel_instances, relations_model):
     return result
 
 
-def _instance_check(features, one, two):
+def _instance_check(phrasebook, one, two):
     """
     Return True if the two annotations should be considered as refering to the
     same EDU pair. This can be used as a sanity check when zipping two datasets
     that are expected to be on the same EDU pairs.
     """
     return\
-        one[features.source] == two[features.source] and\
-        one[features.target] == two[features.target] and\
-        one[features.grouping] == two[features.grouping]
+        one[phrasebook.source] == two[phrasebook.source] and\
+        one[phrasebook.target] == two[phrasebook.target] and\
+        one[phrasebook.grouping] == two[phrasebook.grouping]
 
 
-def meta_info(features, instance):
-    return "%s: %s-%s" % (instance[features.grouping],
-                          instance[features.source],
-                          instance[features.target])
+def _instance_help(phrasebook, instance):
+    """
+    A hopefully small string that helps users to easily identify
+    an instance at a glance when something goes wrong
+    """
+    return "%s: %s-%s" % (instance[phrasebook.grouping],
+                          instance[phrasebook.source],
+                          instance[phrasebook.target])
 
 
 # ---------------------------------------------------------------------
@@ -114,13 +129,13 @@ def decode_document(config,
     TODO: check that call to learner can be uniform with 2 parameters (as
     logistic), as the documentation is inconsistent on this
     """
-    features = config.features
+    phrasebook = config.phrasebook
     decoder = config.decoder
     threshold = config.threshold
     use_prob = config.use_prob
 
     if rel_instances and not config.post_labelling:
-        prob_distrib = _combine_probs(features,
+        prob_distrib = _combine_probs(phrasebook,
                                       attach_instances, rel_instances,
                                       model_attach, model_relations)
     elif model_attach.name in ["Perceptron", "StructuredPerceptron"]:
@@ -129,7 +144,7 @@ def decode_document(config,
                                                use_prob=use_prob)
     else:
         # orange-based models
-        edu_pair = mk_edu_pairs(features, attach_instances.domain)
+        edu_pair = mk_edu_pairs(phrasebook, attach_instances.domain)
         prob_distrib = []
         for one in attach_instances:
             edu1, edu2 = edu_pair(one)
@@ -151,7 +166,7 @@ def decode_document(config,
         # predicted = decoder(prob_distrib)
 
     if config.post_labelling:
-        predicted = _add_labels(features,
+        predicted = _add_labels(phrasebook,
                                 predicted,
                                 rel_instances,
                                 model_relations)

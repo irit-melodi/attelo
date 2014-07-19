@@ -6,7 +6,7 @@ import json
 from ..args import\
     add_common_args, add_learner_args,\
     add_fold_choice_args, validate_fold_choice_args,\
-    args_to_features, args_to_decoder, args_to_learners
+    args_to_phrasebook, args_to_decoder, args_to_learners
 from ..fold import folds_to_orange
 from ..io import read_data, save_model, Torpor
 from ..table import related_relations
@@ -22,7 +22,7 @@ _DEFAULT_MODEL_RELATION = "relations.model"
 # ---------------------------------------------------------------------
 
 
-def _select_data(args, features):
+def _select_data(args, phrasebook):
     """
     read data into a pair of tables, filtering out test
     data if a fold is specified
@@ -35,7 +35,7 @@ def _select_data(args, features):
         fold_struct = json.load(args.fold_file)
         selection = folds_to_orange(data_attach,
                                     fold_struct,
-                                    meta_index=features.grouping)
+                                    meta_index=phrasebook.grouping)
         data_attach = data_attach.select_ref(selection,
                                              args.fold,
                                              negate=1)
@@ -72,11 +72,11 @@ def config_argparser(psr):
 def main(args):
     "subcommand main (invoked from outer script)"
 
-    features = args_to_features(args)
-    data_attach, data_relations = _select_data(args, features)
+    phrasebook = args_to_phrasebook(args)
+    data_attach, data_relations = _select_data(args, phrasebook)
     decoder = args_to_decoder(args)
     attach_learner, relation_learner = \
-        args_to_learners(decoder, features, args)
+        args_to_learners(decoder, phrasebook, args)
 
     def torpor(msg):
         "training feedback"
@@ -90,6 +90,6 @@ def main(args):
 
     if data_relations:
         with torpor("training relations model"):
-            related_only = related_relations(features, data_relations)
+            related_only = related_relations(phrasebook, data_relations)
             model_relations = relation_learner(related_only)
             save_model(args.relation_model, model_relations)

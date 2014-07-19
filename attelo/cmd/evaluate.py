@@ -8,7 +8,7 @@ import sys
 from ..args import\
     add_common_args, add_learner_args, add_decoder_args,\
     args_to_decoder,\
-    args_to_features,\
+    args_to_phrasebook,\
     args_to_learners,\
     args_to_threshold
 from ..decoding import DecoderConfig, decode_document
@@ -23,7 +23,7 @@ from ..table import\
 NAME = 'evaluate'
 
 
-def _prepare_folds(features, num_folds, table, shuffle=True):
+def _prepare_folds(phrasebook, num_folds, table, shuffle=True):
     """Return an N-fold validation setup respecting a property where
     examples in the same grouping stay in the same fold.
     """
@@ -35,14 +35,14 @@ def _prepare_folds(features, num_folds, table, shuffle=True):
 
     fold_struct = make_n_fold(table,
                               folds=num_folds,
-                              meta_index=features.grouping)
+                              meta_index=phrasebook.grouping)
     selection = folds_to_orange(table,
                                 fold_struct,
-                                meta_index=features.grouping)
+                                meta_index=phrasebook.grouping)
     return fold_struct, selection
 
 
-def _discourse_eval(features,
+def _discourse_eval(phrasebook,
                     predicted, reference,
                     labels=None, debug=False):
     """basic eval: counting correct predicted edges (labelled or not)
@@ -54,8 +54,8 @@ def _discourse_eval(features,
     score = 0
     dict_predicted = dict([((a1, a2), rel) for (a1, a2, rel) in predicted])
     for one in reference:
-        arg1 = one[features.source].value
-        arg2 = one[features.target].value
+        arg1 = one[phrasebook.source].value
+        arg2 = one[phrasebook.target].value
         if debug:
             print(arg1, arg2, dict_predicted.get((arg1, arg2)),
                   file=sys.stderr)
@@ -65,14 +65,14 @@ def _discourse_eval(features,
                 if debug:
                     print("correct", file=sys.stderr)
             else:
-                relation_ref = labels.filter_ref({features.source: [arg1],
-                                                  features.target: [arg2]})
+                relation_ref = labels.filter_ref({phrasebook.source: [arg1],
+                                                  phrasebook.target: [arg2]})
                 if len(relation_ref) == 0:
                     print("attached pair without corresponding relation",
-                          one[features.grouping], arg1, arg2,
+                          one[phrasebook.grouping], arg1, arg2,
                           file=sys.stderr)
                 else:
-                    relation_ref = relation_ref[0][features.label].value
+                    relation_ref = relation_ref[0][phrasebook.label].value
                     score += (dict_predicted[(arg1, arg2)] == relation_ref)
 
     total_ref = len(reference)
@@ -145,18 +145,18 @@ def config_argparser(psr):
 
 
 def main(args):
-    features = args_to_features(args)
+    phrasebook = args_to_phrasebook(args)
     data_attach, data_relations = read_data(args.data_attach,
                                             args.data_relations)
 
     decoder = args_to_decoder(args)
     attach_learner, relation_learner = \
-        args_to_learners(decoder, features, args)
+        args_to_learners(decoder, phrasebook, args)
 
     RECALL_CORRECTION = args.correction
 
     fold_struct, selection =\
-        _prepare_folds(features, args.nfold, data_attach,
+        _prepare_folds(phrasebook, args.nfold, data_attach,
                        shuffle=args.shuffle)
 
     with_relations = bool(data_relations)
@@ -185,7 +185,7 @@ def main(args):
             train_data_relations = data_relations.select_ref(selection,
                                                              test_fold,
                                                              negate=1)
-            train_data_relations = related_relations(features,
+            train_data_relations = related_relations(phrasebook,
                                                      train_data_relations)
             # train model
             model_relations = relation_learner(train_data_relations)
@@ -196,7 +196,7 @@ def main(args):
         threshold = args_to_threshold(model_attach,
                                       decoder,
                                       requested=args.threshold)
-        config = DecoderConfig(features=features,
+        config = DecoderConfig(phrasebook=phrasebook,
                                decoder=decoder,
                                threshold=threshold,
                                post_labelling=args.post_label,
@@ -209,7 +209,7 @@ def main(args):
                 print("decoding on file : ", onedoc, file=sys.stderr)
 
                 attach_instances, rel_instances = \
-                    select_data_in_grouping(features,
+                    select_data_in_grouping(phrasebook,
                                             onedoc,
                                             data_attach,
                                             data_relations)
@@ -218,11 +218,11 @@ def main(args):
                                             model_attach, attach_instances,
                                             model_relations, rel_instances)
 
-                reference = related_attachments(features, attach_instances)
+                reference = related_attachments(phrasebook, attach_instances)
                 labels =\
-                    related_relations(features, rel_instances) if score_labels\
+                    related_relations(phrasebook, rel_instances) if score_labels\
                     else None
-                scores = _discourse_eval(features,
+                scores = _discourse_eval(phrasebook,
                                          predicted,
                                          reference,
                                          labels=labels)

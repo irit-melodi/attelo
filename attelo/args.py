@@ -14,13 +14,13 @@ from .decoding.astar import astar_decoder, h0, h_best, h_max, h_average
 from .decoding.baseline import local_baseline, last_baseline
 from .decoding.mst import mst_decoder
 from .decoding.greedy import locallyGreedy
-from .features import Features
+from .features import Phrasebook
 from .learning.megam import MaxentLearner
 from .learning.perceptron import\
     PerceptronArgs, Perceptron, StructuredPerceptron
 
 
-def args_to_features(args):
+def args_to_phrasebook(args):
     """
     Given the (parsed) command line arguments, return the set of
     core feature labels for our incoming dataset.
@@ -34,14 +34,14 @@ def args_to_features(args):
     with open(args.config) as config_file:
         config.readfp(config_file)
         metacfg = dict(config.items("Meta features"))
-        return Features(source=metacfg["FirstNode"],
-                        target=metacfg["SecondNode"],
-                        source_span_start=metacfg["SourceSpanStart"],
-                        source_span_end=metacfg["SourceSpanEnd"],
-                        target_span_start=metacfg["TargetSpanStart"],
-                        target_span_end=metacfg["TargetSpanEnd"],
-                        grouping=metacfg["Grouping"],
-                        label=metacfg["Label"])
+        return Phrasebook(source=metacfg["FirstNode"],
+                          target=metacfg["SecondNode"],
+                          source_span_start=metacfg["SourceSpanStart"],
+                          source_span_end=metacfg["SourceSpanEnd"],
+                          target_span_start=metacfg["TargetSpanStart"],
+                          target_span_end=metacfg["TargetSpanEnd"],
+                          grouping=metacfg["Grouping"],
+                          label=metacfg["Label"])
 
 
 def _mk_astar_decoder(heuristics, rfc):
@@ -79,7 +79,7 @@ def _known_decoders(heuristics, rfc):
             "astar": _mk_astar_decoder(heuristics, rfc)}
 
 
-def _known_learners(decoder, features, perc_args=None):
+def _known_learners(decoder, phrasebook, perc_args=None):
     """
     Given the (parsed) command line arguments, return a sequence of
     learners in the order they were requested on the command line
@@ -103,11 +103,11 @@ def _known_learners(decoder, features, perc_args=None):
 
     if perc_args:
         # home made perceptron
-        perc = Perceptron(features,
+        perc = Perceptron(phrasebook,
                           nber_it=perc_args.iterations,
                           avg=perc_args.averaging)
         # home made structured perceptron
-        struc_perc = StructuredPerceptron(features, decoder,
+        struc_perc = StructuredPerceptron(phrasebook, decoder,
                                           nber_it=perc_args.iterations,
                                           avg=perc_args.averaging,
                                           use_prob=perc_args.use_prob)
@@ -153,7 +153,7 @@ def args_to_decoder(args):
         ArgumentTypeError("Unknown decoder: " + args.decoder)
 
 
-def args_to_learners(decoder, features, args):
+def args_to_learners(decoder, phrasebook, args):
     """
     Given the (parsed) command line arguments, return a
     learner to use for attachment, and one to use for
@@ -167,7 +167,7 @@ def args_to_learners(decoder, features, args):
     perc_args = PerceptronArgs(iterations=args.nit,
                                averaging=args.averaging,
                                use_prob=args.use_prob)
-    _learners = _known_learners(decoder, features, perc_args)
+    _learners = _known_learners(decoder, phrasebook, perc_args)
 
     if args.learner in _learners:
         attach_learner = _learners[args.learner]

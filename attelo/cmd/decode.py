@@ -10,7 +10,7 @@ import sys
 from ..args import\
     add_common_args, add_decoder_args,\
     add_fold_choice_args, validate_fold_choice_args,\
-    args_to_decoder, args_to_features, args_to_threshold
+    args_to_decoder, args_to_phrasebook, args_to_threshold
 from ..fold import folds_to_orange
 from ..io import\
     read_data, load_model
@@ -26,7 +26,7 @@ NAME = 'decode'
 # ---------------------------------------------------------------------
 
 
-def _select_data(args, features):
+def _select_data(args, phrasebook):
     """
     read data into a pair of tables, filtering out training
     data if a fold is specified
@@ -42,7 +42,7 @@ def _select_data(args, features):
         fold_struct = json.load(args.fold_file)
         selection = folds_to_orange(data_attach,
                                     fold_struct,
-                                    meta_index=features.grouping)
+                                    meta_index=phrasebook.grouping)
         data_attach = data_attach.select_ref(selection,
                                              args.fold)
         if data_relations:
@@ -70,10 +70,10 @@ def export_graph(predicted, doc, folder):
                   file=fout)
 
 
-def export_csv(features, predicted, doc, attach_instances, folder):
+def export_csv(phrasebook, predicted, doc, attach_instances, folder):
     """
     Write the predictions out as a CSV table in the Orange CSV
-    format, with columns for the identifying meta features, and
+    format, with columns for the identifying meta phrasebook, and
     the assigned class.
 
     The output will be saved to FOLDER/DOC.csv
@@ -87,10 +87,10 @@ def export_csv(features, predicted, doc, attach_instances, folder):
     with open(fname, 'wb') as fout:
         writer = csv.writer(fout)
         writer.writerow(["m#" + x.name for x in metas] +
-                        ["c#" + features.label])
+                        ["c#" + phrasebook.label])
         for inst in attach_instances:
-            du1 = inst[features.source].value
-            du2 = inst[features.target].value
+            du1 = inst[phrasebook.source].value
+            du2 = inst[phrasebook.target].value
             label = predicted_map.get((du1, du2), "UNRELATED")
             writer.writerow([inst[x].value for x in metas] + [label])
 
@@ -150,8 +150,8 @@ def validate_model_args(wrapped):
 def main(args):
     "subcommand main"
 
-    features = args_to_features(args)
-    data_attach, data_relations = _select_data(args, features)
+    phrasebook = args_to_phrasebook(args)
+    data_attach, data_relations = _select_data(args, phrasebook)
     # only one learner+decoder for now
     decoder = args_to_decoder(args)
 
@@ -163,13 +163,13 @@ def main(args):
                                   decoder,
                                   requested=args.threshold)
 
-    config = DecoderConfig(features=features,
+    config = DecoderConfig(phrasebook=phrasebook,
                            decoder=decoder,
                            threshold=threshold,
                            post_labelling=args.post_label,
                            use_prob=args.use_prob)
 
-    grouping_index = data_attach.domain.index(features.grouping)
+    grouping_index = data_attach.domain.index(phrasebook.grouping)
     all_groupings = frozenset(inst[grouping_index].value for
                               inst in data_attach)
 
@@ -177,7 +177,7 @@ def main(args):
         print("decoding on file : ", onedoc, file=sys.stderr)
 
         attach_instances, rel_instances =\
-            select_data_in_grouping(features,
+            select_data_in_grouping(phrasebook,
                                     onedoc,
                                     data_attach,
                                     data_relations)
@@ -186,4 +186,5 @@ def main(args):
                                     model_attach, attach_instances,
                                     model_relations, rel_instances)
         export_graph(predicted, onedoc, args.output)
-        export_csv(features, predicted, onedoc, attach_instances, args.output)
+        export_csv(phrasebook, predicted, onedoc, attach_instances,
+                   args.output)

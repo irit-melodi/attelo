@@ -8,7 +8,7 @@ import sys
 
 from ..args import\
     add_common_args_lite,\
-    args_to_features
+    args_to_phrasebook
 from ..fold import make_n_fold
 from ..io import read_data
 
@@ -16,7 +16,7 @@ from ..io import read_data
 NAME = 'enfold'
 
 
-def _prepare_folds(features, num_folds, table, shuffle=True):
+def _prepare_folds(phrasebook, num_folds, table, shuffle=True):
     """Return an N-fold validation setup respecting a property where
     examples in the same grouping stay in the same fold.
     """
@@ -27,7 +27,7 @@ def _prepare_folds(features, num_folds, table, shuffle=True):
 
     return make_n_fold(table,
                        folds=num_folds,
-                       meta_index=features.grouping)
+                       meta_index=phrasebook.grouping)
 
 
 def config_argparser(psr):
@@ -50,10 +50,10 @@ def config_argparser(psr):
 def main(args):
     "subcommand main (called from mother script)"
 
-    features = args_to_features(args)
+    phrasebook = args_to_phrasebook(args)
     data_attach, _ = read_data(args.data_attach, None, verbose=True)
 
-    fold_struct = _prepare_folds(features,
+    fold_struct = _prepare_folds(phrasebook,
                                  args.nfold,
                                  data_attach,
                                  shuffle=args.shuffle)

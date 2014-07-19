@@ -3,35 +3,35 @@ Manipulating data tables (taking slices, etc)
 """
 
 
-def related_attachments(features, table):
+def related_attachments(phrasebook, table):
     """Return just the entries in the attachments table that
     represent related EDU pairs
     """
-    return table.filter_ref({features.label: "True"})
+    return table.filter_ref({phrasebook.label: "True"})
 
 
-def related_relations(features, table):
+def related_relations(phrasebook, table):
     """Return just the entries in the relations table that represent
     related EDU pair
     """
-    return table.filter_ref({features.label: ["UNRELATED"]}, negate=1)
+    return table.filter_ref({phrasebook.label: ["UNRELATED"]}, negate=1)
 
 
-def _subtable_in_grouping(features, grouping, table):
+def _subtable_in_grouping(phrasebook, grouping, table):
     """Return the entries in the table that belong in the given
     group
     """
-    return table.filter_ref({features.grouping: grouping})
+    return table.filter_ref({phrasebook.grouping: grouping})
 
 
-def select_data_in_grouping(features, grouping, data_attach, data_relations):
+def select_data_in_grouping(phrasebook, grouping, data_attach, data_relations):
     """Return only the data that belong in the given group
     """
-    attach_instances = _subtable_in_grouping(features,
+    attach_instances = _subtable_in_grouping(phrasebook,
                                              grouping,
                                              data_attach)
     if data_relations:
-        rel_instances = _subtable_in_grouping(features,
+        rel_instances = _subtable_in_grouping(phrasebook,
                                               grouping,
                                               data_relations)
     else:
