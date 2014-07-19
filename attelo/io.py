@@ -59,7 +59,7 @@ class Torpor(object):
     def __exit__(self, type, value, tb):
         if tb is None:
             if not self._quiet:
-                done = "done" if self._sameline else "[end] " + self._msg
+                done = "done" if self._sameline else "[-end-] " + self._msg
                 print(done, file=self._file)
         else:
             if not self._quiet:
