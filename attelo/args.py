@@ -49,8 +49,10 @@ def _mk_astar_decoder(heuristics, rfc):
     Return an A* decoder using the given heuristics and
     right frontier constraint parameter
     """
-    return lambda x, **kargs:\
-        astar_decoder(x, heuristics=heuristics, RFC=rfc, **kargs)
+    def factory(arg, **kwargs):
+        "actually build decoder"
+        return astar_decoder(arg, heuristics=heuristics, RFC=rfc, **kwargs)
+    return factory
 
 
 def _known_heuristics():
@@ -202,9 +204,9 @@ def args_to_threshold(model, decoder, requested=None, default=0.5):
     3. a default value
     """
     if requested or str(decoder.__name__) == "local_baseline":
-        try:
+        if "threshold" in model.__dict__:
             threshold = model.threshold
-        except:
+        else:
             threshold = requested if requested else default
             print("threshold forced at : ", threshold, file=sys.stderr)
     else:
