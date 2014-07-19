@@ -239,6 +239,18 @@ def add_common_args(psr):
                      "into probabilities")
 
 
+def add_common_args_lite(psr):
+    "variant of add_common_args without relations table"
+
+    psr.add_argument("data_attach", metavar="FILE",
+                     help="attachment data")
+    psr.add_argument("--config", "-C", metavar="FILE",
+                     required=True,
+                     default=None,
+                     help="corpus specificities config file; if "
+                     "absent, defaults to hard-wired annodis config")
+
+
 def add_decoder_args(psr):
     "add decoding related args to subcommand parser"
     decoder_grp = psr.add_argument_group('decoder arguments')
