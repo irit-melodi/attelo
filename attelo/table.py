@@ -2,6 +2,10 @@
 Manipulating data tables (taking slices, etc)
 """
 
+# pylint: disable=pointless-string-statement
+UNRELATED = "UNRELATED"
+"distinguished value for unrelateted relation labels"
+# pylint: enable=pointless-string-statement
 
 def related_attachments(phrasebook, table):
     """Return just the entries in the attachments table that
@@ -14,7 +18,7 @@ def related_relations(phrasebook, table):
     """Return just the entries in the relations table that represent
     related EDU pair
     """
-    return table.filter_ref({phrasebook.label: ["UNRELATED"]}, negate=1)
+    return table.filter_ref({phrasebook.label: [UNRELATED]}, negate=1)
 
 
 def _subtable_in_grouping(phrasebook, grouping, table):
