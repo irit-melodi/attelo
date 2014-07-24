@@ -7,6 +7,12 @@ UNRELATED = "UNRELATED"
 "distinguished value for unrelateted relation labels"
 # pylint: enable=pointless-string-statement
 
+
+def AtteloTableException(Exception):
+    def __init__(self, msg):
+        super(AtteloTableException, self).__init__(msg)
+
+
 def related_attachments(phrasebook, table):
     """Return just the entries in the attachments table that
     represent related EDU pairs
@@ -41,6 +47,25 @@ def select_data_in_grouping(phrasebook, grouping, data_attach, data_relations):
     else:
         rel_instances = None
     return attach_instances, rel_instances
+
+
+def select_edu_pair(phrasebook, pair, data):
+    """Select the entry from a table corresponding to a single EDU pair
+
+    Return None if the pair is not in the table.
+    Raise an exception if there is more than one entry.
+    """
+    arg1, arg2 = pair
+    selected = data.filter_ref({phrasebook.source: [arg1],
+                                phrasebook.target: [arg2]})
+    size = len(selected)
+    if size == 0:
+        return None
+    elif size == 1:
+        return selected[0]
+    else:
+        oops = "Found more than one entry for pair %s" % pair
+        raise AtteloTableException(oops)
 
 
 def index_by_metas(instances, metas=None):
