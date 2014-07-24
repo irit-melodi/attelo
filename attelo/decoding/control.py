@@ -22,70 +22,90 @@ class DecoderConfig(_DecoderConfig):
     """
     Parameters needed by decoder.
     """
-    def __init__(self, phrasebook, decoder,
+    def __init__(self, phrasebook,
                  threshold=None,
                  post_labelling=False,
                  use_prob=True):
         super(DecoderConfig, self).__init__(phrasebook=phrasebook,
-                                            decoder=decoder,
                                             threshold=threshold,
                                             post_labelling=post_labelling,
                                             use_prob=use_prob)
+
+
+_DataAndModel = namedtuple("_DataAndModel", "data model")
+
+
+class DataAndModel(_DataAndModel):
+    """
+    Tuple of a data table accompanied with a model for the kind of
+    data within
+    """
+    pass
 
 # ---------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------
 
 
-def _combine_probs(phrasebook,
-                   attach_instances,
-                   rel_instances,
-                   attachmt_model,
-                   relations_model):
-    """retrieve probability of the best relation on an edu pair, given the
-    probability of an attachment
+def _combine_single_prob(attach, relate, att, rel):
+    """return the best relation for a given EDU pair and its
+    joint probability with the pair being attached
+
+    helper for _combine_prob
+    """
+    p_attach = attach.model(att, Classifier.GetProbabilities)[1]
+    p_relate = relate.model(rel, Classifier.GetBoth)
+    # FIXME: this should be investigated
+    try:
+        best_rel = p_relate[0].value
+    except:
+        best_rel = p_relate[0]
+
+    rel_prob = max(p_relate[1])
+    return (p_attach * rel_prob, best_rel)
+
+
+def _combine_probs(phrasebook, attach, relate):
+    """for all EDU pairs, retrieve probability of the best relation
+    on that pair, given the probability of an attachment
+
+    :type attach: DataAndModel
+    :type relate: DataAndModel
     """
     # !! instances set must correspond to same edu pair in the same order !!
     distrib = []
 
-    edu_pair = mk_edu_pairs(phrasebook, attach_instances.domain)
-    attach_instances = sorted(attach_instances, key=lambda x: x.get_metas())
-    rel_instances = sorted(rel_instances, key=lambda x: x.get_metas())
+    edu_pair = mk_edu_pairs(phrasebook, attach.data.domain)
+    attach_instances = sorted(attach.data, key=lambda x: x.get_metas())
+    relate_instances = sorted(relate.data, key=lambda x: x.get_metas())
 
-    inst_pairs = zip(attach_instances, rel_instances)
-    for i, (attach, relation) in enumerate(inst_pairs):
-        p_attach = attachmt_model(attach, Classifier.GetProbabilities)[1]
-        p_relations = relations_model(relation, Classifier.GetBoth)
-        if not _instance_check(phrasebook, attach, relation):
+    inst_pairs = zip(attach_instances, relate_instances)
+    for i, (att, rel) in enumerate(inst_pairs):
+        if not _instance_check(phrasebook, att, rel):
             print("mismatch of attachment/relation instance, "
                   "instance number", i,
-                  _instance_help(attach, phrasebook),
-                  _instance_help(relation, phrasebook),
+                  _instance_help(att, phrasebook),
+                  _instance_help(rel, phrasebook),
                   file=sys.stderr)
-        # FIXME: this should be investigated
-        try:
-            best_rel = p_relations[0].value
-        except:
-            best_rel = p_relations[0]
-
-        rel_prob = max(p_relations[1])
-        edu1, edu2 = edu_pair(attach)
-        distrib.append((edu1, edu2, p_attach * rel_prob, best_rel))
+        prob, best = _combine_single_prob(attach, relate, att, rel)
+        edu1, edu2 = edu_pair(att)
+        distrib.append((edu1, edu2, prob, best))
     return distrib
 
 
-def _add_labels(phrasebook, predicted, rel_instances, relations_model):
+def _add_labels(phrasebook, predicted, relate):
     """ predict labels for a given set of edges (=post-labelling an unlabelled
     decoding)
+
+    :type relate: DataAndModel
     """
-    rels = index_by_metas(rel_instances,
+    rels = index_by_metas(relate.data,
                           metas=[phrasebook.source, phrasebook.target])
     result = []
-    for (a1, a2, _r) in predicted:
-        instance_rel = rels[(a1, a2)]
-        rel = relations_model(instance_rel,
-                              Classifier.GetValue)
-        result.append((a1, a2, rel))
+    for edu1, edu2, _ in predicted:
+        instance_rel = rels[(edu1, edu2)]
+        rel = relate.model(instance_rel, Classifier.GetValue)
+        result.append((edu1, edu2, rel))
     return result
 
 
@@ -116,59 +136,63 @@ def _instance_help(phrasebook, instance):
 # ---------------------------------------------------------------------
 
 
-def decode_document(config,
-                    model_attach, attach_instances,
-                    model_relations=None, rel_instances=None):
+def _get_attach_prob_perceptron(config, attach):
     """
-    decode one document (onedoc), selecting instances for attachment from
-    data_attach, (idem relations if present), using trained model, model
+    Attachment probabilities (only) for each EDU pair in the data
+    """
+    return attach.model.get_scores(attach.data,
+                                   use_prob=config.use_prob)
 
+
+def _get_attach_prob_orange(config, attach):
+    """
+    Attachment probabilities (only) for each EDU pair in the data
+    """
+    # orange-based models
+    edu_pair = mk_edu_pairs(config.phrasebook, attach.data.domain)
+    prob_distrib = []
+    for inst in attach.data:
+        edu1, edu2 = edu_pair(inst)
+        probs = attach.model(inst, Classifier.GetProbabilities)[1]
+        prob_distrib.append((edu1, edu2, probs, "unlabelled"))
+    return prob_distrib
+
+
+def decode(config, decoder, attach, relate=None):
+    """
+    Decode every instance in the attachment table (predicting
+    relations too if we have the data/model for it).
     Return the predictions made
 
     TODO: check that call to learner can be uniform with 2 parameters (as
     logistic), as the documentation is inconsistent on this
-    """
-    phrasebook = config.phrasebook
-    decoder = config.decoder
-    threshold = config.threshold
-    use_prob = config.use_prob
 
-    if rel_instances and not config.post_labelling:
-        prob_distrib = _combine_probs(phrasebook,
-                                      attach_instances, rel_instances,
-                                      model_attach, model_relations)
-    elif is_perceptron_model(model_attach):
+    :type attach: DataAndModel
+    :type relate: DataAndModel
+    """
+    if relate and not config.post_labelling:
+        prob_distrib = _combine_probs(config.phrasebook,
+                                      attach, relate)
+    elif is_perceptron_model(attach.model):
         # home-made online models
-        prob_distrib = model_attach.get_scores(attach_instances,
-                                               use_prob=use_prob)
+        prob_distrib = _get_attach_prob_perceptron(config, attach)
     else:
         # orange-based models
-        edu_pair = mk_edu_pairs(phrasebook, attach_instances.domain)
-        prob_distrib = []
-        for one in attach_instances:
-            edu1, edu2 = edu_pair(one)
-            probs = model_attach(one, Classifier.GetProbabilities)[1]
-            prob_distrib.append((edu1, edu2, probs, "unlabelled"))
+        prob_distrib = _get_attach_prob_orange(config, attach)
     # print prob_distrib
 
     # get prediction (input is just prob_distrib)
     # not all decoders support the threshold keyword argument
     # hence the apparent redundancy here
-    if threshold:
+    if config.threshold:
         predicted = decoder(prob_distrib,
-                            threshold=threshold,
-                            use_prob=use_prob)
-        # predicted = decoder(prob_distrib, threshold = threshold)
+                            threshold=config.threshold,
+                            use_prob=config.use_prob)
     else:
         predicted = decoder(prob_distrib,
-                            use_prob=use_prob)
-        # predicted = decoder(prob_distrib)
+                            use_prob=config.use_prob)
 
     if config.post_labelling:
-        predicted = _add_labels(phrasebook,
-                                predicted,
-                                rel_instances,
-                                model_relations)
-        # predicted = _add_labels(predicted, rel_instances, model_relations)
+        predicted = _add_labels(config.phrasebook, predicted, relate)
 
     return predicted

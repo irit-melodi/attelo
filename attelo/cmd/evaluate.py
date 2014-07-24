@@ -11,13 +11,18 @@ from ..args import\
     args_to_phrasebook,\
     args_to_learners,\
     args_to_threshold
-from ..decoding import DecoderConfig, decode_document
+from ..decoding import\
+    DataAndModel, DecoderConfig,\
+    decode
 from ..fold import make_n_fold, folds_to_orange
 from ..io import read_data
 from ..report import Report
 from ..table import\
-    related_attachments, related_relations,\
-    select_data_in_grouping
+    related_attachments, related_relations, select_data_in_grouping
+# TODO: figure out what parts I want to export later
+from .decode import\
+    _select_doc,\
+    _args_to_decoder_config
 
 
 NAME = 'evaluate'
@@ -146,8 +151,8 @@ def config_argparser(psr):
 
 def main(args):
     phrasebook = args_to_phrasebook(args)
-    data_attach, data_relations = read_data(args.data_attach,
-                                            args.data_relations)
+    data_attach, data_relate = read_data(args.data_attach,
+                                         args.data_relations)
 
     decoder = args_to_decoder(args)
     attach_learner, relation_learner = \
@@ -159,7 +164,7 @@ def main(args):
         _prepare_folds(phrasebook, args.nfold, data_attach,
                        shuffle=args.shuffle)
 
-    with_relations = bool(data_relations)
+    with_relations = bool(data_relate)
     args.relations = ["attach", "relations"][with_relations]
     args.context = "window5" if "window" in args.data_attach else "full"
 
@@ -178,29 +183,26 @@ def main(args):
         # train model
         model_attach = attach_learner(train_data_attach)
 
-        # test
-        test_data_attach = data_attach.select_ref(selection, test_fold)
-
         if with_relations:
-            train_data_relations = data_relations.select_ref(selection,
-                                                             test_fold,
-                                                             negate=1)
-            train_data_relations = related_relations(phrasebook,
-                                                     train_data_relations)
+            train_data_relate = data_relate.select_ref(selection,
+                                                       test_fold,
+                                                       negate=1)
+            train_data_relate = related_relations(phrasebook,
+                                                  train_data_relate)
             # train model
-            model_relations = relation_learner(train_data_relations)
+            model_relate = relation_learner(train_data_relate)
         else:  # no relations
-            model_relations = None
+            model_relate = None
+
+        attach = DataAndModel(data_attach, model_attach)
+        relate = DataAndModel(data_relate, model_relate)\
+            if data_relate else None
 
         # decoding options for this fold
-        threshold = args_to_threshold(model_attach,
-                                      decoder,
-                                      requested=args.threshold)
-        config = DecoderConfig(phrasebook=phrasebook,
-                               decoder=decoder,
-                               threshold=threshold,
-                               post_labelling=args.post_label,
-                               use_prob=args.use_prob)
+        config = _args_to_decoder_config(phrasebook,
+                                         attach.model,
+                                         decoder,
+                                         args)
 
         # -- file level --
         fold_evals = []
@@ -208,15 +210,9 @@ def main(args):
             if fold_struct[onedoc] == test_fold:
                 print("decoding on file : ", onedoc, file=sys.stderr)
 
-                attach_instances, rel_instances = \
-                    select_data_in_grouping(phrasebook,
-                                            onedoc,
-                                            data_attach,
-                                            data_relations)
-
-                predicted = decode_document(config,
-                                            model_attach, attach_instances,
-                                            model_relations, rel_instances)
+                doc_attach, doc_relate =\
+                    _select_doc(config, onedoc, attach, relate)
+                predicted = decode(config, decoder, doc_attach, doc_relate)
 
                 reference = related_attachments(phrasebook, attach_instances)
                 labels =\

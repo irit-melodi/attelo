@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 from functools import wraps
+import argparse
 import csv
 import json
 import os
@@ -14,9 +15,10 @@ from ..args import\
 from ..fold import folds_to_orange
 from ..io import\
     read_data, load_model
-from ..table import select_data_in_grouping
+from ..table import\
+    related_attachments, related_relations, select_data_in_grouping
 from ..decoding import\
-    DecoderConfig, decode_document
+    DataAndModel, DecoderConfig, decode
 
 
 NAME = 'decode'
@@ -24,6 +26,18 @@ NAME = 'decode'
 # ---------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------
+
+
+def _args_to_decoder_config(phrasebook, model, decoder, args):
+    """
+    Package up command line arguments into a DecoderConfig
+    """
+    threshold = args_to_threshold(model, decoder,
+                                  requested=args.threshold)
+    return DecoderConfig(phrasebook=phrasebook,
+                         threshold=threshold,
+                         post_labelling=args.post_label,
+                         use_prob=args.use_prob)
 
 
 def _select_data(args, phrasebook):
@@ -35,7 +49,7 @@ def _select_data(args, phrasebook):
     the test data
     """
 
-    data_attach, data_relations =\
+    data_attach, data_relate =\
         read_data(args.data_attach, args.data_relations,
                   verbose=not args.quiet)
     if args.fold:
@@ -45,14 +59,45 @@ def _select_data(args, phrasebook):
                                     meta_index=phrasebook.grouping)
         data_attach = data_attach.select_ref(selection,
                                              args.fold)
-        if data_relations:
-            data_relations = data_relations.select_ref(selection,
-                                                       args.fold)
+        if data_relate:
+            data_relate = data_relate.select_ref(selection, args.fold)
 
-    return data_attach, data_relations
+    return data_attach, data_relate
 
 
-def export_graph(predicted, doc, folder):
+def _load_data_and_model(phrasebook, args):
+    """
+    Return DataAndModel pair for attachments and relations
+    """
+    data_attach, data_relate = _select_data(args, phrasebook)
+    model_attach = load_model(args.attachment_model)
+    attach = DataAndModel(data_attach, model_attach)
+    if data_relate:
+        model_relate = load_model(args.relation_model)
+        relate = DataAndModel(data_relate, model_relate)
+    else:
+        relate = None
+    return attach, relate
+
+
+def _select_doc(config, onedoc, attach, relate):
+    """
+    Given an attachment and relations data/model pair,
+    return a narrower pair selecting only the data that
+    correspond to a given document
+    """
+    attach_instances, relate_instances =\
+        select_data_in_grouping(config.phrasebook,
+                                onedoc,
+                                attach.data,
+                                relate.data)
+    doc_attach = DataAndModel(attach_instances, attach.model)
+    doc_relate = DataAndModel(relate_instances, relate.model)\
+        if relate else None
+    return doc_attach, doc_relate
+
+
+def _export_graph(predicted, doc, folder):
     """
     Write the graph out in an adhoc format, representing by
     lines of the form ::
@@ -70,7 +115,7 @@ def export_graph(predicted, doc, folder):
                   file=fout)
 
 
-def export_csv(phrasebook, predicted, doc, attach_instances, folder):
+def _export_csv(phrasebook, doc, predicted, attach_instances, folder):
     """
     Write the predictions out as a CSV table in the Orange CSV
     format, with columns for the identifying meta phrasebook, and
@@ -93,6 +138,15 @@ def export_csv(phrasebook, predicted, doc, attach_instances, folder):
             du2 = inst[phrasebook.target].value
             label = predicted_map.get((du1, du2), "UNRELATED")
             writer.writerow([inst[x].value for x in metas] + [label])
+
+
+def _write_predictions(config, doc, predicted, attach, output):
+    """
+    Save predictions to disk in various formats
+    """
+    _export_graph(predicted, doc, output)
+    _export_csv(config.phrasebook, doc, predicted, attach.data, output)
+
 
 # ---------------------------------------------------------------------
 # main
@@ -151,40 +205,20 @@ def main(args):
     "subcommand main"
 
     phrasebook = args_to_phrasebook(args)
-    data_attach, data_relations = _select_data(args, phrasebook)
-    # only one learner+decoder for now
     decoder = args_to_decoder(args)
+    attach, relate = _load_data_and_model(phrasebook, args)
+    config = _args_to_decoder_config(phrasebook,
+                                     attach.model,
+                                     decoder,
+                                     args)
 
-    model_attach = load_model(args.attachment_model)
-    model_relations = load_model(args.relation_model) if data_relations\
-        else None
-
-    threshold = args_to_threshold(model_attach,
-                                  decoder,
-                                  requested=args.threshold)
-
-    config = DecoderConfig(phrasebook=phrasebook,
-                           decoder=decoder,
-                           threshold=threshold,
-                           post_labelling=args.post_label,
-                           use_prob=args.use_prob)
-
-    grouping_index = data_attach.domain.index(phrasebook.grouping)
+    grouping_index = attach.data.domain.index(phrasebook.grouping)
     all_groupings = frozenset(inst[grouping_index].value for
-                              inst in data_attach)
+                              inst in attach.data)
 
     for onedoc in all_groupings:
-        print("decoding on file : ", onedoc, file=sys.stderr)
-
-        attach_instances, rel_instances =\
-            select_data_in_grouping(phrasebook,
-                                    onedoc,
-                                    data_attach,
-                                    data_relations)
-
-        predicted = decode_document(config,
-                                    model_attach, attach_instances,
-                                    model_relations, rel_instances)
-        export_graph(predicted, onedoc, args.output)
-        export_csv(phrasebook, predicted, onedoc, attach_instances,
-                   args.output)
+        if not args.quiet:
+            print("decoding on file : ", onedoc, file=sys.stderr)
+        doc_attach, doc_relate = _select_doc(config, onedoc, attach, relate)
+        predicted = decode(config, decoder, doc_attach, doc_relate)
+        _write_predictions(config, onedoc, predicted, doc_attach, args.output)
