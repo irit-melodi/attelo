@@ -10,6 +10,7 @@ import sys
 from attelo.edu import mk_edu_pairs
 from attelo.learning.perceptron import is_perceptron_model
 from attelo.table import index_by_metas, select_edu_pair
+from attelo.report import Count
 
 _DecoderConfig = namedtuple("DecoderConfig",
                             ["phrasebook",
@@ -196,3 +197,34 @@ def decode(config, decoder, attach, relate=None):
         predicted = _add_labels(config.phrasebook, predicted, relate)
 
     return predicted
+
+
+def count_correct(phrasebook,
+                  predicted, reference,
+                  labels=None, debug=False):
+    """basic eval: counting correct predicted edges (labelled or not)
+    data contains the reference attachments
+    labels the corresponding relations
+
+    return_type: `Count` object
+    """
+    score_attach = 0
+    score_label = 0
+    dict_predicted = {(arg1, arg2): rel for arg1, arg2, rel in predicted}
+    for one in reference:
+        edu_pair = (one[phrasebook.source].value,
+                    one[phrasebook.target].value)
+        if debug:
+            print(edu_pair, dict_predicted.get(edu_pair), file=sys.stderr)
+        if edu_pair in dict_predicted:
+            score_attach += 1
+            if labels:
+                relation_ref = select_edu_pair(phrasebook, edu_pair, labels)
+                if not relation_ref:
+                    print("attached pair without corresponding relation",
+                          one[phrasebook.grouping], edu_pair,
+                          file=sys.stderr)
+                elif dict_predicted[edu_pair] == relation_ref:
+                    score_label += 1
+
+    return Count(score_attach, score_label, len(predicted), len(reference))

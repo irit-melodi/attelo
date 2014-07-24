@@ -13,7 +13,7 @@ from ..args import\
     args_to_threshold
 from ..decoding import\
     DataAndModel, DecoderConfig,\
-    decode
+    decode, count_correct
 from ..fold import make_n_fold, folds_to_orange
 from ..io import read_data
 from ..report import Report
@@ -22,6 +22,7 @@ from ..table import\
 # TODO: figure out what parts I want to export later
 from .decode import\
     _select_doc,\
+    _score_predictions,\
     _args_to_decoder_config
 
 
@@ -47,44 +48,6 @@ def _prepare_folds(phrasebook, num_folds, table, shuffle=True):
     return fold_struct, selection
 
 
-def _discourse_eval(phrasebook,
-                    predicted, reference,
-                    labels=None, debug=False):
-    """basic eval: counting correct predicted edges (labelled or not)
-    data contains the reference attachments
-    labels the corresponding relations
-    """
-    #print("REF:", reference)
-    #print("PRED:", predicted)
-    score = 0
-    dict_predicted = dict([((a1, a2), rel) for (a1, a2, rel) in predicted])
-    for one in reference:
-        arg1 = one[phrasebook.source].value
-        arg2 = one[phrasebook.target].value
-        if debug:
-            print(arg1, arg2, dict_predicted.get((arg1, arg2)),
-                  file=sys.stderr)
-        if (arg1, arg2) in dict_predicted:
-            if labels is None:
-                score += 1
-                if debug:
-                    print("correct", file=sys.stderr)
-            else:
-                relation_ref = labels.filter_ref({phrasebook.source: [arg1],
-                                                  phrasebook.target: [arg2]})
-                if len(relation_ref) == 0:
-                    print("attached pair without corresponding relation",
-                          one[phrasebook.grouping], arg1, arg2,
-                          file=sys.stderr)
-                else:
-                    relation_ref = relation_ref[0][phrasebook.label].value
-                    score += (dict_predicted[(arg1, arg2)] == relation_ref)
-
-    total_ref = len(reference)
-    total_pred = len(predicted)
-    return score, total_pred, total_ref
-
-
 def _save_scores(evals, args):
     """
     Save results of crossfold evaluation (list of list of individual
@@ -98,10 +61,10 @@ def _save_scores(evals, args):
         fold_report = Report(fold_evals,
                              params=args,
                              correction=args.correction)
-        json_scores.append(fold_report.json_scores())
+        json_scores.append(fold_report.for_json())
 
     json_report = {"params": report.json_params(),
-                   "combined_scores": report.json_scores(),
+                   "combined_scores": report.for_json(),
                    "fold_scores": json_scores}
     print(">>> FINAL EVAL:", report.summary())
     fname_fmt = "_".join("{" + x + "}" for x in
@@ -214,15 +177,11 @@ def main(args):
                     _select_doc(config, onedoc, attach, relate)
                 predicted = decode(config, decoder, doc_attach, doc_relate)
 
-                reference = related_attachments(phrasebook, attach_instances)
-                labels =\
-                    related_relations(phrasebook, rel_instances) if score_labels\
-                    else None
-                scores = _discourse_eval(phrasebook,
-                                         predicted,
-                                         reference,
-                                         labels=labels)
-                fold_evals.append(scores)
+                score_doc_relate = doc_relate if score_labels else None
+                fold_evals.append(_score_predictions(config,
+                                                     doc_attach,
+                                                     score_doc_relate,
+                                                     predicted))
 
         fold_report = Report(fold_evals,
                              params=args,

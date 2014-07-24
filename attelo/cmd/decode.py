@@ -18,7 +18,7 @@ from ..io import\
 from ..table import\
     related_attachments, related_relations, select_data_in_grouping
 from ..decoding import\
-    DataAndModel, DecoderConfig, decode
+    DataAndModel, DecoderConfig, decode, count_correct
 
 
 NAME = 'decode'
@@ -148,6 +148,37 @@ def _write_predictions(config, doc, predicted, attach, output):
     _export_csv(config.phrasebook, doc, predicted, attach.data, output)
 
 
+def _score_predictions(config, attach, relate, predicted):
+    """
+    Return scores for predictions on the given data
+    """
+    reference = related_attachments(config.phrasebook, attach.data)
+    labels = related_relations(config.phrasebook, relate.data)\
+        if relate else None
+    return count_correct(config.phrasebook,
+                         predicted,
+                         reference,
+                         labels=labels)
+
+
+def _write_scores(scores, score_file):
+    """
+    Write scores out for any predictions that we made
+    """
+    writer = csv.writer(score_file)
+    writer.writerow(["doc",
+                     "num_correctly_attached",
+                     "num_correctly_labeled",
+                     "num_attached_predicted",
+                     "num_attached_reference"])
+    for doc, count in scores.items():
+        writer.writerow([doc,
+                         count.correct_attach,
+                         count.correct_label,
+                         count.total_predicted,
+                         count.total_reference])
+
+
 # ---------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------
@@ -164,6 +195,10 @@ def config_argparser(psr):
                      help="model needed for attachment prediction")
     psr.add_argument("--relation-model", "-R", default=None,
                      help="model needed for relations prediction")
+    psr.add_argument("--scores",
+                     type=argparse.FileType('w'),
+                     help="score our decoding (test data must have "
+                     "ref labels to score against) and save it here")
     psr.add_argument("--output", "-o",
                      default=None,
                      required=True,
@@ -216,9 +251,15 @@ def main(args):
     all_groupings = frozenset(inst[grouping_index].value for
                               inst in attach.data)
 
+    scores = {}
     for onedoc in all_groupings:
         if not args.quiet:
             print("decoding on file : ", onedoc, file=sys.stderr)
         doc_attach, doc_relate = _select_doc(config, onedoc, attach, relate)
         predicted = decode(config, decoder, doc_attach, doc_relate)
         _write_predictions(config, onedoc, predicted, doc_attach, args.output)
+        if args.scores:
+            scores[onedoc] = _score_predictions(config, doc_attach, doc_relate,
+                                                predicted)
+    if args.scores:
+        _write_scores(scores, args.scores)
