@@ -244,9 +244,8 @@ class Report(object):
         for this run
         """
 
-        res = {}
-        res["params"] = copy.copy(self.params.__dict__)
-        del res["params"]["func"]
+        res = copy.copy(self.params.__dict__)
+        del res["func"]
         return res
 
     def _params_to_filename(self):
