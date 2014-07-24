@@ -18,6 +18,11 @@ TODO:
 PerceptronArgs = namedtuple('PerceptronArgs', 'iterations averaging use_prob')
 
 
+def is_perceptron_model(model):
+    """
+    If the model in question is somehow based on perceptrons
+    """
+    return model.name in ["Perceptron", "StructuredPerceptron"]
 
 
 class Perceptron( object ):

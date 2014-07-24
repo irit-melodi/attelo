@@ -8,12 +8,11 @@ from Orange.classification import Classifier
 import sys
 
 from attelo.edu import mk_edu_pairs
-from attelo.table import index_by_metas
-
+from attelo.learning.perceptron import is_perceptron_model
+from attelo.table import index_by_metas, select_edu_pair
 
 _DecoderConfig = namedtuple("DecoderConfig",
                             ["phrasebook",
-                             "decoder",
                              "threshold",
                              "post_labelling",
                              "use_prob"])
@@ -138,7 +137,7 @@ def decode_document(config,
         prob_distrib = _combine_probs(phrasebook,
                                       attach_instances, rel_instances,
                                       model_attach, model_relations)
-    elif model_attach.name in ["Perceptron", "StructuredPerceptron"]:
+    elif is_perceptron_model(model_attach):
         # home-made online models
         prob_distrib = model_attach.get_scores(attach_instances,
                                                use_prob=use_prob)
