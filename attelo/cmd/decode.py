@@ -19,6 +19,7 @@ from ..table import\
     related_attachments, related_relations, select_data_in_grouping
 from ..decoding import\
     DataAndModel, DecoderConfig, decode, count_correct
+from ..report import Count
 
 
 NAME = 'decode'
