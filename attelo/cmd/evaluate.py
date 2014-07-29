@@ -7,6 +7,7 @@ import sys
 
 from ..args import\
     add_common_args, add_learner_args, add_decoder_args,\
+    add_report_args,\
     args_to_decoder,\
     args_to_phrasebook,\
     args_to_learners,\
@@ -88,6 +89,7 @@ def config_argparser(psr):
 
     add_common_args(psr)
     add_learner_args(psr)
+    add_report_args(psr)
     psr.set_defaults(func=main)
     psr.add_argument("--nfold", "-n",
                      default=10, type=int,
@@ -97,19 +99,10 @@ def config_argparser(psr):
                      help="if set, ensure a different cross-validation "
                      "of files is done, otherwise, the same file "
                      "splitting is done everytime")
-    psr.add_argument("--correction", "-c",
-                     default=1.0, type=float,
-                     help="if input is already a restriction on the full "
-                     "task, this options defines a correction to apply "
-                     "on the final recall score to have the real scores "
-                     "on the full corpus")
     psr.add_argument("--unlabelled", "-u",
                      default=False, action="store_true",
                      help="force unlabelled evaluation, even if the "
                      "prediction is made with relations")
-    psr.add_argument("--accuracy", "-a",
-                     default=False, action="store_true",
-                     help="provide accuracy scores for classifiers used")
 
 
 def main(args):

@@ -3,10 +3,14 @@ Experiment results
 """
 
 from __future__ import print_function
+from collections import namedtuple
 import copy
+import csv
 import os
 import sys
 import cPickle
+
+from tabulate import tabulate
 
 try:
     STATS = True
@@ -16,6 +20,11 @@ except:
     print("no module scipy.stats, cannot test statistical "
           "significance of results",
           file=sys.stderr)
+
+
+class AtteloReportException(Exception):
+    def __init__(self, msg):
+        super(self, AtteloReportException).__init__(msg)
 
 
 def _sloppy_div(num, den):
@@ -36,6 +45,13 @@ class Count(object):
     """
     Things we would count during the scoring process
     """
+
+    _FIELDNAMES = ["doc",
+                   "num_correctly_attached",
+                   "num_correctly_labeled",
+                   "num_attached_predicted",
+                   "num_attached_reference"
+                   ]
 
     def __init__(self,
                  correct_attach, correct_label,
@@ -71,6 +87,49 @@ class Count(object):
                      _sloppy_div(self.correct_label, self.total_reference),
                      correction)
 
+    @classmethod
+    def write_csv(cls, scores, counts_file):
+        """
+        Write counts out for any predictions that we made
+        (counts_file is any python file object, eg. sys.stdout)
+
+        :param scores: mapping from document to count
+        :type scores: dict(string, Count)
+        """
+        writer = csv.writer(counts_file)
+        writer.writerow(cls._FIELDNAMES)
+        for doc, count in scores.items():
+            writer.writerow([doc,
+                             count.correct_attach,
+                             count.correct_label,
+                             count.total_predicted,
+                             count.total_reference])
+
+    @classmethod
+    def read_csv(cls, counts_file):
+        """
+        Read a counts file into a dictionary mapping
+        documents to Count objects
+        """
+        reader = csv.DictReader(counts_file, fieldnames=cls._FIELDNAMES)
+        header_row = reader.next()
+        header = [header_row[k] for k in cls._FIELDNAMES]
+        if header != cls._FIELDNAMES:
+            oops = "Malformed counts file (expected keys: %s, got: %s)"\
+                % (cls._FIELDNAMES, header)
+            raise AtteloReportException(oops)
+
+        def mk_count(row):
+            "row to Count object"
+            return cls(*[int(row[a]) for a in cls._FIELDNAMES[1:]])
+
+        return {r["doc"]: mk_count(r) for r in reader}
+
+ScoreConfig = namedtuple("ScoreConfig", "correction prefix")
+
+DEFAULT_SCORE_CONFIG = ScoreConfig(correction=1.0,
+                                   prefix=None)
+
 
 # pylint: disable=too-few-public-methods, invalid-name
 class Score(object):
@@ -104,6 +163,38 @@ class Score(object):
             res["f1_corrected"] = self.f1_corr
             res["recall_corrected"] = self.recall_corr
         return res
+
+    def table_row(self):
+        "Scores as a row of floats (meant to be included in a table)"
+        row = [100 * self.precision,
+               100 * self.recall,
+               100 * self.f1]
+
+        if self.f1_corr:
+            row += [100 * self.recall_corr,
+                    100 * self.f1_corr]
+
+        return row
+
+    @classmethod
+    def table_header(cls, config=None):
+        """
+        Header for table using these scores (prefix to distinguish
+        between different kinds of scores)
+        """
+        config = config or DEFAULT_SCORE_CONFIG
+        corrected = config.correction != 1.0
+
+        res = ["pre" if config.prefix is None else "%s pre" % config.prefix,
+               "rec", "f1"]
+
+        if corrected:
+            res += ["rec (cr %.2f)" % config.correction,
+                    "f1 (cr %.2f)" % config.correction]
+
+        return res
+
+
 # pylint: enable=too-few-public-methods, invalid-name
 
 
@@ -170,6 +261,7 @@ class Multiscore(object):
         """
         scores = self.score.for_json()
         _f1 = lambda x: x.f1
+        scores["standard_error"] = self.standard_error(_f1)
         try:
             mean, (int0, _) = self.confidence_interval(_f1)
             scores["confidence_mean"] = mean
@@ -206,6 +298,15 @@ class Multiscore(object):
                            self.score.f1_corr))
         return " ".join(output)
 
+    def table_row(self):
+        "Scores as a row of floats (meant to be included in a table)"
+        return self.score.table_row()
+
+    @classmethod
+    def table_header(cls, config=None):
+        "Scores as a row of floats (meant to be included in a table)"
+        return Score.table_header(config=config)
+
 
 class Report(object):
     """
@@ -213,11 +314,13 @@ class Report(object):
     """
     def __init__(self, evals, params=None, correction=1.0):
         totals = Count.sum(evals)
+        self.config = ScoreConfig(prefix=None,
+                                  correction=correction)
         self.attach = Multiscore.create(lambda x: x.score_attach(correction),
                                         totals, evals)
         self.label = Multiscore.create(lambda x: x.score_label(correction),
                                        totals, evals)
-        self.params = params
+        self.params = params if params is not None else {}
 
     def save(self, name):
         "Dump the scores a file of the given name in some binary format"
@@ -266,3 +369,50 @@ class Report(object):
                   "\tATTACHMENT", self.attach.summary(),
                   "\tLABELLING", self.label.summary()]
         return " ".join(output)
+
+    def table_row(self):
+        "Scores as a tabulate table row"
+        return\
+            self.attach.table_row() +\
+            self.label.table_row()
+
+    @classmethod
+    def table_header(cls, config=None):
+        "Scores as a tabulate table row"
+        config = config or DEFAULT_SCORE_CONFIG
+        config_a = ScoreConfig(correction=config.correction,
+                               prefix="ATTACH")
+        config_l = ScoreConfig(correction=config.correction,
+                               prefix="LABEL")
+        return\
+            Multiscore.table_header(config_a) +\
+            Multiscore.table_header(config_l)
+
+
+
+
+class CombinedReport(object):
+    """
+    Report for many different configurations
+    """
+    #pylint: disable=pointless-string-statement
+    def __init__(self, reports):
+        self.reports = reports
+        "dictionary from config name (string) to Report"
+    #pylint: enable=pointless-string-statement
+
+    def table(self):
+        """
+        2D tabular output
+        """
+        keys = sorted(self.reports.keys())
+        return tabulate([[k] + self.reports[k].table_row() for k in keys],
+                        headers=Report.table_header(),
+                        floatfmt=".1f")
+
+    def for_json(self):
+        """
+        JSON-friendly dict of scores.
+        May contain more information than the raw table
+        """
+        return {k: v.for_json() for k, v in self.reports.items()}

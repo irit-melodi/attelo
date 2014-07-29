@@ -371,3 +371,19 @@ def add_learner_args(psr):
                           default=1, type=int,
                           help="number of iterations for "
                           "perceptron models")
+
+
+def add_report_args(psr):
+    """
+    add args to scoring/evaluation
+    """
+    score_grp = psr.add_argument_group('scoring arguments')
+    score_grp.add_argument("--correction", "-c",
+                           default=1.0, type=float,
+                           help="if input is already a restriction on the "
+                           "full task, this options defines a correction to "
+                           "apply on the final recall score to have the real "
+                           "scores on the full corpus")
+    score_grp.add_argument("--accuracy", "-a",
+                           default=False, action="store_true",
+                           help="provide accuracy scores for classifiers used")

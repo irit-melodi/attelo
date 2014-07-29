@@ -161,24 +161,6 @@ def _score_predictions(config, attach, relate, predicted):
                          labels=labels)
 
 
-def _write_scores(scores, score_file):
-    """
-    Write scores out for any predictions that we made
-    """
-    writer = csv.writer(score_file)
-    writer.writerow(["doc",
-                     "num_correctly_attached",
-                     "num_correctly_labeled",
-                     "num_attached_predicted",
-                     "num_attached_reference"])
-    for doc, count in scores.items():
-        writer.writerow([doc,
-                         count.correct_attach,
-                         count.correct_label,
-                         count.total_predicted,
-                         count.total_reference])
-
-
 # ---------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------
@@ -262,4 +244,4 @@ def main(args):
             scores[onedoc] = _score_predictions(config, doc_attach, doc_relate,
                                                 predicted)
     if args.scores is not None:
-        _write_scores(scores, args.scores)
+        Count.write_csv(scores, args.scores)

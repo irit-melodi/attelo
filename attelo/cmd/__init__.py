@@ -9,6 +9,7 @@ from . import\
     decode,\
     enfold,\
     evaluate,\
-    learn
+    learn,\
+    report
 
-SUBCOMMANDS = [learn, decode, enfold, evaluate]
+SUBCOMMANDS = [learn, decode, enfold, evaluate, report]

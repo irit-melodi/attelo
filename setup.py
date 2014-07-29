@@ -6,5 +6,5 @@ setup(
       author_email = "Philippe.Muller@irit.fr",
       packages = find_packages(exclude=["scripts","experiments","tests"]),
       scripts  = [ "scripts/attelo" ],
-      install_requires = ['nltk','numpy','Orange','scipy'],
+      install_requires = ['nltk','numpy','Orange','scipy','tabulate'],
 )
