@@ -44,10 +44,22 @@ Discourse parsing (rough sketch, see the `--help`):
 2. attelo learn
 3. attelo decode
 
-Running experiments:
+Running experiments (old way):
 
 1. extract features (DIY)
 2. attelo evaluate
+
+### Finer grained evaluation
+
+There is work in progress to break `attelo evaluate` up to avoid
+repeated work. The idea would be to save intermediary models for
+each fold and to re-use these models to test various decoders. The
+new experiments would look a bit more like this:
+
+1. extract features (DIY)
+2. attelo enfold
+3. for each fold: attelo learn --fold, attelo decode --fold
+4. attelo report
 
 See the requirements above. We recommend building an experimental
 harness around attelo instead of trying to use it by hand. Even
