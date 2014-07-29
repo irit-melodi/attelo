@@ -101,7 +101,7 @@ def _known_learners(decoder, phrasebook, perc_args=None):
                 "maxent": maxent,
                 "majority": majority}
 
-    if perc_args:
+    if perc_args is not None:
         # home made perceptron
         perc = Perceptron(phrasebook,
                           nber_it=perc_args.iterations,
@@ -142,7 +142,7 @@ def args_to_decoder(args):
         raise ArgumentTypeError("Unknown heuristics: %s" %
                                 args.heuristics)
     heuristic = _known_heuristics().get(args.heuristics, h_average)
-    if not args.data_relations:
+    if args.data_relations is None:
         args.rfc = "simple"
 
     _decoders = _known_decoders(heuristic, args.rfc)
@@ -179,7 +179,7 @@ def args_to_learners(decoder, phrasebook, args):
         msg = "The learner '" + args.learner + "' needs a" +\
             "a non-perceptron relation learner to go with it"
         raise ArgumentTypeError(msg)
-    if not args.relation_learner:
+    if args.relation_learner is None:
         relation_learner = attach_learner
     elif args.relation_learner in _learners:
         relation_learner = _learners[args.relation_learner]

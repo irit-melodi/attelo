@@ -59,7 +59,7 @@ def _select_data(args, phrasebook):
                                     meta_index=phrasebook.grouping)
         data_attach = data_attach.select_ref(selection,
                                              args.fold)
-        if data_relate:
+        if data_relate is not None:
             data_relate = data_relate.select_ref(selection, args.fold)
 
     return data_attach, data_relate
@@ -72,7 +72,7 @@ def _load_data_and_model(phrasebook, args):
     data_attach, data_relate = _select_data(args, phrasebook)
     model_attach = load_model(args.attachment_model)
     attach = DataAndModel(data_attach, model_attach)
-    if data_relate:
+    if data_relate is not None:
         model_relate = load_model(args.relation_model)
         relate = DataAndModel(data_relate, model_relate)
     else:

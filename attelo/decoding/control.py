@@ -171,7 +171,7 @@ def decode(config, decoder, attach, relate=None):
     :type attach: DataAndModel
     :type relate: DataAndModel
     """
-    if relate and not config.post_labelling:
+    if relate is not None and not config.post_labelling:
         prob_distrib = _combine_probs(config.phrasebook,
                                       attach, relate)
     elif is_perceptron_model(attach.model):
@@ -185,7 +185,7 @@ def decode(config, decoder, attach, relate=None):
     # get prediction (input is just prob_distrib)
     # not all decoders support the threshold keyword argument
     # hence the apparent redundancy here
-    if config.threshold:
+    if config.threshold is not None:
         predicted = decoder(prob_distrib,
                             threshold=config.threshold,
                             use_prob=config.use_prob)
@@ -218,9 +218,9 @@ def count_correct(phrasebook,
             print(edu_pair, dict_predicted.get(edu_pair), file=sys.stderr)
         if edu_pair in dict_predicted:
             score_attach += 1
-            if labels:
+            if labels is not None:
                 relation_ref = select_edu_pair(phrasebook, edu_pair, labels)
-                if not relation_ref:
+                if relation_ref is None:
                     print("attached pair without corresponding relation",
                           one[phrasebook.grouping], edu_pair,
                           file=sys.stderr)

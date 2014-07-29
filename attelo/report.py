@@ -100,7 +100,7 @@ class Score(object):
         res = {"precision": self.precision,
                "recall": self.recall,
                "f1": self.f1}
-        if self.f1_corr:
+        if self.f1_corr is not None:
             res["f1_corrected"] = self.f1_corr
             res["recall_corrected"] = self.recall_corr
         return res
@@ -199,7 +199,7 @@ class Multiscore(object):
                        self.standard_error(_f1),
                        mean,
                        mean - int0))
-        if self.score.f1_corr:
+        if self.score.f1_corr is not None:
             output.append("\t with recall correction estimate, "
                           "R=%1.3f, F1=%1.3f" %
                           (self.score.recall_corr,

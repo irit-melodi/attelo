@@ -39,7 +39,7 @@ def _select_data(args, phrasebook):
         data_attach = data_attach.select_ref(selection,
                                              args.fold,
                                              negate=1)
-        if data_relations:
+        if data_relations is not None:
             data_relations = data_relations.select_ref(selection,
                                                        args.fold,
                                                        negate=1)
@@ -88,7 +88,7 @@ def main(args):
         model_attach = attach_learner(data_attach)
         save_model(args.attachment_model, model_attach)
 
-    if data_relations:
+    if data_relations is not None:
         with torpor("training relations model"):
             related_only = related_relations(phrasebook, data_relations)
             model_relations = relation_learner(related_only)
