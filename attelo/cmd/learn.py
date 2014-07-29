@@ -80,7 +80,7 @@ def main(args):
 
     def torpor(msg):
         "training feedback"
-        if args.fold:
+        if args.fold is not None:
             msg += " (fold %d)" % args.fold
         return Torpor(msg, sameline=False, quiet=args.quiet)
 

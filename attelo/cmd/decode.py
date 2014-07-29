@@ -224,10 +224,10 @@ def validate_model_args(wrapped):
     @wraps(wrapped)
     def inner(args):
         "die model args are incomplete"
-        if args.data_relations and not args.relation_model:
+        if args.data_relations is not None and args.relation_model is None:
             sys.exit("arg error: --relation-model is required if a "
                      "relation file is given")
-        if args.relation_model and not args.data_relations:
+        if args.relation_model is not None and args.data_relations is None:
             sys.exit("arg error: --relation-model is not needed "
                      "unless a relation data file is also given")
         wrapped(args)
