@@ -275,13 +275,13 @@ def validate_fold_choice_args(wrapped):
     @wraps(wrapped)
     def inner(args):
         "die if fold args are incomplete"
-        if args.fold_file and not args.fold:
+        if args.fold_file is not None and args.fold is None:
             # I'd prefer to use something like ArgumentParser.error
             # here, but I can't think of a convenient way of passing
             # the parser object in or otherwise obtaining it
             sys.exit("arg error: --fold is required when "
                      "--fold-file is present")
-        elif args.fold and not args.fold_file:
+        elif args.fold is not None and args.fold_file is None:
             sys.exit("arg error: --fold-file is required when "
                      "--fold is present")
         wrapped(args)
