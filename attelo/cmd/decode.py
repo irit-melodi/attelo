@@ -258,8 +258,8 @@ def main(args):
         doc_attach, doc_relate = _select_doc(config, onedoc, attach, relate)
         predicted = decode(config, decoder, doc_attach, doc_relate)
         _write_predictions(config, onedoc, predicted, doc_attach, args.output)
-        if args.scores:
+        if args.scores is not None:
             scores[onedoc] = _score_predictions(config, doc_attach, doc_relate,
                                                 predicted)
-    if args.scores:
+    if args.scores is not None:
         _write_scores(scores, args.scores)

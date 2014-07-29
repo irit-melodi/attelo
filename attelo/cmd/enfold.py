@@ -60,5 +60,5 @@ def main(args):
 
     json_output = args.output or sys.stdout
     json.dump(fold_struct, json_output, indent=2)
-    if not args.output:
+    if args.output is None:
         print("")
