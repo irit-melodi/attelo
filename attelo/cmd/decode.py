@@ -52,7 +52,7 @@ def _select_data(args, phrasebook):
     data_attach, data_relate =\
         read_data(args.data_attach, args.data_relations,
                   verbose=not args.quiet)
-    if args.fold:
+    if args.fold is not None:
         fold_struct = json.load(args.fold_file)
         selection = folds_to_orange(data_attach,
                                     fold_struct,
