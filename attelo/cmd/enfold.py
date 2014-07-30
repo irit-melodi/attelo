@@ -8,7 +8,7 @@ import sys
 
 from ..args import\
     add_common_args_lite,\
-    args_to_phrasebook
+    args_to_phrasebook, DEFAULT_NFOLD
 from ..fold import make_n_fold
 from ..io import read_data
 
@@ -36,8 +36,9 @@ def config_argparser(psr):
     add_common_args_lite(psr)
     psr.set_defaults(func=main)
     psr.add_argument("--nfold", "-n",
-                     default=10, type=int,
-                     help="nfold cross-validation number (default 10)")
+                     default=DEFAULT_NFOLD, type=int,
+                     help="nfold cross-validation number "
+                     "(default %d)" % DEFAULT_NFOLD)
     psr.add_argument("-s", "--shuffle",
                      default=False, action="store_true",
                      help="if set, ensure a different cross-validation "

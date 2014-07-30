@@ -132,6 +132,12 @@ KNOWN_ATTACH_LEARNERS = _known_learners(last_baseline, {},
                                         PerceptronArgs(0, False, False)).keys()
 KNOWN_RELATION_LEARNERS = _known_learners(last_baseline, {}, None)
 
+DEFAULT_RFC = "full"
+DEFAULT_HEURISTIC = "average"
+DEFAULT_DECODER = "local"
+DEFAULT_NIT = 1
+DEFAULT_NFOLD = 10
+
 
 def args_to_decoder(args):
     """
@@ -308,23 +314,24 @@ def _add_decoder_args(psr):
                              help="force the classifier to use this threshold "
                              "value for attachment decisions, unless it is "
                              "trained explicitely with a threshold")
-    decoder_grp.add_argument("--decoder", "-d", default="local",
+    decoder_grp.add_argument("--decoder", "-d", default=DEFAULT_DECODER,
                              choices=KNOWN_DECODERS,
-                             help="decoders for attachment "
+                             help="decoders for attachment; " +
+                             "default: %s " % DEFAULT_DECODER +
                              "(cf also heuristics for astar)")
 
     astar_grp = psr.add_argument_group("A* decoder arguments")
     astar_grp.add_argument("--heuristics", "-e",
-                           default="average",
+                           default=DEFAULT_HEURISTIC,
                            choices=KNOWN_HEURISTICS,
                            help="heuristics used for astar decoding; "
-                           "default=average")
+                           "default: %s" % DEFAULT_HEURISTIC)
     astar_grp.add_argument("--rfc", "-r",
-                           default="full",
+                           default=DEFAULT_RFC,
                            choices=["full", "simple", "none"],
                            help="with astar decoding, what kind of RFC is "
-                           "applied: simple of full; simple means "
-                           "everything is subordinating")
+                           "applied: simple of full; simple means everything "
+                           "is subordinating (default: %s)" % DEFAULT_RFC)
 
     perc_grp = psr.add_argument_group('perceptron arguments')
     perc_grp.add_argument("--use_prob", "-P",
@@ -368,9 +375,9 @@ def add_learner_args(psr):
                           default=False, action="store_true",
                           help="averaged perceptron")
     perc_grp.add_argument("--nit", "-i",
-                          default=1, type=int,
+                          default=DEFAULT_NIT, type=int,
                           help="number of iterations for "
-                          "perceptron models")
+                          "perceptron models (default: %d)" % DEFAULT_NIT)
 
 
 def add_report_args(psr):
