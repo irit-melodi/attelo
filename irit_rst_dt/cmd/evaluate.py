@@ -240,19 +240,6 @@ def _maybe_learn(lconf, dconf, econf, fold):
     att.learn.main_for_harness(args, fold_attach, fold_relate)
     args.cleanup()
 
-#    cmd = ["attelo", "learn",
-#           _eval_csv_path(lconf, "edu-pairs"),
-#           _eval_csv_path(lconf, "relations"),
-#           "-C", ATTELO_CONFIG_FILE,
-#           "-A", model_file_a,
-#           "-R", model_file_r,
-#           "-l", econf.learner.attach,
-#           "--fold-file", lconf.fold_file,
-#           "--fold", str(fold)]
-#    if econf.learner.relate:
-#        cmd += ["--relation-learner", econf.learner.relate]
-#    call(cmd)
-
 
 def _decode(lconf, dconf, econf, fold):
     """
@@ -282,22 +269,6 @@ def _decode(lconf, dconf, econf, fold):
     att.decode.main_for_harness(args, config, decoder, attach, relate)
     args.cleanup()
 
-#    score_file = _counts_file_path(lconf, econf, fold)
-#    output_dir = _decode_output_path(lconf, econf, fold)
-#
-#
-#    cmd = ["attelo", "decode",
-#           _eval_csv_path(lconf, "edu-pairs"),
-#           _eval_csv_path(lconf, "relations"),
-#           "-C", ATTELO_CONFIG_FILE,
-#           "-A", model_file_a,
-#           "-R", model_file_r,
-#           "--fold-file", lconf.fold_file,
-#           "--fold", str(fold),
-#           "--scores", score_file,
-#           "--output", output_dir]
-#    call(cmd)
-
 
 def _generate_fold_file(lconf, dconf):
     """
@@ -306,10 +277,6 @@ def _generate_fold_file(lconf, dconf):
     args = FakeEnfoldArgs(lconf)
     att.enfold.main_for_harness(args, dconf.attach)
     args.cleanup()
-#    call(["attelo", "enfold",
-#          "-C", ATTELO_CONFIG_FILE,
-#          _eval_csv_path(lconf, "edu-pairs"),
-#          "--output", lconf.fold_file])
 
 
 def _mk_report(lconf, idx_file):
