@@ -320,11 +320,15 @@ def _do_fold(lconf, dconf, fold, idx):
     Run all learner/decoder combos within this fold
     """
     print(_fold_banner(lconf, fold), file=sys.stderr)
-    for econf in EVALUATIONS:
-        print(_eval_banner(econf), file=sys.stderr)
-        idx_entry = _do_tuple(lconf, dconf, econf, fold)
-        idx.writerow(idx_entry)
+    fold_idx_file = _index_file_path(lconf.scratch_dir, lconf)
+    with CountIndex(fold_idx_file) as fold_idx:
+        for econf in EVALUATIONS:
+            print(_eval_banner(econf), file=sys.stderr)
+            idx_entry = _do_tuple(lconf, dconf, econf, fold)
+            idx.writerow(idx_entry)
+            fold_idx.writerow(idx_entry)
     fold_dir = _fold_dir_path(lconf, fold)
+    _mk_report(fold_dir, lconf, fold_idx_file)
 
 
 def _do_corpus(lconf):
@@ -342,23 +346,14 @@ def _do_corpus(lconf):
 
     _generate_fold_file(lconf, dconf)
 
-    idx_file = os.path.join(lconf.scratch_dir,
-                            "count-index-%s.csv" % lconf.dataset)
-    idx_stream = open(idx_file, "w")
-    idx_writer = csv.DictWriter(idx_stream, fieldnames=_IDX_FIELDS)
-    idx_writer.writeheader()
-
     with open(lconf.fold_file) as f_in:
         folds = frozenset(json.load(f_in).values())
 
-    for fold in folds:
-        print(_fold_banner(lconf, fold), file=sys.stderr)
-        for econf in EVALUATIONS:
-            print(_eval_banner(econf), file=sys.stderr)
-            _do_tuple(lconf, dconf, econf, fold, idx_writer)
-
-    idx_stream.close()
-    _mk_report(lconf, idx_file)
+    idx_file = _index_file_path(lconf.scratch_dir, lconf)
+    with CountIndex(idx_file) as idx:
+        for fold in folds:
+            _do_fold(lconf, dconf, fold, idx)
+    _mk_report(lconf.eval_dir, lconf, idx_file)
 
 # ---------------------------------------------------------------------
 # main
