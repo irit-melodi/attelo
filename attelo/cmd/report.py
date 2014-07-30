@@ -13,7 +13,7 @@ from ..report import Count, Report, CombinedReport
 
 NAME = 'report'
 
-_EXPECTED_KEYS = ["config", "fold", "counts_file"]
+EXPECTED_KEYS = ["config", "fold", "counts_file"]
 
 # ---------------------------------------------------------------------
 # helpers
@@ -22,12 +22,12 @@ _EXPECTED_KEYS = ["config", "fold", "counts_file"]
 
 def _read_index_file(fstream):
     "read the index file into a simple dict"
-    reader = csv.DictReader(fstream, fieldnames=_EXPECTED_KEYS)
+    reader = csv.DictReader(fstream, fieldnames=EXPECTED_KEYS)
     header_row = reader.next()
-    header = [header_row[k] for k in _EXPECTED_KEYS]
-    if header != _EXPECTED_KEYS:
+    header = [header_row[k] for k in EXPECTED_KEYS]
+    if header != EXPECTED_KEYS:
         sys.exit("Malformed index file (expected keys: %s, got: %s)"
-                 % (_EXPECTED_KEYS, header))
+                 % (EXPECTED_KEYS, header))
     return list(reader)
 
 
