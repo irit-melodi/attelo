@@ -11,7 +11,7 @@ from datetime import datetime, date
 import subprocess
 import sys
 
-from .config import LOCAL_TMP
+from .local import LOCAL_TMP
 
 
 def timestamp():

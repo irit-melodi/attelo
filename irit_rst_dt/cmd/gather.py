@@ -8,7 +8,7 @@ gather features
 from __future__ import print_function
 import os
 
-from ..config import\
+from ..local import\
     TRAINING_CORPORA
 from ..util import\
     call,\

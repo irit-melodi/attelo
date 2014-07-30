@@ -6,16 +6,43 @@ run an experiment
 """
 
 from __future__ import print_function
+from collections import namedtuple
+import csv
+import json
 import os
-import subprocess
 import sys
 
-from ..config import\
-    TRAINING_CORPORA, LEARNERS, DECODERS, ATTELO_CONFIG_FILE
+from attelo.args import\
+    args_to_decoder, args_to_phrasebook, args_to_threshold,\
+    DEFAULT_HEURISTIC, DEFAULT_RFC
+from attelo.decoding import\
+    DataAndModel, DecoderConfig
+from attelo.io import\
+    read_data, load_model
+import attelo.cmd.decode as att_decode
+
+
+from ..local import\
+    TRAINING_CORPORA, EVALUATIONS, ATTELO_CONFIG_FILE
 from ..util import\
-    latest_tmp, timestamp
+    call, latest_tmp, timestamp
 
 NAME = 'evaluate'
+_DEBUG = 1
+
+_IDX_FIELDS = ["config", "fold", "counts_file"]
+
+#pylint: disable=pointless-string-statement
+LoopConfig = namedtuple("LoopConfig",
+                        ["eval_dir",
+                         "scratch_dir",
+                         "fold_file",
+                         "dataset"])
+"that which is common to outerish loops"
+
+DataConfig = namedtuple("DataConfig", "attach relate")
+"data tables we have read"
+#pylint: enable=pointless-string-statement
 
 
 def config_argparser(parser):
@@ -28,16 +55,241 @@ def config_argparser(parser):
     parser.set_defaults(func=main)
 
 
-def _banner(dataset, decoder, learner_a, learner_r):
+def _eval_banner(econf):
     """
     Which combo of eval parameters are we running now?
     """
-    learner_str = learner_a + (":" + learner_r if learner_r else "")
+    rname = econf.learner.relate
+    learner_str = econf.learner.attach + (":" + rname if rname else "")
+    return "\n".join(["----------" * 3,
+                      "learner(s): %s" % learner_str,
+                      "decoder: %s" % econf.decoder.decoder,
+                      "----------" * 3])
+
+
+def _corpus_banner(lconf):
+    "banner to announce the corpus"
+    return "\n".join(["==========" * 7,
+                      lconf.dataset,
+                      "==========" * 7])
+
+
+def _fold_banner(lconf, fold):
+    "banner to announce the next fold"
     return "\n".join(["==========" * 6,
-                      " ".join(["corpus:", dataset + ",",
-                                "learner(s):", learner_str + ",",
-                                "decoder:", decoder]),
+                      "fold %d [%s]" % (fold, lconf.dataset),
                       "==========" * 6])
+
+
+def _link_data_files(data_dir, eval_dir):
+    """
+    Hard-link all files from the data dir into the evaluation
+    directory. This does not cost space and it makes future
+    archiving a bit more straightforward
+    """
+    for fname in os.listdir(data_dir):
+        data_file = os.path.join(data_dir, fname)
+        eval_file = os.path.join(eval_dir, fname)
+        if os.path.isfile(data_file):
+            os.link(data_file, eval_file)
+
+
+def _eval_csv_path(lconf, ext):
+    """
+    Path to data file in the evaluation dir
+    """
+    return os.path.join(lconf.eval_dir,
+                        "%s.%s.csv" % (lconf.dataset, ext))
+
+
+def _fold_dir_path(lconf, fold):
+    "Scratch directory for working within a given fold"
+    return os.path.join(lconf.scratch_dir, "fold-%d" % fold)
+
+
+def _eval_model_path(lconf, econf, fold, mtype):
+    "Model for a given loop/eval config and fold"
+    lname = econf.learner.name
+    fold_dir = _fold_dir_path(lconf, fold)
+    return os.path.join(fold_dir,
+                        "%s.%s.%s.model" % (lconf.dataset, lname, mtype))
+
+
+def _counts_file_path(lconf, econf, fold):
+    "Scores collected for a given loop and eval configuration"
+    fold_dir = _fold_dir_path(lconf, fold)
+    return os.path.join(fold_dir,
+                        ".".join(["scores", econf.name, "csv"]))
+
+
+def _decode_output_path(lconf, econf, fold):
+    "Model for a given loop/eval config and fold"
+    fold_dir = _fold_dir_path(lconf, fold)
+    return os.path.join(fold_dir,
+                        ".".join(["output", econf.name]))
+
+
+def _maybe_learn(lconf, econf, fold):
+    """
+    Run the learner unless the model files already exist
+    """
+    fold_dir = _fold_dir_path(lconf, fold)
+    if not os.path.exists(fold_dir):
+        os.makedirs(fold_dir)
+    model_file_a = _eval_model_path(lconf, econf, fold, "attach")
+    model_file_r = _eval_model_path(lconf, econf, fold, "relate")
+    if os.path.exists(model_file_a) and os.path.exists(model_file_r):
+        print("reusing %s model (already built)" % econf.learner.name,
+              file=sys.stderr)
+        return
+
+    cmd = ["attelo", "learn",
+           _eval_csv_path(lconf, "edu-pairs"),
+           _eval_csv_path(lconf, "relations"),
+           "-C", ATTELO_CONFIG_FILE,
+           "-A", model_file_a,
+           "-R", model_file_r,
+           "-l", econf.learner.attach,
+           "--fold-file", lconf.fold_file,
+           "--fold", str(fold)]
+    if econf.learner.relate:
+        cmd += ["--relation-learner", econf.learner.relate]
+    call(cmd)
+
+
+# pylint: disable=too-many-instance-attributes, too-few-public-methods
+class FakeDecodeArgs(object):
+    """
+    Fake argparse object that would be generated by attelo
+    """
+    def __init__(self, lconf, econf, fold):
+        model_file_a = _eval_model_path(lconf, econf, fold, "attach")
+        model_file_r = _eval_model_path(lconf, econf, fold, "relate")
+
+        self.config = ATTELO_CONFIG_FILE
+        self.data_attach = _eval_csv_path(lconf, "edu-pairs"),
+        self.data_relations = _eval_csv_path(lconf, "relations")
+        self.decoder = econf.decoder.decoder
+        self.attachment_model = model_file_a
+        self.relation_model = model_file_r
+        self.fold_file = open(lconf.fold_file, "r")
+        self.fold = fold
+        self.scores = open(_counts_file_path(lconf, econf, fold), "w")
+        self.output = _decode_output_path(lconf, econf, fold)
+        self.threshold = None
+        self.use_prob = None
+        self.heuristics = DEFAULT_HEURISTIC
+        self.rfc = DEFAULT_RFC
+        self.quiet = False
+
+    def cleanup(self):
+        "Tidy up any open file handles, etc"
+        self.fold_file.close()
+        self.scores.close()
+# pylint: enable=too-many-instance-attributes, too-few-public-methods
+
+
+def _decode(lconf, dconf, econf, fold):
+    """
+    Run the decoder for this given fold
+    """
+    fold_dir = _fold_dir_path(lconf, fold)
+    if not os.path.exists(fold_dir):
+        os.makedirs(fold_dir)
+    args = FakeDecodeArgs(lconf, econf, fold)
+    phrasebook = args_to_phrasebook(args)
+    decoder = args_to_decoder(args)
+
+    fold_attach, fold_relate =\
+        att_decode.select_fold(dconf.attach, dconf.relate,
+                               args, phrasebook)
+    attach = DataAndModel(fold_attach,
+                          load_model(args.attachment_model))
+    relate = DataAndModel(fold_relate,
+                          load_model(args.relation_model))
+    threshold = args_to_threshold(attach.model, decoder,
+                                  requested=args.threshold)
+    config = DecoderConfig(phrasebook=phrasebook,
+                           threshold=threshold,
+                           post_labelling=False,
+                           use_prob=args.use_prob)
+
+    att_decode.main_for_harness(args, config, decoder, attach, relate)
+    args.cleanup()
+
+#    score_file = _counts_file_path(lconf, econf, fold)
+#    output_dir = _decode_output_path(lconf, econf, fold)
+#
+#
+#    cmd = ["attelo", "decode",
+#           _eval_csv_path(lconf, "edu-pairs"),
+#           _eval_csv_path(lconf, "relations"),
+#           "-C", ATTELO_CONFIG_FILE,
+#           "-A", model_file_a,
+#           "-R", model_file_r,
+#           "--fold-file", lconf.fold_file,
+#           "--fold", str(fold),
+#           "--scores", score_file,
+#           "--output", output_dir]
+#    call(cmd)
+
+
+def _generate_fold_file(lconf):
+    """
+    Generate the folds file
+    """
+    call(["attelo", "enfold",
+          "-C", ATTELO_CONFIG_FILE,
+          _eval_csv_path(lconf, "edu-pairs"),
+          "--output", lconf.fold_file])
+
+
+def _mk_report(lconf, idx_file):
+    "Generate reports for scores"
+    score_prefix = os.path.join(lconf.eval_dir, "scores-%s" % lconf.dataset)
+    json_file = score_prefix + ".json"
+    pretty_file = score_prefix + ".txt"
+
+    with open(pretty_file, "w") as pretty_stream:
+        call(["attelo", "report",
+              idx_file,
+              "--json", json_file],
+             stdout=pretty_stream)
+
+
+def _do_corpus(lconf):
+    "Run evaluation on a corpus"
+    print(_corpus_banner(lconf), file=sys.stderr)
+
+    data_attach, data_relate =\
+        read_data(_eval_csv_path(lconf, "edu-pairs"),
+                  _eval_csv_path(lconf, "relations"),
+                  verbose=True)
+    dconf = DataConfig(attach=data_attach,
+                       relate=data_relate)
+
+    idx_file = os.path.join(lconf.scratch_dir,
+                            "count-index-%s.csv" % lconf.dataset)
+    idx_stream = open(idx_file, "w")
+    idx_writer = csv.DictWriter(idx_stream, fieldnames=_IDX_FIELDS)
+    idx_writer.writeheader()
+
+    with open(lconf.fold_file) as f_in:
+        folds = frozenset(json.load(f_in).values())
+
+    for fold in folds:
+        print(_fold_banner(lconf, fold), file=sys.stderr)
+        for econf in EVALUATIONS:
+            print(_eval_banner(econf), file=sys.stderr)
+            cfile = _counts_file_path(lconf, econf, fold)
+            _maybe_learn(lconf, econf, fold)
+            _decode(lconf, dconf, econf, fold)
+            idx_writer.writerow({"config": econf.name,
+                                 "fold": fold,
+                                 "counts_file": cfile})
+
+    idx_stream.close()
+    _mk_report(lconf, idx_file)
 
 
 def main(_):
@@ -48,38 +300,31 @@ def main(_):
     `config_argparser`
     """
     data_dir = latest_tmp()
-    eval_dir = os.path.join(data_dir, "eval-" + timestamp())
-    os.makedirs(eval_dir)
-    # hard-link all data files to the eval dir
-    # it doesn't cost space and it makes future archiving
-    # straightforward
-    for data_file in os.listdir(data_dir):
-        if os.path.isfile(data_file):
-            os.link(os.path.join(data_dir, data_file),
-                    os.path.join(eval_dir, data_file))
+    tstamp = "TEST" if _DEBUG else timestamp()
+    eval_dir = os.path.join(data_dir, "eval-" + tstamp)
+    if not os.path.exists(eval_dir):
+        os.makedirs(eval_dir)
+        _link_data_files(data_dir, eval_dir)
+    elif not _DEBUG:
+        sys.exit("Try again in literally one second")
+
+    scratch_dir = os.path.join(data_dir, "scratch-" + tstamp)
+    if not os.path.exists(scratch_dir):
+        os.makedirs(scratch_dir)
+
     with open(os.path.join(eval_dir, "versions.txt"), "w") as stream:
-        subprocess.check_call(["pip", "freeze"], stdout=stream)
+        call(["pip", "freeze"], stdout=stream)
 
     if not os.path.exists(data_dir):
         sys.exit("""No data to run experiments on.
 Please run `irit-rst-dt gather`""")
+
     for corpus in TRAINING_CORPORA:
         dataset = os.path.basename(corpus)
-        scores_file = os.path.join(eval_dir, "scores-%s" % dataset)
-        for learner_a, learner_r in LEARNERS:
-            for decoder in DECODERS:
-                mk_csv_path = lambda x:\
-                    os.path.join(data_dir, "%s.%s.csv" % (dataset, x))
-                print(_banner(dataset, decoder, learner_a, learner_r),
-                      file=sys.stderr)
-                with open(scores_file, "a") as scores:
-                    cmd = ["attelo",
-                           "evaluate",
-                           "-C", ATTELO_CONFIG_FILE,
-                           "-l", learner_a,
-                           "-d", decoder]
-                    if learner_r:
-                        cmd += ["--relation-learner", learner_r]
-                    cmd += [mk_csv_path("edu-pairs"),
-                            mk_csv_path("relations")]
-                    subprocess.check_call(cmd, stdout=scores)
+        fold_file = os.path.join(eval_dir,
+                                 "folds-%s.json" % dataset)
+        lconf = LoopConfig(eval_dir=eval_dir,
+                           scratch_dir=scratch_dir,
+                           fold_file=fold_file,
+                           dataset=dataset)
+        _do_corpus(lconf)
