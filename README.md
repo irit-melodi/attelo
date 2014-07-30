@@ -66,8 +66,5 @@ command
 Running the pieces of infrastructure here should consist of running
 `irit-rst-dt <subcommand>`
 
-gather
-~ extract features
-
-evaluate
-~ run n-fold attachment/labelling experiment (slow)
+* `irit-rst-dt gather`: extract features
+* `irit-rst-dt evaluate`: run n-fold attachment/labelling experiment (slow)
