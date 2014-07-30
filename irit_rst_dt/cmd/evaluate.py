@@ -203,7 +203,7 @@ def _counts_file_path(lconf, econf, fold):
     "Scores collected for a given loop and eval configuration"
     fold_dir = _fold_dir_path(lconf, fold)
     return os.path.join(fold_dir,
-                        ".".join(["scores", econf.name, "csv"]))
+                        ".".join(["counts", econf.name, "csv"]))
 
 
 def _decode_output_path(lconf, econf, fold):
