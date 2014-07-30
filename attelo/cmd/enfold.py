@@ -48,12 +48,14 @@ def config_argparser(psr):
                      help="save folds to a json file")
 
 
-def main(args):
-    "subcommand main (called from mother script)"
+def main_for_harness(args, data_attach):
+    """
+    main function core that you can hook into if writing your own
+    harness
 
+    You have to supply the data yourself
+    """
     phrasebook = args_to_phrasebook(args)
-    data_attach, _ = read_data(args.data_attach, None, verbose=True)
-
     fold_struct = _prepare_folds(phrasebook,
                                  args.nfold,
                                  data_attach,
@@ -61,5 +63,12 @@ def main(args):
 
     json_output = args.output or sys.stdout
     json.dump(fold_struct, json_output, indent=2)
+
+
+def main(args):
+    "subcommand main (called from mother script)"
+
+    data_attach, _ = read_data(args.data_attach, None, verbose=True)
+    main_for_harness(args, data_attach)
     if args.output is None:
         print("")
