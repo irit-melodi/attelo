@@ -8,10 +8,11 @@ gather features
 from __future__ import print_function
 import os
 
+from attelo.harness.util import call
+
 from ..local import\
     TRAINING_CORPORA
 from ..util import\
-    call,\
     current_tmp, latest_tmp
 
 NAME = 'gather'

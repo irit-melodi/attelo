@@ -7,7 +7,6 @@ run an experiment
 
 from __future__ import print_function
 from collections import namedtuple
-import csv
 import json
 import os
 import sys
@@ -21,16 +20,15 @@ from attelo.io import\
     read_data, load_model
 import attelo.cmd as att
 
+from attelo.harness.report import CountIndex
+from attelo.harness.util import timestamp, call
 
 from ..local import\
     TRAINING_CORPORA, EVALUATIONS, ATTELO_CONFIG_FILE
-from ..util import\
-    call, latest_tmp, timestamp
+from ..util import latest_tmp
 
 NAME = 'evaluate'
-_DEBUG = 1
-
-_IDX_FIELDS = ["config", "fold", "counts_file"]
+_DEBUG = 0
 
 #pylint: disable=pointless-string-statement
 LoopConfig = namedtuple("LoopConfig",
@@ -215,6 +213,15 @@ def _decode_output_path(lconf, econf, fold):
                         ".".join(["output", econf.name]))
 
 
+def _index_file_path(parent_dir, lconf):
+    """
+    Create a blank count index file in the given directory,
+    see `CountIndex` for how this is to be used
+    """
+    return os.path.join(parent_dir,
+                        "count-index-%s.csv" % lconf.dataset)
+
+
 def _maybe_learn(lconf, dconf, econf, fold):
     """
     Run the learner unless the model files already exist
@@ -279,9 +286,9 @@ def _generate_fold_file(lconf, dconf):
     args.cleanup()
 
 
-def _mk_report(lconf, idx_file):
+def _mk_report(parent_dir, lconf, idx_file):
     "Generate reports for scores"
-    score_prefix = os.path.join(lconf.eval_dir, "scores-%s" % lconf.dataset)
+    score_prefix = os.path.join(parent_dir, "scores-%s" % lconf.dataset)
     json_file = score_prefix + ".json"
     pretty_file = score_prefix + ".txt"
 
@@ -295,14 +302,29 @@ def _mk_report(lconf, idx_file):
           file=sys.stderr)
 
 
-def _do_tuple(lconf, dconf, econf, fold, idx_writer):
-    "Run a single combination of parameters (innermost block)"
+def _do_tuple(lconf, dconf, econf, fold):
+    """
+    Run a single combination of parameters (innermost block)
+    Return a counts index entry
+    """
     cfile = _counts_file_path(lconf, econf, fold)
     _maybe_learn(lconf, dconf, econf, fold)
     _decode(lconf, dconf, econf, fold)
-    idx_writer.writerow({"config": econf.name,
-                         "fold": fold,
-                         "counts_file": cfile})
+    return {"config": econf.name,
+            "fold": fold,
+            "counts_file": cfile}
+
+
+def _do_fold(lconf, dconf, fold, idx):
+    """
+    Run all learner/decoder combos within this fold
+    """
+    print(_fold_banner(lconf, fold), file=sys.stderr)
+    for econf in EVALUATIONS:
+        print(_eval_banner(econf), file=sys.stderr)
+        idx_entry = _do_tuple(lconf, dconf, econf, fold)
+        idx.writerow(idx_entry)
+    fold_dir = _fold_dir_path(lconf, fold)
 
 
 def _do_corpus(lconf):

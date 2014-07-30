@@ -5,7 +5,7 @@
 print known features
 """
 
-from ..util import call
+from attelo.harness.util import call
 
 NAME = 'features'
 

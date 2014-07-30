@@ -7,20 +7,10 @@ Miscellaneous utility functions
 """
 
 import os
-from datetime import datetime, date
-import subprocess
-import sys
+
+from attelo.harness.util import timestamp
 
 from .local import LOCAL_TMP
-
-
-def timestamp():
-    """
-    Current date/time to minute resolution in an ISO format.
-    """
-    now = datetime.utcnow()
-    return "%sT%s" % (date.isoformat(now.date()),
-                      now.time().strftime("%H%M"))
 
 
 def current_tmp():
@@ -35,13 +25,3 @@ def latest_tmp():
     Directory for last run (usually a symlink)
     """
     return os.path.join(LOCAL_TMP, "latest")
-
-
-def call(args, **kwargs):
-    """
-    Execute a command and die prettily if it fails
-    """
-    try:
-        subprocess.check_call(args, **kwargs)
-    except subprocess.CalledProcessError as err:
-        sys.exit(err)

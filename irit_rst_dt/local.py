@@ -9,7 +9,7 @@ In the future we may move this to a proper configuration file.
 
 import itertools
 
-from .config import\
+from attelo.harness.config import\
     LearnerConfig,\
     DecoderConfig,\
     EvaluationConfig
