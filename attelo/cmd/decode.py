@@ -41,6 +41,26 @@ def _args_to_decoder_config(phrasebook, model, decoder, args):
                          use_prob=args.use_prob)
 
 
+def select_fold(data_attach, data_relate, args, phrasebook):
+    """
+    Filter out training data according to what fold is specified
+    in the args
+
+    (potentially useful if you are writing your own attelo decode
+    wrapper in your test harness)
+    """
+
+    fold_struct = json.load(args.fold_file)
+    selection = folds_to_orange(data_attach,
+                                fold_struct,
+                                meta_index=phrasebook.grouping)
+    data_attach = data_attach.select_ref(selection,
+                                         args.fold)
+    if data_relate is not None:
+        data_relate = data_relate.select_ref(selection, args.fold)
+    return data_attach, data_relate
+
+
 def _select_data(args, phrasebook):
     """
     read data into a pair of tables, filtering out training
@@ -54,15 +74,9 @@ def _select_data(args, phrasebook):
         read_data(args.data_attach, args.data_relations,
                   verbose=not args.quiet)
     if args.fold is not None:
-        fold_struct = json.load(args.fold_file)
-        selection = folds_to_orange(data_attach,
-                                    fold_struct,
-                                    meta_index=phrasebook.grouping)
-        data_attach = data_attach.select_ref(selection,
-                                             args.fold)
-        if data_relate is not None:
-            data_relate = data_relate.select_ref(selection, args.fold)
-
+        data_attach, data_relate =\
+            select_fold(data_attach, data_relate,
+                        args, phrasebook)
     return data_attach, data_relate
 
 
@@ -217,20 +231,14 @@ def validate_model_args(wrapped):
     return inner
 
 
-@validate_model_args
-@validate_fold_choice_args
-def main(args):
-    "subcommand main"
+def main_for_harness(args, config, decoder, attach, relate):
+    """
+    main function you can hook into if writing your own harness
 
-    phrasebook = args_to_phrasebook(args)
-    decoder = args_to_decoder(args)
-    attach, relate = _load_data_and_model(phrasebook, args)
-    config = _args_to_decoder_config(phrasebook,
-                                     attach.model,
-                                     decoder,
-                                     args)
-
-    grouping_index = attach.data.domain.index(phrasebook.grouping)
+    You have to supply DataModel args for attachment/relation
+    yourself
+    """
+    grouping_index = attach.data.domain.index(config.phrasebook.grouping)
     all_groupings = frozenset(inst[grouping_index].value for
                               inst in attach.data)
 
@@ -246,3 +254,18 @@ def main(args):
                                                 predicted)
     if args.scores is not None:
         Count.write_csv(scores, args.scores)
+
+
+@validate_model_args
+@validate_fold_choice_args
+def main(args):
+    "subcommand main"
+
+    phrasebook = args_to_phrasebook(args)
+    decoder = args_to_decoder(args)
+    attach, relate = _load_data_and_model(phrasebook, args)
+    config = _args_to_decoder_config(phrasebook,
+                                     attach.model,
+                                     decoder,
+                                     args)
+    main_for_harness(args, config, decoder, attach, relate)
