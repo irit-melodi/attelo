@@ -324,6 +324,9 @@ def _mk_report(lconf, idx_file):
               "--json", json_file],
              stdout=pretty_stream)
 
+    print("Scores summarised in %s" % pretty_file,
+          file=sys.stderr)
+
 
 def _do_tuple(lconf, dconf, econf, fold, idx_writer):
     "Run a single combination of parameters (innermost block)"
