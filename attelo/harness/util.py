@@ -7,6 +7,8 @@ Miscellaneous utility functions
 """
 
 from datetime import datetime, date
+from os import path as fp
+import os
 import subprocess
 import sys
 
@@ -28,3 +30,26 @@ def call(args, **kwargs):
         subprocess.check_call(args, **kwargs)
     except subprocess.CalledProcessError as err:
         sys.exit(err)
+
+
+def force_symlink(source, link_name, **kwargs):
+    """
+    Symlink from source to `link_name`, removing any
+    prexisting file at `link_name`
+    """
+    if os.path.islink(link_name):
+        os.unlink(link_name)
+    elif os.path.exists(link_name):
+        oops = "Can't force symlink to " + link_name +\
+            " because a file of that name already exists"
+        raise Exception(oops)
+    os.symlink(source, link_name, **kwargs)
+
+
+def subdirs(parent):
+    """
+    Return all subdirectories within the parent dir
+    (with combined path, ie. `parent/subdir`)
+    """
+    subpaths = (fp.join(parent, x) for x in os.listdir(parent))
+    return filter(os.path.isdir, subpaths)
