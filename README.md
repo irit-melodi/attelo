@@ -67,18 +67,17 @@ Running the pieces of infrastructure here should consist of running
 
 ### Configuration
 
-Have a look at the `irit_rst_dt.local` module.  You may want to modify
+Have a look at the `irit_rst_dt.local` module. You may want to modify
 which subcorpus we run this on. I would suggest making a sample out of
 20 files or so and working with that until you are familiar with the
-harness first.
+harness first. You could likewise also consider reducing the learners
+and decoders you want to experiment with initially.
 
-You could also consider reducing the learners and decoders you want to
-experiment with. Note that the current configuration assumes that
-learners and decoders are independent of each other. If you have
-something like the structured perceptron learner which depends on its
-decoder, talk to Eric. Likewise, we don't yet offer a way to change
-the configuration settings for the learners/decoders. Talk to Eric
-about improving the harness.
+Note that the current configuration assumes that learners and decoders
+are independent of each other. If you have something like the structured
+perceptron learner which depends on its decoder, talk to Eric. Likewise,
+we don't yet offer a way to change the configuration settings for the
+learners/decoders. Talk to Eric about improving the harness.
 
 ### Basics
 
