@@ -148,7 +148,7 @@ have multiple evaluations for any given set of features. Like the
 feature directories, these are named by timestamp (with
 `eval-current` and `scratch-current` symlinks for convenience).
 
-* scratch directories: these are considered relatively emphemeral
+* scratch directories: these are considered relatively ephemeral
   (hence them being deleted by `irit-rst-dt clean`). They contain
   all the models and counts saved by harness during evaluation.
 
