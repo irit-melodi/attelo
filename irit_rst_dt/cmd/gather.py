@@ -8,7 +8,7 @@ gather features
 from __future__ import print_function
 import os
 
-from attelo.harness.util import call
+from attelo.harness.util import call, force_symlink
 
 from ..local import\
     TRAINING_CORPORA
@@ -43,6 +43,4 @@ def main(_):
     with open(os.path.join(tdir, "versions.txt"), "w") as stream:
         call(["pip", "freeze"], stdout=stream)
     latest_dir = latest_tmp()
-    if os.path.exists(latest_dir):
-        os.unlink(latest_dir)
-    os.symlink(os.path.basename(tdir), latest_dir)
+    force_symlink(os.path.basename(tdir), latest_dir)
