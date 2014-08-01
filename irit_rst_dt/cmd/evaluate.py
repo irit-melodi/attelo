@@ -6,6 +6,7 @@ run an experiment
 """
 
 from __future__ import print_function
+from os import path as fp
 from collections import namedtuple
 import json
 import os
@@ -21,7 +22,8 @@ from attelo.io import\
 import attelo.cmd as att
 
 from attelo.harness.report import CountIndex
-from attelo.harness.util import timestamp, call
+from attelo.harness.util import\
+    timestamp, call, force_symlink
 
 from ..local import\
     TRAINING_CORPORA, EVALUATIONS, ATTELO_CONFIG_FILE
@@ -222,6 +224,14 @@ def _index_file_path(parent_dir, lconf):
                         "count-index-%s.csv" % lconf.dataset)
 
 
+def _score_file_path_prefix(parent_dir, lconf):
+    """
+    Path to a score file given a parent dir.
+    You'll need to tack an extension onto this
+    """
+    return fp.join(parent_dir, "scores-%s" % lconf.dataset)
+
+
 def _maybe_learn(lconf, dconf, econf, fold):
     """
     Run the learner unless the model files already exist
@@ -252,6 +262,12 @@ def _decode(lconf, dconf, econf, fold):
     """
     Run the decoder for this given fold
     """
+    if fp.exists(_counts_file_path(lconf, econf, fold)):
+        print("skipping %s/%s (already done)" % (econf.learner.name,
+                                                 econf.decoder.name),
+              file=sys.stderr)
+        return
+
     fold_dir = _fold_dir_path(lconf, fold)
     if not os.path.exists(fold_dir):
         os.makedirs(fold_dir)
@@ -288,7 +304,7 @@ def _generate_fold_file(lconf, dconf):
 
 def _mk_report(parent_dir, lconf, idx_file):
     "Generate reports for scores"
-    score_prefix = os.path.join(parent_dir, "scores-%s" % lconf.dataset)
+    score_prefix = _score_file_path_prefix(parent_dir, lconf)
     json_file = score_prefix + ".json"
     pretty_file = score_prefix + ".txt"
 
@@ -319,11 +335,20 @@ def _do_fold(lconf, dconf, fold, idx):
     """
     Run all learner/decoder combos within this fold
     """
+    fold_dir = _fold_dir_path(lconf, fold)
+    score_prefix = _score_file_path_prefix(fold_dir, lconf)
+    if fp.exists(score_prefix + ".txt"):
+        print("Skipping fold %d (already run)" % fold,
+              file=sys.stderr)
+        return
+
     print(_fold_banner(lconf, fold), file=sys.stderr)
-    fold_idx_file = _index_file_path(lconf.scratch_dir, lconf)
+    if not os.path.exists(fold_dir):
+        os.makedirs(fold_dir)
+    fold_idx_file = _index_file_path(fold_dir, lconf)
     with CountIndex(fold_idx_file) as fold_idx:
         for econf in EVALUATIONS:
-            print(_eval_banner(econf), file=sys.stderr)
+            print(_eval_banner(econf, fold), file=sys.stderr)
             idx_entry = _do_tuple(lconf, dconf, econf, fold)
             idx.writerow(idx_entry)
             fold_idx.writerow(idx_entry)
@@ -360,17 +385,51 @@ def _do_corpus(lconf):
 # ---------------------------------------------------------------------
 
 
-def config_argparser(parser):
+def config_argparser(psr):
     """
     Subcommand flags.
 
     You should create and pass in the subparser to which the flags
     are to be added.
     """
-    parser.set_defaults(func=main)
+    psr.set_defaults(func=main)
+    psr.add_argument("--resume",
+                     default=False, action="store_true",
+                     help="resume previous interrupted evaluation")
 
 
-def main(_):
+def _create_eval_dirs(args, data_dir):
+    """
+    Return eval and scatch directory paths
+    """
+
+    eval_current = fp.join(data_dir, "eval-current")
+    scratch_current = fp.join(data_dir, "scratch-current")
+
+    if args.resume:
+        if not fp.exists(eval_current) or not fp.exists(scratch_current):
+            sys.exit("No currently running evaluation to resume!")
+        else:
+            return eval_current, scratch_current
+    else:
+        tstamp = "TEST" if _DEBUG else timestamp()
+        eval_dir = fp.join(data_dir, "eval-" + tstamp)
+        if not fp.exists(eval_dir):
+            os.makedirs(eval_dir)
+            _link_data_files(data_dir, eval_dir)
+            force_symlink(fp.basename(eval_dir), eval_current)
+        elif not _DEBUG:
+            sys.exit("Try again in literally one second")
+
+        scratch_dir = fp.join(data_dir, "scratch-" + tstamp)
+        if not fp.exists(scratch_dir):
+            os.makedirs(scratch_dir)
+            force_symlink(fp.basename(scratch_dir), scratch_current)
+
+        return eval_dir, scratch_dir
+
+
+def main(args):
     """
     Subcommand main.
 
@@ -380,18 +439,7 @@ def main(_):
     data_dir = latest_tmp()
     if not os.path.exists(data_dir):
         _exit_ungathered()
-
-    tstamp = "TEST" if _DEBUG else timestamp()
-    eval_dir = os.path.join(data_dir, "eval-" + tstamp)
-    if not os.path.exists(eval_dir):
-        os.makedirs(eval_dir)
-        _link_data_files(data_dir, eval_dir)
-    elif not _DEBUG:
-        sys.exit("Try again in literally one second")
-
-    scratch_dir = os.path.join(data_dir, "scratch-" + tstamp)
-    if not os.path.exists(scratch_dir):
-        os.makedirs(scratch_dir)
+    eval_dir, scratch_dir = _create_eval_dirs(args, data_dir)
 
     with open(os.path.join(eval_dir, "versions.txt"), "w") as stream:
         call(["pip", "freeze"], stdout=stream)
