@@ -57,7 +57,7 @@ def _exit_ungathered():
 Please run `irit-rst-dt gather`""")
 
 
-def _eval_banner(econf, fold):
+def _eval_banner(econf, lconf, fold):
     """
     Which combo of eval parameters are we running now?
     """
@@ -349,7 +349,7 @@ def _do_fold(lconf, dconf, fold, idx):
     fold_idx_file = _index_file_path(fold_dir, lconf)
     with CountIndex(fold_idx_file) as fold_idx:
         for econf in EVALUATIONS:
-            print(_eval_banner(econf, fold), file=sys.stderr)
+            print(_eval_banner(econf, lconf, fold), file=sys.stderr)
             idx_entry = _do_tuple(lconf, dconf, econf, fold)
             idx.writerow(idx_entry)
             fold_idx.writerow(idx_entry)
