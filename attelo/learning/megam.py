@@ -35,7 +35,7 @@ class RedirectStdStreams(object):
 try:
     import nltk.classify.megam as megam
     import nltk.classify.maxent as maxent
-    with RedirectStdStreams(stdout=stderr):
+    with RedirectStdStreams(stdout=sys.stderr):
         megam.config_megam()
     #megam.config_megam(bin="path/to/megam")
     use_megam = True
