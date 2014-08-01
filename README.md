@@ -27,7 +27,7 @@ tried). Instead of using virtualenv, you could try something like this
 If that doesn't work, make sure your anaconda version is up to date,
 and try `/anaconda` instead of `$HOME/anaconda`.
 
-Note that whenever you want to use STAC things, you would need to run
+Note that whenever you want to use this harness, you would need to run
 this command
 
     source activate irit-rst-dt
@@ -39,7 +39,7 @@ The virtualenv equivalent works a bit more like the follow:
     mkdir $HOME/.virtualenvs
     virtualenv $HOME/.virtualenvs/irit-rst-dt --no-site-packages
 
-Whenever you want to use STAC things, you would need to run this
+Whenever you want to use this harness, you would need to run this
 command
 
     source $HOME/.virtualenvs/irit-rst-dt/bin/activate
