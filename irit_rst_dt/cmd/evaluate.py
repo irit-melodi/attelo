@@ -57,13 +57,14 @@ def _exit_ungathered():
 Please run `irit-rst-dt gather`""")
 
 
-def _eval_banner(econf):
+def _eval_banner(econf, fold):
     """
     Which combo of eval parameters are we running now?
     """
     rname = econf.learner.relate
     learner_str = econf.learner.attach + (":" + rname if rname else "")
     return "\n".join(["----------" * 3,
+                      "fold %d [%s]" % (fold, lconf.dataset),
                       "learner(s): %s" % learner_str,
                       "decoder: %s" % econf.decoder.decoder,
                       "----------" * 3])
