@@ -11,7 +11,7 @@ import os
 from attelo.harness.util import call, force_symlink
 
 from ..local import\
-    TRAINING_CORPORA
+    TRAINING_CORPORA, PTB_DIR
 from ..util import\
     current_tmp, latest_tmp
 
@@ -37,7 +37,7 @@ def main(_):
     """
     tdir = current_tmp()
     for corpus in TRAINING_CORPORA:
-        call(["rst-dt-learning", "extract", corpus, tdir])
+        call(["rst-dt-learning", "extract", corpus, PTB_DIR, tdir])
     with open(os.path.join(tdir, "features.txt"), "w") as stream:
         call(["rst-dt-learning", "features"], stdout=stream)
     with open(os.path.join(tdir, "versions.txt"), "w") as stream:

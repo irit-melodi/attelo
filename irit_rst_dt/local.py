@@ -34,6 +34,12 @@ is used in more than one corpus, but we can revisit this scheme as
 needed.
 """
 
+PTB_DIR='ptb3'
+"""
+Where to read the Penn Treebank from (should be dir corresponding to
+parsed/mrg/wsj)
+"""
+
 LEARNERS = [LearnerConfig.simple("bayes"),
             LearnerConfig.simple("maxent")]
 """Attelo learner algorithms to try
