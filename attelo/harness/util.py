@@ -40,7 +40,8 @@ def force_symlink(source, link_name, **kwargs):
     if os.path.islink(link_name):
         os.unlink(link_name)
     elif os.path.exists(link_name):
-        oops = "Can't force symlink to " + link_name +\
+        oops = "Can't force symlink from " + source +\
+            " to " + link_name +\
             " because a file of that name already exists"
         raise Exception(oops)
     os.symlink(source, link_name, **kwargs)
