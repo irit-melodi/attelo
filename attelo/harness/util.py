@@ -54,3 +54,12 @@ def subdirs(parent):
     """
     subpaths = (fp.join(parent, x) for x in os.listdir(parent))
     return filter(os.path.isdir, subpaths)
+
+
+def makedirs(path, **kwargs):
+    """
+    Create a directory and its parents if it does not already
+    exist
+    """
+    if not fp.exists(path):
+        os.makedirs(path, **kwargs)
