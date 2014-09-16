@@ -50,13 +50,17 @@ command
 
 2. Install this package and its dependencies
 
-       pip install -r requirements.txt
+   ```
+   pip install -r requirements.txt
+   ```
 
 3. Link your copy of the RST DT corpus in, along with the
    Penn Treebank, for example:
 
-       ln -s $HOME/CORPORA/rst_discourse_treebank/data corpus
-       ln -s $HOME/CORPORA/PTBIII/parsed/mrg/wsj ptb3
+   ```
+   ln -s $HOME/CORPORA/rst_discourse_treebank/data corpus
+   ln -s $HOME/CORPORA/PTBIII/parsed/mrg/wsj ptb3
+   ```
 
 4. Install megam (for attelo).
    This might be tricky if you're on a Mac.
