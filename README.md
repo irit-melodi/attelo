@@ -52,13 +52,20 @@ command
 
        pip install -r requirements.txt
 
-3. Link your copy of the RST DT corpus in, for example:
+3. Link your copy of the RST DT corpus in, along with the
+   Penn Treebank, for example:
 
        ln -s $HOME/CORPORA/rst_discourse_treebank/data corpus
+       ln -s $HOME/CORPORA/PTBIII/parsed/mrg/wsj ptb3
 
 4. Install megam (for attelo).
    This might be tricky if you're on a Mac.
    Ask Eric.
+
+## Preflight checklist
+
+* Have you linked the corpora in? (see Installation)
+* Did you manage to install megam? (needed for training/eval)
 
 ## Usage
 
