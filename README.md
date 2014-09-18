@@ -4,7 +4,7 @@ Melodi team in IRIT on the RST Discourse Treebank corpus.
 ## Prerequisites
 
 1. Python 2.7. Python 3 might also work.
-2. pip (see educe README if you do not)
+2. pip 1.5 or greater
 3. git (to keep up with educe/attelo changes)
 4. [optional] Anacoda (`conda --version` should say 2.2.6 or higher)
 5. a copy of the RST Discourse Treebank
