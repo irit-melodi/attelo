@@ -85,8 +85,8 @@ def _combine_probs(phrasebook, attach, relate):
         if not _instance_check(phrasebook, att, rel):
             print("mismatch of attachment/relation instance, "
                   "instance number", i,
-                  _instance_help(att, phrasebook),
-                  _instance_help(rel, phrasebook),
+                  _instance_help(phrasebook, att),
+                  _instance_help(phrasebook, rel),
                   file=sys.stderr)
         prob, best = _combine_single_prob(attach, relate, att, rel)
         edu1, edu2 = edu_pair(att)
