@@ -1,6 +1,7 @@
 # irit-rst-dt specific
 TMP
 corpus
+ptb3
 
 # Sphinx
 _build
