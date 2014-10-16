@@ -186,7 +186,7 @@ def _eval_csv_path(lconf, ext):
     Path to data file in the evaluation dir
     """
     return os.path.join(lconf.eval_dir,
-                        "%s.%s.csv" % (lconf.dataset, ext))
+                        "%s.%s.tab" % (lconf.dataset, ext))
 
 
 def _fold_dir_path(lconf, fold):
