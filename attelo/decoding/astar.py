@@ -194,10 +194,12 @@ class DiscourseState(State):
             transform = lambda x: -math.log(x) if x!=0 else -numpy.inf
         else:
             transform = lambda x:x
-        pr = sum(map(transform,[self.shared()["heuristics"]["average"][x.id] for x in missing_links]))
-        #except:
-        #print >> sys.stderr, missing_links
-        #print >> sys.stderr, self.shared()["heuristics"]["average"][x] 
+        try:
+            pr = sum(map(transform,[self.shared()["heuristics"]["average"][x] for x in missing_links]))
+        except:
+            print >> sys.stderr, missing_links
+            print >> sys.stderr, self.shared()["heuristics"]["average"][x] 
+            sys.exit(0)
         return pr
 
     def h_best_overall(self):

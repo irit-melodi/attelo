@@ -6,14 +6,15 @@
 Various search algorithms for combinatorial problems:
 
  ok - Astar (shortest path with heuristics)
- - variants:
-    ok   - beam search (astar with size limit on waiting queue)
+    - variants:
+      ok   - beam search (astar with size limit on waiting queue)
+      ok   - nbest solutions: implies storing solutions and a counter, and changing return values
+             (actually most search will make use of a recover_solution(s) to reconstruct desired data)
          - branch and bound (astar with forward lookahead)
-         - nbest solutions: implies storing solutions and a counter, and changing return values
-         (actually most search will make use of a recover_solution(s) to reconstruct desired data)
-
+  
 """
 
+import sys
 import heapq
 from pprint import pformat
 
@@ -75,8 +76,8 @@ class Search:
        
     default is astar search (search the minimum cost from init state to a solution
 
-    heuristic: heuristics guiding the search
-    shared: data shared by all nodes (eg. for heuristic computation ?)
+    heuristic: heuristics guiding the search (applies to state-specific data(), see State)
+    shared: other data shared by all nodes (eg. for heuristic computation ?)
     """
     
     def __init__(self,heuristic=(lambda x: 0.),shared=None):
@@ -190,17 +191,27 @@ class BeamSearch(Search):
 
 class TestState(State):
     """dummy cost uniform search: starting from int, find minimum numbers
-    of step to get to 21, with steps being either +1 or *2
+    of step to get to 21, with steps being either +1 or *2 (and +2 to get faster to sol)
 
-    from start 0, must return 7 (+1 *2 *2 +1 *2 *2 +1)
+    data = (current value,operator list)  
+
+    from start 0, must return 6 (+1 *2 *2 +1 *2 *2 +1)
     """
+    _ops = {"*2":(lambda x:2*x),
+            "+1":(lambda x:x+1),
+            "-1":(lambda x:x-1),
+            "+2":(lambda x:x+2),
+            }
+
+    def _update_data(self,op):
+        return (self._ops[op](self.data()[0]),self.data()[1]+op)
 
     def isSolution(self):
-        return ((self.data())==21)
+        return ((self.data()[0])==21)
 
  
     def nextStates(self):
-        return [(self.data()*2,1.),(self.data()+1,1.),(self.data()+2,1.)]
+        return [(self._update_data(x),1.) for x in self._ops]
 
     def __str__(self):
         return str(self.data())+":"+str(self.cost())
@@ -225,45 +236,30 @@ class TestSearch2(BeamSearch):
 
 if __name__=="__main__":
     from math import log
-    a=0
-    # 
-    b1 = TestSearch((lambda x: 0))
-    gc1 = b1.launch(a,verbose=True)
-    c1 = gc1.next()
-    print "testing uniform cost"
-    if c1 is None:
-        print "--- no solution found"
-    else:
-        print "--- solution %d = 6 ?"%c1.cost()
-    print "--- explored states =", len(b1._seen)
-    b2=TestSearch((lambda x: 0))
-    c2=b2.launch(a,verbose=False).next()
-    print "testing Astar"
-    if c2 is None:
-        print "--- no solution found"
-    else:
-        print "solution %d = 6 ?"%c2.cost()
-    print "explored states =", len(b2._seen)
-    b3=TestSearch()
-    c3=b3.launch(a,verbose=False).next()
-    print "testing Astar"
-    if c3 is None:
-        print "--- no solution found"
-    else:
-        print "solution %d = 6 ?"%c3.cost()
-    print "explored states =", len(b3._seen)
-    #b3=TestSearch2((lambda x: 0),queue_size=10)
-    b3=TestSearch((lambda x: 0))
-    gc3=b3.launch(a,verbose=False)
-    nbest = 2
-    while nbest>0:
-        c3 = gc3.next()
-        print "testing 2-best for Astar"
-        if c3 is None:
-            print "--- no solution found"
-            break
-        else:
-            print "solution %d = 6 ou 7 ?"%c3.cost()
-        print "explored states =", len(b3._seen)
-        nbest = nbest - 1
+    #init test state, defined here as a value and a string storing operators
+    a=(0,"")
+    from math import log
+    # dumb testing heuristics assuming we can *2 to victory. log base 2.3 is to prevent wrong limit conditions
+    # and force h to be optimistic
+    h_bete = lambda x: (log(abs(21-x[0]),2.3) if x[0]!=21 else 0)
+    h0 = lambda x: 0
+    for (name,b) in (("UC",TestSearch(h0)),
+                     ("Astar",TestSearch(h_bete)),
+                     ("Beam/h/100",TestSearch2(h_bete,queue_size=100)),
+                     ("Beam/h0/100",TestSearch2(h0,queue_size=100))):
+        gc=b.launch(a,verbose=False)
+        tot = 5
+        nbest = tot
+        print "============testing %d-best for %s"%(nbest,name)
+        while nbest>0:
+            c = gc.next()
+            print "solution no %d"%(tot+1-nbest)
+            if c is None:
+                print "--- no solution found"
+                break
+            else:
+                print "solution %d =  ?"%c.cost(), c
+            print "explored states =", len(b._seen)
+            nbest = nbest - 1
+
         
