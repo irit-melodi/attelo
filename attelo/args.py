@@ -44,14 +44,14 @@ def args_to_phrasebook(args):
                           label=metacfg["Label"])
 
 
-def _mk_astar_decoder(heuristics, rfc):
+def _mk_astar_decoder(heuristics, rfc,beamsize):
     """
     Return an A* decoder using the given heuristics and
     right frontier constraint parameter
     """
     def factory(arg, **kwargs):
         "actually build decoder"
-        return astar_decoder(arg, heuristics=heuristics, RFC=rfc, **kwargs)
+        return astar_decoder(arg, heuristics=heuristics, beam=beamsize, RFC=rfc, **kwargs)
     return factory
 
 
@@ -67,7 +67,7 @@ def _known_heuristics():
             "zero": h0}
 
 
-def _known_decoders(heuristics, rfc):
+def _known_decoders(heuristics, rfc,beamsize):
     """
     Return a dictionary of possible decoders.
     This lets us grab at the names of known decoders
@@ -76,7 +76,7 @@ def _known_decoders(heuristics, rfc):
             "local": local_baseline,
             "locallyGreedy": locallyGreedy,
             "mst": mst_decoder,
-            "astar": _mk_astar_decoder(heuristics, rfc)}
+            "astar": _mk_astar_decoder(heuristics, rfc,beamsize)}
 
 
 def _known_learners(decoder, phrasebook, perc_args=None):
@@ -127,7 +127,7 @@ def _is_perceptron_learner_name(learner_name):
 
 # these are just dummy values (we just want the keys here)
 KNOWN_HEURISTICS = _known_heuristics().keys()
-KNOWN_DECODERS = _known_decoders([], False).keys()
+KNOWN_DECODERS = _known_decoders([], False,None).keys()
 KNOWN_ATTACH_LEARNERS = _known_learners(last_baseline, {},
                                         PerceptronArgs(0, False, False)).keys()
 KNOWN_RELATION_LEARNERS = _known_learners(last_baseline, {}, None)
@@ -151,7 +151,7 @@ def args_to_decoder(args):
     if args.data_relations is None:
         args.rfc = "simple"
 
-    _decoders = _known_decoders(heuristic, args.rfc)
+    _decoders = _known_decoders(heuristic, args.rfc, args.beamsize)
 
     if args.decoder in _decoders:
         return _decoders[args.decoder]
@@ -332,6 +332,12 @@ def _add_decoder_args(psr):
                            help="with astar decoding, what kind of RFC is "
                            "applied: simple of full; simple means everything "
                            "is subordinating (default: %s)" % DEFAULT_RFC)
+   
+    astar_grp.add_argument("--beamsize", "-B",
+                           default=None,
+                           type=int,
+                           help="with astar decoding, set a beamsize "
+                           "default: None -> full astar with")
 
     perc_grp = psr.add_argument_group('perceptron arguments')
     perc_grp.add_argument("--use_prob", "-P",
