@@ -44,14 +44,14 @@ def args_to_phrasebook(args):
                           label=metacfg["Label"])
 
 
-def _mk_astar_decoder(heuristics, rfc,beamsize):
+def _mk_astar_decoder(heuristics, rfc,beamsize,nbest=1):
     """
     Return an A* decoder using the given heuristics and
     right frontier constraint parameter
     """
     def factory(arg, **kwargs):
         "actually build decoder"
-        return astar_decoder(arg, heuristics=heuristics, beam=beamsize, RFC=rfc, **kwargs)
+        return astar_decoder(arg, heuristics=heuristics, beam=beamsize, RFC=rfc,nbest=nbest,**kwargs)
     return factory
 
 
@@ -67,7 +67,7 @@ def _known_heuristics():
             "zero": h0}
 
 
-def _known_decoders(heuristics, rfc,beamsize):
+def _known_decoders(heuristics, rfc,beamsize,nbest=1):
     """
     Return a dictionary of possible decoders.
     This lets us grab at the names of known decoders
@@ -76,7 +76,7 @@ def _known_decoders(heuristics, rfc,beamsize):
             "local": local_baseline,
             "locallyGreedy": locallyGreedy,
             "mst": mst_decoder,
-            "astar": _mk_astar_decoder(heuristics, rfc,beamsize)}
+            "astar": _mk_astar_decoder(heuristics, rfc,beamsize,nbest=nbest)}
 
 
 def _known_learners(decoder, phrasebook, perc_args=None):
@@ -151,7 +151,7 @@ def args_to_decoder(args):
     if args.data_relations is None:
         args.rfc = "simple"
 
-    _decoders = _known_decoders(heuristic, args.rfc, args.beamsize)
+    _decoders = _known_decoders(heuristic, args.rfc, args.beamsize,nbest=args.nbest)
 
     if args.decoder in _decoders:
         return _decoders[args.decoder]
@@ -338,6 +338,13 @@ def _add_decoder_args(psr):
                            type=int,
                            help="with astar decoding, set a beamsize "
                            "default: None -> full astar with")
+
+    astar_grp.add_argument("--nbest", "-N",
+                           default=1,
+                           type=int,
+                           help="with astar decoding, set a nbest oracle, keeping n solutions "
+                           "default: 1-best = simple astar")
+
 
     perc_grp = psr.add_argument_group('perceptron arguments')
     perc_grp.add_argument("--use_prob", "-P",
