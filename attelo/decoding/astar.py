@@ -62,6 +62,11 @@ for one in _class_schemes["minsdrt"]:
 class DiscData: 
     """ basic discourse data for a state: chosen links between edus at that stage + right-frontier state
     to save space, only new links are stored. the complete solution will be built with backpointers via the parent field
+
+    RF: right frontier, = admissible attachment point of current discourse unit
+    parent: parent state (previous decision)
+    link: current decision (a triplet : target edu,source edu, relation)
+    tolink: remaining unattached discourse units
     """
     def __init__(self,parent=None,RF=[],tolink=[]):
         self._RF = RF
@@ -115,7 +120,8 @@ class DiscourseState(State):
     implements the State interface to be used by Search
 
     strategy: at each step of exploration choose a relation between two edus
-    related by probability distribution
+    related by probability distribution, reading order
+    a.k.a NRO "natural reading order", cf Bramsen et al.,  2006. in temporal processing. 
 
     'data' is set of instantiated relations (typically nothing at the beginning, but could be started with a few chosen relations)
     'shared' points to shared data between states (here proba distribution between considered pairs of edus at least, but also can include precomputed info for heuristics)
@@ -305,6 +311,7 @@ def prob_distrib_convert(prob_distrib):
 # - should allow for (at least local) argument inversion (eg background), for more expressivity
 def astar_decoder(prob_distrib,heuristics=h0,beam=None,RFC="simple",use_prob=True,nbest=1,**kwargs):
     """wrapper for astar decoder to be used by processing pipeline
+    returns a structure, or nbest structures
 
     - heuristics is a* heuristic funtion (estimate the cost of what has not been explored yet)
     - prob_distrib is a list of (a1,a2,p,r): scores p on each possible edge (a1,a2), and the best label r corresponding to that score 
@@ -325,9 +332,10 @@ def astar_decoder(prob_distrib,heuristics=h0,beam=None,RFC="simple",use_prob=Tru
 
     edus = list(edus)
     edus.sort(key = lambda x: x[1])
+    saved = edus
     edus = map(lambda x:x[0],edus)
     print >> sys.stderr, "\t %s nodes to attach"%(len(edus)-1)
-
+    
     pre_heurist = preprocess_heuristics(prob_distrib)
     if beam:
         a = DiscourseBeamSearch(heuristic=heuristics,shared={"probs":prob,"use_prob":use_prob,"heuristics":pre_heurist,"RFC":RFC},queue_size=beam)
@@ -335,9 +343,17 @@ def astar_decoder(prob_distrib,heuristics=h0,beam=None,RFC="simple",use_prob=Tru
         a = DiscourseSearch(heuristic=heuristics,shared={"probs":prob,"use_prob":use_prob,"heuristics":pre_heurist,"RFC":RFC})
         
     genall = a.launch(DiscData(RF=[edus[0]],tolink=edus[1:]),norepeat=True,verbose=False)
-    endstate = genall.next()
-    sol =  a.recover_solution(endstate)
-    return sol
+    # nbest solutions handling
+    all_solutions = []
+    for i in range(nbest):
+        endstate = genall.next()
+        sol =  a.recover_solution(endstate)
+        all_solutions.append(sol)
+    print >> sys.stderr, "nbest=%d"%nbest
+    if nbest==1:
+        return sol
+    else:
+        return all_solutions
 
 
 if __name__=="__main__":
@@ -389,4 +405,6 @@ if __name__=="__main__":
     # test with discourse input file (.features)
     print "new function test"
     
-    print astar_decoder(prob_distrib)
+    print astar_decoder(prob_distrib,nbest=1)
+    print astar_decoder(prob_distrib,nbest=2)
+    

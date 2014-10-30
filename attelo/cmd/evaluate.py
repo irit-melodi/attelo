@@ -109,8 +109,10 @@ def main(args):
     phrasebook = args_to_phrasebook(args)
     data_attach, data_relate = read_data(args.data_attach,
                                          args.data_relations)
-
+    #print(args, file=sys.stderr)
     decoder = args_to_decoder(args)
+    
+    # TODO: more models for intra-sentence
     attach_learner, relation_learner = \
         args_to_learners(decoder, phrasebook, args)
 
@@ -137,6 +139,7 @@ def main(args):
                                                    test_fold,
                                                    negate=1)
         # train model
+        # TODO: separate models for intra-sentence/inter-sentence
         model_attach = attach_learner(train_data_attach)
 
         if with_relations:
@@ -168,13 +171,14 @@ def main(args):
 
                 doc_attach, doc_relate =\
                     _select_doc(config, onedoc, attach, relate)
-                predicted = decode(config, decoder, doc_attach, doc_relate)
+                predicted = decode(config, decoder, doc_attach, doc_relate,nbest=args.nbest,)
 
                 score_doc_relate = doc_relate if score_labels else None
                 fold_evals.append(_score_predictions(config,
                                                      doc_attach,
                                                      score_doc_relate,
-                                                     predicted))
+                                                     predicted,
+                                                     nbest=args.nbest,))
 
         fold_report = Report(fold_evals,
                              params=args,
