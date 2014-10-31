@@ -92,9 +92,9 @@ class DiscData:
         RFC = "simple": consider everything as subord   
         RFC = "none" no constraint on attachment
         """
-        if to_edu not in self.accessible():
-            print >> sys.stderr, "error: unreachable node", to_edu, "(ignored)"
-        else:
+        #if to_edu not in self.accessible():
+        #    print >> sys.stderr, "error: unreachable node", to_edu, "(ignored)"
+        if True:
             index = self.accessible().index(to_edu)
             self._link = (to_edu,from_edu,relation)
             # update the right frontier -- coord relations replace their attachment points, subord are appended, and evrything below disappear from the RF
@@ -114,6 +114,8 @@ class DiscData:
 
     def __repr__(self):
         return str(self)
+
+
 
 class DiscourseState(State):
     """
@@ -236,9 +238,97 @@ class DiscourseState(State):
         pr = sum(map(transform,[self.shared()["heuristics"]["best_attach"][x] for x in missing_links]))
         return pr
 
+#########################################
+
+class TwoStageNROData(DiscData):
+    """similar as above with different handling of inter-sentence and intra-sentence relations
+
+    accessible is list of starting edus (only one for now)
+    """
+    
+    def __init__(self,parent=None,accessible=[],tolink=[]):
+        self._accessible_global = accessible
+        self._accessible_sentence = accessible
+        self.parent = parent
+        self._link = None
+        self._tolink = tolink
+        self._intra = True
+        self._current_sentence = 1
+
+    def accessible(self):
+        """
+        wip:
+        """
+        if self._intra: 
+              return self._accessible_sentence
+        else:
+              return self._accessible_global
+
+    def update_mode(self):
+        self._intra = not(self._intra)
+
+    def link(self,to_edu,from_edu,relation):
+        """WIP
+          
+        """
+        index = self.accessible().index(to_edu)
+        self._link = (to_edu,from_edu,relation)
+        if self._intra: # simple RFC for now
+            self._accessible_global = self._accessible_sentence[:index+1]
+            self._accessible_global.append(from_edu)
+        else:
+            self._accessible_sentence = self._accessible_sentence[:index+1]
+            self._accessible_global.append(from_edu)
 
 
 
+class TwoStageNRO(DiscourseState):
+    """similar as above with different handling of inter-sentence and intra-sentence relations"""
+    def __init__(self):
+        pass
+
+    def same_sentence(self,edu1,edu2):
+        """not implemented: will always return False
+        TODO: this should go in preprocessing before launching astar
+        ?? would it be easier to have access to all edu pair features ??
+        (certainly for that one)
+        """
+        return self.shared().get("same_sentence",lambda x:False)(edu1,edu2)
+
+    def nextStates(self):
+        """must return a state and a cost
+        TODO: 
+            - decode differently on intra/inter sentence
+        """
+        all=[]
+        one=self.data().tobedone()[0]
+        # inter/intra
+        # if intra shared.sentence([one])!=current
+        #      current += 1 / intra = False
+        # else: 
+        #      intra = True
+
+
+        for attachmt in self.data().accessible():
+            # FIXME: this might is problematic because we use things like
+            # checking if an EDU is in some list, which fails on object id
+            new = copy.deepcopy(self.data())
+            new.tobedone().pop(0)
+            relation,pr = self.proba((attachmt,one))
+            if pr is not None:
+                new.link(attachmt,one,relation)
+                new.parent = self.data()
+                if self._shared["use_prob"]:
+                    if pr==0:
+                        score = -numpy.inf
+                    else:
+                        score = -math.log(pr)
+                    all.append((new,score))
+                else:
+                    all.append((new,pr))
+        return all
+
+###################################
 
 class DiscourseSearch(Search):
     """
@@ -323,6 +413,8 @@ def prob_distrib_convert(prob_distrib):
 # TODO: order function should be a method parameter
 # - root should be specified ? or a fake root ? for now, it is the first edu
 # - should allow for (at least local) argument inversion (eg background), for more expressivity
+# - dispatch of various strategies should happen here. 
+#   the original strategy should be called simpleNRO or NRO
 def astar_decoder(prob_distrib,heuristics=h0,beam=None,RFC="simple",use_prob=True,nbest=1,**kwargs):
     """wrapper for astar decoder to be used by processing pipeline
     returns a structure, or nbest structures
