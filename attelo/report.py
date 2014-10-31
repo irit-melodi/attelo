@@ -118,7 +118,7 @@ class Count(object):
             oops = "Malformed counts file (expected keys: %s, got: %s)"\
                 % (cls._FIELDNAMES, header)
             raise AtteloReportException(oops)
-
+        
         def mk_count(row):
             "row to Count object"
             return cls(*[int(row[a]) for a in cls._FIELDNAMES[1:]])

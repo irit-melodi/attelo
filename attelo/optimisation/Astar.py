@@ -28,9 +28,9 @@ class State:
     
     """
     def __init__(self,data,heuristics):
-        self._data=data
-        self._cost=0
-        self._h=heuristics(data)
+        self._data = data
+        self._cost = 0
+        self._h = heuristics(data)
         
     def cost(self):
         return self._cost
@@ -42,11 +42,11 @@ class State:
         self._cost +=value
         
     def __eq__(self,other):
-        return self.data()==other.data()
+        return self.data() == other.data()
 
     def __lt__(self,other):
-        f1=self.cost()+self._h
-        f2=other.cost()+other._h
+        f1 = self.cost()+self._h
+        f2 = other.cost()+other._h
         if f1<f2:
             return True
         elif f1==f2:
@@ -77,20 +77,25 @@ class Search:
     default is astar search (search the minimum cost from init state to a solution
 
     heuristic: heuristics guiding the search (applies to state-specific data(), see State)
-    shared: other data shared by all nodes (eg. for heuristic computation)
+
+    shared: other data shared by all nodes (eg. for heuristic computation )
+
+    queue_size: limited beam-size to store states. (commented out, pending tests). 
+    
     """
     
-    def __init__(self,heuristic=(lambda x: 0.),shared=None):
-        self._todo=[]
-        self._seen={}
-        self._hFunc=heuristic
-        self._shared=shared
+    def __init__(self,heuristic = (lambda x: 0.),shared = None,queue_size = None):
+        self._todo = []
+        self._seen = {}
+        self._hFunc = heuristic
+        self._shared = shared
+        self._queue_size = queue_size
 
     def resetQueue(self):
-        self._todo=[]
+        self._todo = []
         
     def resetSeen(self):
-        self._seen={}
+        self._seen = {}
 
 
     def shared(self):
@@ -103,9 +108,12 @@ class Search:
     def addQueue(self,items,ancestorCost):
         # each item must be a successor and a cost
         for one,cost in items:
-            s=self.newState(one)
+            s = self.newState(one)
             s.updateCost(ancestorCost+cost)
             heapq.heappush(self._todo,s)
+        #if self._queue_size is not None:
+        #    new  =  heapq.nsmallest(self._queue_size,self._todo)
+        #    self._todo  =  new
 
     def getBest(self):
         return heapq.min(self._todo)
@@ -114,7 +122,7 @@ class Search:
         return heapq.heappop(self._todo)
         
     def emptyQueue(self):
-        return (self._todo==[])
+        return (self._todo ==[])
 
     def alreadySeen(self,e):
         return hash(e) in self._seen
@@ -126,6 +134,8 @@ class Search:
         """launch search from initital state value
 
         norepeat means there's no need for an "already seen states" datastructure
+        
+        Todo: should be able to change the queue_size here 
         """
         self.resetQueue()
         if not(norepeat):
@@ -186,8 +196,9 @@ class BeamSearch(Search):
             s=self.newState(one)
             s.updateCost(ancestorCost+cost)
             heapq.heappush(self._todo,s)
-        new=heapq.nsmallest(self._queue_size,self._todo)
-        self._todo=new
+        if self._queue_size is not None:
+            new=heapq.nsmallest(self._queue_size,self._todo)
+            self._todo=new
 
 class TestState(State):
     """dummy cost uniform search: starting from int, find minimum numbers
@@ -245,7 +256,8 @@ if __name__=="__main__":
     h0 = lambda x: 0
     for (name,b) in (("UC",TestSearch(h0)),
                      ("Astar",TestSearch(h_bete)),
-                     ("Beam/h/100",TestSearch2(h_bete,queue_size=100)),
+                     ("Beam/h/100 1-",TestSearch2(h_bete,queue_size=100)),
+                     ("Beam/h/100 2-",TestSearch(h_bete,queue_size=100)),
                      ("Beam/h0/100",TestSearch2(h0,queue_size=100))):
         gc=b.launch(a,verbose=False)
         tot = 5
