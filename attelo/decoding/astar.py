@@ -60,17 +60,20 @@ for one in _class_schemes["minsdrt"]:
 
 
 class DiscData: 
-    """ basic discourse data for a state: chosen links between edus at that stage + right-frontier state
+    """ 
+    Natural reading order decoding: incremental building of tree in order of text (one edu at a time)
+
+    basic discourse data for a state: chosen links between edus at that stage + right-frontier state
     to save space, only new links are stored. the complete solution will be built with backpointers via the parent field
     """
-    def __init__(self,parent=None,RF=[],tolink=[]):
-        self._RF = RF
+    def __init__(self,parent=None,accessible=[],tolink=[]):
+        self._accessible = accessible
         self.parent = parent
         self._link = None
         self._tolink = tolink
 
     def accessible(self):
-        return self._RF
+        return self._accessible
 
     def final(self):
         return (self._tolink == [])
@@ -94,21 +97,23 @@ class DiscData:
             #print >> sys.stderr, type(relation)
             #print >> sys.stderr, map(type,subord_coord.values())
             if RFC=="full" and subord_coord.get(relation,"subord")=="coord":
-                self._RF = self._RF[:index]
+                self._accessible = self._accessible[:index]
             elif RFC=="simple":
-                self._RF = self._RF[:index+1]
+                self._accessible = self._accessible[:index+1]
             else: # no RFC, leave everything. 
                 pass
-            self._RF.append(from_edu)
+            self._accessible.append(from_edu)
 
     def __str__(self):
-        return str(self._link)+"/ RF="+str(self._RF)+"/ to attach = "+" ".join(map(str,self._tolink))
+        return str(self._link)+"/ accessibility="+str(self._accessible)+"/ to attach = "+" ".join(map(str,self._tolink))
 
     def __repr__(self):
         return str(self)
 
 class DiscourseState(State):
     """
+    Natural reading order decoding: incremental building of tree in order of text (one edu at a time)
+
     instance of discourse graph with probability for each attachement+relation on a subset
     of edges.
 
@@ -230,7 +235,16 @@ class DiscourseState(State):
 
 
 class DiscourseSearch(Search):
+    """
+    subtype of astar search for discourse: should be the same for 
+    every astar decoder, provided the discourse state is a subclass
+    of DiscourseState
 
+    recover solution should be as is, provided a state has at least the following
+    info: 
+    - parent : parent state
+    - _link : the actual prediction made at this stage (1 state =  1 relation = (du1,du2,relation)
+    """
     def newState(self,data):
         return DiscourseState(data,self._hFunc,self.shared())
 
@@ -334,7 +348,7 @@ def astar_decoder(prob_distrib,heuristics=h0,beam=None,RFC="simple",use_prob=Tru
     else:
         a = DiscourseSearch(heuristic=heuristics,shared={"probs":prob,"use_prob":use_prob,"heuristics":pre_heurist,"RFC":RFC})
         
-    genall = a.launch(DiscData(RF=[edus[0]],tolink=edus[1:]),norepeat=True,verbose=False)
+    genall = a.launch(DiscData(accessible=[edus[0]],tolink=edus[1:]),norepeat=True,verbose=False)
     endstate = genall.next()
     sol =  a.recover_solution(endstate)
     return sol
@@ -371,7 +385,7 @@ if __name__=="__main__":
 
     t0=time.time()
     a = DiscourseSearch(heuristic=h_average,shared={"probs":prob,"heuristics":pre_heurist,"use_prob":True,"RFC":"full"})
-    genall = a.launch(DiscData(RF=[edus[1]],tolink=edus[2:]),norepeat=True,verbose=True)
+    genall = a.launch(DiscData(accessible=[edus[1]],tolink=edus[2:]),norepeat=True,verbose=True)
     endstate = genall.next()
     print "total time:",time.time()-t0
     sol =  a.recover_solution(endstate)
@@ -380,7 +394,7 @@ if __name__=="__main__":
     print a.iterations
     print "total time:", time.time()-t0
     # a = DiscourseSearch(heuristic=h2, shared={"probs":prob,"nodes":edus[2:]})
-    # sol=a.launch(DiscData(nodes=edus[1:2],RF=edus[1:2]),norepeat=True)
+    # sol=a.launch(DiscData(nodes=edus[1:2],accessible=edus[1:2]),norepeat=True)
     # print sol
     # print sol.cost()
     # print a.iterations

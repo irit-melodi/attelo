@@ -77,7 +77,7 @@ class Search:
     default is astar search (search the minimum cost from init state to a solution
 
     heuristic: heuristics guiding the search (applies to state-specific data(), see State)
-    shared: other data shared by all nodes (eg. for heuristic computation ?)
+    shared: other data shared by all nodes (eg. for heuristic computation)
     """
     
     def __init__(self,heuristic=(lambda x: 0.),shared=None):
