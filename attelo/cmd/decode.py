@@ -1,8 +1,11 @@
 "build a discourse graph from edu pairs and a model"
 
 from __future__ import print_function
+from collections import defaultdict
 from functools import wraps
+from itertools import chain, repeat
 import argparse
+import itertools
 import csv
 import json
 import os
@@ -155,12 +158,73 @@ def _export_csv(phrasebook, doc, predicted, attach_instances, folder):
             writer.writerow([inst[x].value for x in metas] + [label])
 
 
+def _export_conllish(phrasebook, doc, predicted, attach_instances, folder):
+    """
+    Append the predictions to our CONLL like output file documented in
+    `doc/output.md`
+
+    (FOLDER/graph.conll)
+    """
+    fname = os.path.join(folder, "graph.conll")
+    incoming = defaultdict(list)
+    for edu1, edu2, label in predicted:
+        incoming[edu2].append((edu1, label))
+    max_indegree = max(len(x) for x in incoming.items())
+
+    edus = {}
+    for inst in attach_instances:
+        edu1 = inst[phrasebook.source].value
+        edu2 = inst[phrasebook.target].value
+        edus[edu1] = (inst[phrasebook.source_span_start].value,
+                      inst[phrasebook.source_span_end].value,
+                      inst[phrasebook.grouping].value)
+        edus[edu2] = (inst[phrasebook.target_span_start].value,
+                      inst[phrasebook.target_span_end].value,
+                      inst[phrasebook.grouping].value)
+
+    concat_map = lambda f, xs: list(chain.from_iterable(map(f, xs)))
+
+    def mk_row(edu):
+        "csv row for the given edu"
+
+        if edu == '0':
+            raise ValueError('We assume that no EDU is labelled 0')
+
+        start, end, grouping = edus[edu]
+        row = [edu, grouping, start, end]
+        linkstuff = []
+        if incoming.get(edu):
+            linkstuff = concat_map(list, incoming[edu])
+        else:
+            linkstuff = ["0", "ROOT"]
+        pad_len = max_indegree * 2 - len(linkstuff)
+        return row + linkstuff + ([''] * pad_len)
+
+
+    with open(fname, 'a') as fout:
+        writer = csv.writer(fout, dialect=csv.excel_tab)
+        for edu in sorted(edus, key=lambda x: x[0]):
+            writer.writerow(mk_row(edu))
+
+
+def _prepare_combined_outputs(folder):
+    """
+    Initialise any output files that are to be appended to rather
+    than written separately
+    """
+    fname = os.path.join(folder, "graph.conll")
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    open(fname, 'a').close()
+
+
 def _write_predictions(config, doc, predicted, attach, output):
     """
     Save predictions to disk in various formats
     """
     _export_graph(predicted, doc, output)
     _export_csv(config.phrasebook, doc, predicted, attach.data, output)
+    _export_conllish(config.phrasebook, doc, predicted, attach.data, output)
 
 
 def _score_predictions(config, attach, relate, predicted,nbest=1):
@@ -258,6 +322,7 @@ def main_for_harness(args, config, decoder, attach, relate):
                               inst in attach.data)
 
     scores = {}
+    _prepare_combined_outputs(args.output)
     for onedoc in all_groupings:
         if not args.quiet:
             print("decoding on file : ", onedoc, file=sys.stderr)
