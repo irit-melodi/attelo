@@ -159,7 +159,7 @@ def _get_attach_prob_orange(config, attach):
     return prob_distrib
 
 
-def decode(config, decoder, attach, relate=None):
+def decode(config, decoder, attach, relate=None, nbest=1):
     """
     Decode every instance in the attachment table (predicting
     relations too if we have the data/model for it).
@@ -185,6 +185,7 @@ def decode(config, decoder, attach, relate=None):
     # get prediction (input is just prob_distrib)
     # not all decoders support the threshold keyword argument
     # hence the apparent redundancy here
+    # PM CHECK if works with nbest decoding 
     if config.threshold is not None:
         predicted = decoder(prob_distrib,
                             threshold=config.threshold,
@@ -194,7 +195,10 @@ def decode(config, decoder, attach, relate=None):
                             use_prob=config.use_prob)
 
     if config.post_labelling:
-        predicted = _add_labels(config.phrasebook, predicted, relate)
+        if nbest==1:
+            predicted = _add_labels(config.phrasebook, predicted, relate)
+        else:
+            predicted = [_add_labels(config.phrasebook, x, relate) for x in predicted]
 
     return predicted
 

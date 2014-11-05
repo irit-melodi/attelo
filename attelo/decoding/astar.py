@@ -60,17 +60,25 @@ for one in _class_schemes["minsdrt"]:
 
 
 class DiscData: 
-    """ basic discourse data for a state: chosen links between edus at that stage + right-frontier state
+    """ 
+    Natural reading order decoding: incremental building of tree in order of text (one edu at a time)
+
+    basic discourse data for a state: chosen links between edus at that stage + right-frontier state
     to save space, only new links are stored. the complete solution will be built with backpointers via the parent field
+
+    RF: right frontier, = admissible attachment point of current discourse unit
+    parent: parent state (previous decision)
+    link: current decision (a triplet : target edu,source edu, relation)
+    tolink: remaining unattached discourse units
     """
-    def __init__(self,parent=None,RF=[],tolink=[]):
-        self._RF = RF
+    def __init__(self,parent=None,accessible=[],tolink=[]):
+        self._accessible = accessible
         self.parent = parent
         self._link = None
         self._tolink = tolink
 
     def accessible(self):
-        return self._RF
+        return self._accessible
 
     def final(self):
         return (self._tolink == [])
@@ -84,9 +92,9 @@ class DiscData:
         RFC = "simple": consider everything as subord   
         RFC = "none" no constraint on attachment
         """
-        if to_edu not in self.accessible():
-            print >> sys.stderr, "error: unreachable node", to_edu, "(ignored)"
-        else:
+        #if to_edu not in self.accessible():
+        #    print >> sys.stderr, "error: unreachable node", to_edu, "(ignored)"
+        if True:
             index = self.accessible().index(to_edu)
             self._link = (to_edu,from_edu,relation)
             # update the right frontier -- coord relations replace their attachment points, subord are appended, and evrything below disappear from the RF
@@ -94,28 +102,33 @@ class DiscData:
             #print >> sys.stderr, type(relation)
             #print >> sys.stderr, map(type,subord_coord.values())
             if RFC=="full" and subord_coord.get(relation,"subord")=="coord":
-                self._RF = self._RF[:index]
+                self._accessible = self._accessible[:index]
             elif RFC=="simple":
-                self._RF = self._RF[:index+1]
+                self._accessible = self._accessible[:index+1]
             else: # no RFC, leave everything. 
                 pass
-            self._RF.append(from_edu)
+            self._accessible.append(from_edu)
 
     def __str__(self):
-        return str(self._link)+"/ RF="+str(self._RF)+"/ to attach = "+" ".join(map(str,self._tolink))
+        return str(self._link)+"/ accessibility="+str(self._accessible)+"/ to attach = "+" ".join(map(str,self._tolink))
 
     def __repr__(self):
         return str(self)
 
+
+
 class DiscourseState(State):
     """
+    Natural reading order decoding: incremental building of tree in order of text (one edu at a time)
+
     instance of discourse graph with probability for each attachement+relation on a subset
     of edges.
 
     implements the State interface to be used by Search
 
     strategy: at each step of exploration choose a relation between two edus
-    related by probability distribution
+    related by probability distribution, reading order
+    a.k.a NRO "natural reading order", cf Bramsen et al.,  2006. in temporal processing. 
 
     'data' is set of instantiated relations (typically nothing at the beginning, but could be started with a few chosen relations)
     'shared' points to shared data between states (here proba distribution between considered pairs of edus at least, but also can include precomputed info for heuristics)
@@ -225,12 +238,109 @@ class DiscourseState(State):
         pr = sum(map(transform,[self.shared()["heuristics"]["best_attach"][x] for x in missing_links]))
         return pr
 
+#########################################
+
+class TwoStageNROData(DiscData):
+    """similar as above with different handling of inter-sentence and intra-sentence relations
+
+    accessible is list of starting edus (only one for now)
+    """
+    
+    def __init__(self,parent=None,accessible=[],tolink=[]):
+        self._accessible_global = accessible
+        self._accessible_sentence = accessible
+        self.parent = parent
+        self._link = None
+        self._tolink = tolink
+        self._intra = True
+        self._current_sentence = 1
+
+    def accessible(self):
+        """
+        wip:
+        """
+        if self._intra: 
+              return self._accessible_sentence
+        else:
+              return self._accessible_global
+
+    def update_mode(self):
+        self._intra = not(self._intra)
+
+    def link(self,to_edu,from_edu,relation):
+        """WIP
+          
+        """
+        index = self.accessible().index(to_edu)
+        self._link = (to_edu,from_edu,relation)
+        if self._intra: # simple RFC for now
+            self._accessible_global = self._accessible_sentence[:index+1]
+            self._accessible_global.append(from_edu)
+        else:
+            self._accessible_sentence = self._accessible_sentence[:index+1]
+            self._accessible_global.append(from_edu)
 
 
 
+class TwoStageNRO(DiscourseState):
+    """similar as above with different handling of inter-sentence and intra-sentence relations"""
+    def __init__(self):
+        pass
+
+    def same_sentence(self,edu1,edu2):
+        """not implemented: will always return False
+        TODO: this should go in preprocessing before launching astar
+        ?? would it be easier to have access to all edu pair features ??
+        (certainly for that one)
+        """
+        return self.shared().get("same_sentence",lambda x:False)(edu1,edu2)
+
+    def nextStates(self):
+        """must return a state and a cost
+        TODO: 
+            - decode differently on intra/inter sentence
+        """
+        all=[]
+        one=self.data().tobedone()[0]
+        # inter/intra
+        # if intra shared.sentence([one])!=current
+        #      current += 1 / intra = False
+        # else: 
+        #      intra = True
+
+
+        for attachmt in self.data().accessible():
+            # FIXME: this might is problematic because we use things like
+            # checking if an EDU is in some list, which fails on object id
+            new = copy.deepcopy(self.data())
+            new.tobedone().pop(0)
+            relation,pr = self.proba((attachmt,one))
+            if pr is not None:
+                new.link(attachmt,one,relation)
+                new.parent = self.data()
+                if self._shared["use_prob"]:
+                    if pr==0:
+                        score = -numpy.inf
+                    else:
+                        score = -math.log(pr)
+                    all.append((new,score))
+                else:
+                    all.append((new,pr))
+        return all
+
+###################################
 
 class DiscourseSearch(Search):
+    """
+    subtype of astar search for discourse: should be the same for 
+    every astar decoder, provided the discourse state is a subclass
+    of DiscourseState
 
+    recover solution should be as is, provided a state has at least the following
+    info: 
+    - parent : parent state
+    - _link : the actual prediction made at this stage (1 state =  1 relation = (du1,du2,relation)
+    """
     def newState(self,data):
         return DiscourseState(data,self._hFunc,self.shared())
 
@@ -303,8 +413,11 @@ def prob_distrib_convert(prob_distrib):
 # TODO: order function should be a method parameter
 # - root should be specified ? or a fake root ? for now, it is the first edu
 # - should allow for (at least local) argument inversion (eg background), for more expressivity
+# - dispatch of various strategies should happen here. 
+#   the original strategy should be called simpleNRO or NRO
 def astar_decoder(prob_distrib,heuristics=h0,beam=None,RFC="simple",use_prob=True,nbest=1,**kwargs):
     """wrapper for astar decoder to be used by processing pipeline
+    returns a structure, or nbest structures
 
     - heuristics is a* heuristic funtion (estimate the cost of what has not been explored yet)
     - prob_distrib is a list of (a1,a2,p,r): scores p on each possible edge (a1,a2), and the best label r corresponding to that score 
@@ -325,19 +438,27 @@ def astar_decoder(prob_distrib,heuristics=h0,beam=None,RFC="simple",use_prob=Tru
 
     edus = list(edus)
     edus.sort(key = lambda x: x[1])
+    saved = edus
     edus = map(lambda x:x[0],edus)
     print >> sys.stderr, "\t %s nodes to attach"%(len(edus)-1)
-
+    
     pre_heurist = preprocess_heuristics(prob_distrib)
     if beam:
         a = DiscourseBeamSearch(heuristic=heuristics,shared={"probs":prob,"use_prob":use_prob,"heuristics":pre_heurist,"RFC":RFC},queue_size=beam)
     else:
         a = DiscourseSearch(heuristic=heuristics,shared={"probs":prob,"use_prob":use_prob,"heuristics":pre_heurist,"RFC":RFC})
-        
-    genall = a.launch(DiscData(RF=[edus[0]],tolink=edus[1:]),norepeat=True,verbose=False)
-    endstate = genall.next()
-    sol =  a.recover_solution(endstate)
-    return sol
+    genall = a.launch(DiscData(accessible=[edus[0]],tolink=edus[1:]),norepeat=True,verbose=False)
+    # nbest solutions handling
+    all_solutions = []
+    for i in range(nbest):
+        endstate = genall.next()
+        sol =  a.recover_solution(endstate)
+        all_solutions.append(sol)
+    print >> sys.stderr, "nbest=%d"%nbest
+    if nbest==1:
+        return sol
+    else:
+        return all_solutions
 
 
 if __name__=="__main__":
@@ -371,7 +492,7 @@ if __name__=="__main__":
 
     t0=time.time()
     a = DiscourseSearch(heuristic=h_average,shared={"probs":prob,"heuristics":pre_heurist,"use_prob":True,"RFC":"full"})
-    genall = a.launch(DiscData(RF=[edus[1]],tolink=edus[2:]),norepeat=True,verbose=True)
+    genall = a.launch(DiscData(accessible=[edus[1]],tolink=edus[2:]),norepeat=True,verbose=True)
     endstate = genall.next()
     print "total time:",time.time()-t0
     sol =  a.recover_solution(endstate)
@@ -380,7 +501,7 @@ if __name__=="__main__":
     print a.iterations
     print "total time:", time.time()-t0
     # a = DiscourseSearch(heuristic=h2, shared={"probs":prob,"nodes":edus[2:]})
-    # sol=a.launch(DiscData(nodes=edus[1:2],RF=edus[1:2]),norepeat=True)
+    # sol=a.launch(DiscData(nodes=edus[1:2],accessible=edus[1:2]),norepeat=True)
     # print sol
     # print sol.cost()
     # print a.iterations
@@ -389,4 +510,6 @@ if __name__=="__main__":
     # test with discourse input file (.features)
     print "new function test"
     
-    print astar_decoder(prob_distrib)
+    print astar_decoder(prob_distrib,nbest=1)
+    print astar_decoder(prob_distrib,nbest=2)
+    
