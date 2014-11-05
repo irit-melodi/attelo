@@ -215,7 +215,7 @@ def _prepare_combined_outputs(folder):
     fname = os.path.join(folder, "graph.conll")
     if not os.path.exists(folder):
         os.makedirs(folder)
-    open(fname, 'a').close()
+    open(fname, 'w').close()
 
 
 def _write_predictions(config, doc, predicted, attach, output):
