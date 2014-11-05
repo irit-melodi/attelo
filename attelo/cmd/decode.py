@@ -317,12 +317,15 @@ def main_for_harness(args, config, decoder, attach, relate):
     You have to supply DataModel args for attachment/relation
     yourself
     """
+    _prepare_combined_outputs(args.output)
+    if not attach.data: # there may be legitimate uses for empty inputs
+        return
+
     grouping_index = attach.data.domain.index(config.phrasebook.grouping)
     all_groupings = frozenset(inst[grouping_index].value for
                               inst in attach.data)
 
     scores = {}
-    _prepare_combined_outputs(args.output)
     for onedoc in all_groupings:
         if not args.quiet:
             print("decoding on file : ", onedoc, file=sys.stderr)
