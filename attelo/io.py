@@ -6,6 +6,7 @@ from __future__ import print_function
 import cPickle
 import Orange
 import sys
+import time
 import traceback
 
 # ---------------------------------------------------------------------
@@ -47,8 +48,15 @@ class Torpor(object):
         self._file = file
         self._sameline = sameline
         self._quiet = quiet
+        self._start = 0
+        self._end = 0
 
     def __enter__(self):
+        # we grab the wall time instead of using time.clock() (A)
+        # because we # are not using this for profiling but just to
+        # get a rough idea what's going on, and (B) because we want
+        # to include things like IO into the mix
+        self._start = time.time()
         if self._quiet:
             return
         elif self._sameline:
@@ -57,10 +65,13 @@ class Torpor(object):
             print("[start]", self._msg, file=self._file)
 
     def __exit__(self, type, value, tb):
+        self._end = time.time()
         if tb is None:
             if not self._quiet:
                 done = "done" if self._sameline else "[-end-] " + self._msg
-                print(done, file=self._file)
+                ms_elapsed = 1000 * (self._end - self._start)
+                final_msg = u"{} [{:.0f} ms]".format(done, ms_elapsed)
+                print(final_msg, file=self._file)
         else:
             if not self._quiet:
                 oops = "ERROR!" if self._sameline else "ERROR! " + self._msg
