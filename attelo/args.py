@@ -132,8 +132,12 @@ KNOWN_ATTACH_LEARNERS = _known_learners(last_baseline, {},
                                         PerceptronArgs(0, False, False)).keys()
 KNOWN_RELATION_LEARNERS = _known_learners(last_baseline, {}, None)
 
+# default values for A* decoder
 DEFAULT_RFC = "full"
 DEFAULT_HEURISTIC = "average"
+DEFAULT_BEAMSIZE = None
+DEFAULT_NBEST = 1
+#
 DEFAULT_DECODER = "local"
 DEFAULT_NIT = 1
 DEFAULT_NFOLD = 10
@@ -334,13 +338,13 @@ def _add_decoder_args(psr):
                            "is subordinating (default: %s)" % DEFAULT_RFC)
    
     astar_grp.add_argument("--beamsize", "-B",
-                           default=None,
+                           default=DEFAULT_BEAMSIZE,
                            type=int,
                            help="with astar decoding, set a beamsize "
                            "default: None -> full astar with")
 
     astar_grp.add_argument("--nbest", "-N",
-                           default=1,
+                           default=DEFAULT_NBEST,
                            type=int,
                            help="with astar decoding, set a nbest oracle, keeping n solutions "
                            "default: 1-best = simple astar")
