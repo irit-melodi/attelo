@@ -14,7 +14,8 @@ import sys
 
 from attelo.args import\
     args_to_decoder, args_to_phrasebook, args_to_threshold,\
-    DEFAULT_HEURISTIC, DEFAULT_RFC, DEFAULT_NIT, DEFAULT_NFOLD
+    DEFAULT_HEURISTIC, DEFAULT_RFC, DEFAULT_BEAMSIZE, DEFAULT_NBEST,\
+    DEFAULT_NIT, DEFAULT_NFOLD
 from attelo.decoding import\
     DataAndModel, DecoderConfig
 from attelo.io import\
@@ -107,8 +108,12 @@ class FakeEvalArgs(object):
         self.fold = fold
         self.threshold = None
         self.use_prob = None
+        # decoder-specific: atm, A* only
         self.heuristics = DEFAULT_HEURISTIC
         self.rfc = DEFAULT_RFC
+        self.beamsize = DEFAULT_BEAMSIZE
+        self.nbest = DEFAULT_NBEST
+        # 
         self.quiet = False
 
     def cleanup(self):
