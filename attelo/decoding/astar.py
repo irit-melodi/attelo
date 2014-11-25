@@ -11,6 +11,8 @@ TODO: unlabelled evaluation seems to bug on RF decoding (relation is of type ora
 
 
 """
+
+from argparse import ArgumentTypeError
 import random
 import copy
 import math
@@ -71,6 +73,18 @@ class RfcConstraint(Enum):
     simple = 1
     full = 2
     none = 3
+
+    @classmethod
+    def from_string(cls, string):
+        "command line arg to RfcConstraint"
+        names = {x.name: x for x in cls}
+        rfc = names.get(string)
+        if rfc is not None:
+            return rfc
+        else:
+            oops = "invalid choice: {}, choose from {}"
+            choices = ", ".join('{}'.format(x) for x in names)
+            raise ArgumentTypeError(oops.format(string, choices))
 # pylint: enable=no-init, too-few-public-methods
 
 
@@ -420,6 +434,17 @@ H_BEST = Heuristic("best", DiscourseState.h_best)
 H_AVERAGE = Heuristic("average", DiscourseState.h_average)
 HEURISTICS = {h.name: h for h in
               [H_ZERO, H_MAX, H_BEST, H_AVERAGE]}
+
+
+def named_heuristic(string):
+    "Heuristic from command line argument"
+    heuristic = HEURISTICS.get(string)
+    if heuristic is not None:
+        return heuristic
+    else:
+        oops = "invalid choice: {}, choose from {}"
+        choices = ", ".join('{}'.format(x) for x in HEURISTICS)
+        raise ArgumentTypeError(oops.format(string, choices))
 
 
 # pylint: disable=too-many-arguments

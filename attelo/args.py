@@ -13,7 +13,7 @@ import sys
 from .decoding.astar import\
     AstarArgs, RfcConstraint,\
     HEURISTICS as ASTAR_HEURISTICS,\
-    H_AVERAGE,\
+    named_heuristic, H_AVERAGE,\
     astar_decoder
 from .decoding.baseline import local_baseline, last_baseline
 from .decoding.mst import mst_decoder
@@ -48,18 +48,18 @@ def args_to_phrasebook(args):
                           label=metacfg["Label"])
 
 
-def _mk_astar_decoder(heuristics, rfc,beamsize,nbest=1):
+def _mk_astar_decoder(astar_args):
     """
     Return an A* decoder using the given heuristics and
     right frontier constraint parameter
     """
     def factory(arg, **kwargs):
         "actually build decoder"
-        return astar_decoder(arg, heuristics=heuristics, beam=beamsize, RFC=rfc,nbest=nbest,**kwargs)
+        return astar_decoder(arg, astar_args, **kwargs)
     return factory
 
 
-def _known_decoders(heuristics, rfc,beamsize,nbest=1):
+def _known_decoders(astar_args):
     """
     Return a dictionary of possible decoders.
     This lets us grab at the names of known decoders
@@ -68,7 +68,7 @@ def _known_decoders(heuristics, rfc,beamsize,nbest=1):
             "local": local_baseline,
             "locallyGreedy": locallyGreedy,
             "mst": mst_decoder,
-            "astar": _mk_astar_decoder(heuristics, rfc,beamsize,nbest=nbest)}
+            "astar": astar_args}
 
 
 def _known_learners(decoder, phrasebook, perc_args=None):
@@ -117,12 +117,6 @@ def _is_perceptron_learner_name(learner_name):
     """
     return learner_name in ["perc", "struc_perc"]
 
-# these are just dummy values (we just want the keys here)
-KNOWN_DECODERS = _known_decoders([], False,None).keys()
-KNOWN_ATTACH_LEARNERS = _known_learners(last_baseline, {},
-                                        PerceptronArgs(0, False, False)).keys()
-KNOWN_RELATION_LEARNERS = _known_learners(last_baseline, {}, None)
-
 # default values for perceptron learner
 DEFAULT_PERCEPTRON_ARGS = PerceptronArgs(iterations=1,
                                          averaging=False,
@@ -144,20 +138,27 @@ DEFAULT_DECODER = "local"
 DEFAULT_NIT = DEFAULT_PERCEPTRON_ARGS.iterations
 DEFAULT_NFOLD = 10
 
+# these are just dummy values (we just want the keys here)
+KNOWN_DECODERS = _known_decoders(DEFAULT_ASTAR_ARGS).keys()
+KNOWN_ATTACH_LEARNERS = _known_learners(last_baseline, {},
+                                        DEFAULT_PERCEPTRON_ARGS).keys()
+KNOWN_RELATION_LEARNERS = _known_learners(last_baseline, {}, None)
+
+
 
 def args_to_decoder(args):
     """
     Given the (parsed) command line arguments, return the
     decoder that was requested from the command line
     """
-    if args.heuristics not in ASTAR_HEURISTICS:
-        raise ArgumentTypeError("Unknown heuristics: %s" %
-                                args.heuristics)
-    heuristic = ASTAR_HEURISTICS.get(args.heuristics, h_average)
     if args.data_relations is None:
-        args.rfc = "simple"
+        args.rfc = RfcConstraint.simple
 
-    _decoders = _known_decoders(heuristic, args.rfc, args.beamsize,nbest=args.nbest)
+    astar_args = AstarArgs(rfc=args.rfc,
+                           heuristics=args.heuristics,
+                           beam=args.beamsize,
+                           nbest=args.nbest)
+    _decoders = _known_decoders(astar_args)
 
     if args.decoder in _decoders:
         return _decoders[args.decoder]
@@ -328,13 +329,13 @@ def _add_decoder_args(psr):
 
     astar_grp = psr.add_argument_group("A* decoder arguments")
     astar_grp.add_argument("--heuristics", "-e",
-                           default=DEFAULT_HEURISTIC.name,
-                           choices=ASTAR_HEURISTICS.keys(),
+                           default=DEFAULT_HEURISTIC,
+                           type=named_heuristic,
                            help="heuristics used for astar decoding; "
                            "default: %s" % DEFAULT_HEURISTIC.name)
     astar_grp.add_argument("--rfc", "-r",
-                           default=DEFAULT_RFC.name,
-                           choices=[x.name for x in RfcConstraint],
+                           type=RfcConstraint.from_string,
+                           default=DEFAULT_RFC,
                            help="with astar decoding, what kind of RFC is "
                            "applied: simple of full; simple means everything "
                            "is subordinating (default: %s)" % DEFAULT_RFC.name)
