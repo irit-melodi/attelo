@@ -12,7 +12,6 @@ import sys
 
 from .decoding.astar import\
     AstarArgs, RfcConstraint,\
-    HEURISTICS as ASTAR_HEURISTICS,\
     named_heuristic, H_AVERAGE,\
     astar_decoder
 from .decoding.baseline import local_baseline, last_baseline
@@ -80,7 +79,7 @@ def _known_learners(decoder, phrasebook, perc_args=None):
     # orange classifiers
     bayes = Orange.classification.bayes.NaiveLearner(adjust_threshold=True)
     bayes.name = "naive bayes"
-    #svm = Orange.classification.svm.SVMLearnerEasy(probability = True)
+    # svm = Orange.classification.svm.SVMLearnerEasy(probability = True)
     svm = Orange.classification.svm.SVMLearner(probability=True)
     svm.name = "svm"
     maxent = MaxentLearner()  # Orange.classification.logreg.LogRegLearner()
@@ -143,7 +142,6 @@ KNOWN_DECODERS = _known_decoders(DEFAULT_ASTAR_ARGS).keys()
 KNOWN_ATTACH_LEARNERS = _known_learners(last_baseline, {},
                                         DEFAULT_PERCEPTRON_ARGS).keys()
 KNOWN_RELATION_LEARNERS = _known_learners(last_baseline, {}, None)
-
 
 
 def args_to_decoder(args):
@@ -339,7 +337,6 @@ def _add_decoder_args(psr):
                            help="with astar decoding, what kind of RFC is "
                            "applied: simple of full; simple means everything "
                            "is subordinating (default: %s)" % DEFAULT_RFC.name)
-   
     astar_grp.add_argument("--beamsize", "-B",
                            default=DEFAULT_BEAMSIZE,
                            type=int,
@@ -349,9 +346,9 @@ def _add_decoder_args(psr):
     astar_grp.add_argument("--nbest", "-N",
                            default=DEFAULT_NBEST,
                            type=int,
-                           help="with astar decoding, set a nbest oracle, keeping n solutions "
+                           help="with astar decoding, set a nbest oracle, "
+                           "keeping n solutions "
                            "default: 1-best = simple astar")
-
 
     perc_grp = psr.add_argument_group('perceptron arguments')
     perc_grp.add_argument("--use_prob", "-P",
