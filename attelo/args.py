@@ -10,7 +10,11 @@ import argparse
 import Orange
 import sys
 
-from .decoding.astar import astar_decoder, h0, h_best, h_max, h_average
+from .decoding.astar import\
+    AstarArgs, RfcConstraint,\
+    HEURISTICS as ASTAR_HEURISTICS,\
+    H_AVERAGE,\
+    astar_decoder
 from .decoding.baseline import local_baseline, last_baseline
 from .decoding.mst import mst_decoder
 from .decoding.greedy import locallyGreedy
@@ -53,18 +57,6 @@ def _mk_astar_decoder(heuristics, rfc,beamsize,nbest=1):
         "actually build decoder"
         return astar_decoder(arg, heuristics=heuristics, beam=beamsize, RFC=rfc,nbest=nbest,**kwargs)
     return factory
-
-
-def _known_heuristics():
-    """
-    Return a dictionary of possible A* heuristics.
-    This lets us grab at the names of known heuristics
-    for command line restruction
-    """
-    return {"average": h_average,
-            "best": h_best,
-            "max": h_max,
-            "zero": h0}
 
 
 def _known_decoders(heuristics, rfc,beamsize,nbest=1):
@@ -126,17 +118,22 @@ def _is_perceptron_learner_name(learner_name):
     return learner_name in ["perc", "struc_perc"]
 
 # these are just dummy values (we just want the keys here)
-KNOWN_HEURISTICS = _known_heuristics().keys()
 KNOWN_DECODERS = _known_decoders([], False,None).keys()
 KNOWN_ATTACH_LEARNERS = _known_learners(last_baseline, {},
                                         PerceptronArgs(0, False, False)).keys()
 KNOWN_RELATION_LEARNERS = _known_learners(last_baseline, {}, None)
 
 # default values for A* decoder
-DEFAULT_RFC = "full"
-DEFAULT_HEURISTIC = "average"
-DEFAULT_BEAMSIZE = None
-DEFAULT_NBEST = 1
+# (NB: not the same as in the default initialiser)
+DEFAULT_ASTAR_ARGS = AstarArgs(rfc=RfcConstraint.full,
+                               heuristics=H_AVERAGE,
+                               beam=None,
+                               nbest=1)
+DEFAULT_HEURISTIC = DEFAULT_ASTAR_ARGS.heuristics
+DEFAULT_BEAMSIZE = DEFAULT_ASTAR_ARGS.beam
+DEFAULT_NBEST = DEFAULT_ASTAR_ARGS.nbest
+DEFAULT_RFC = DEFAULT_ASTAR_ARGS.rfc
+
 #
 DEFAULT_DECODER = "local"
 DEFAULT_NIT = 1
@@ -148,10 +145,10 @@ def args_to_decoder(args):
     Given the (parsed) command line arguments, return the
     decoder that was requested from the command line
     """
-    if args.heuristics not in _known_heuristics():
+    if args.heuristics not in ASTAR_HEURISTICS:
         raise ArgumentTypeError("Unknown heuristics: %s" %
                                 args.heuristics)
-    heuristic = _known_heuristics().get(args.heuristics, h_average)
+    heuristic = ASTAR_HEURISTICS.get(args.heuristics, h_average)
     if args.data_relations is None:
         args.rfc = "simple"
 
@@ -326,16 +323,16 @@ def _add_decoder_args(psr):
 
     astar_grp = psr.add_argument_group("A* decoder arguments")
     astar_grp.add_argument("--heuristics", "-e",
-                           default=DEFAULT_HEURISTIC,
-                           choices=KNOWN_HEURISTICS,
+                           default=DEFAULT_HEURISTIC.name,
+                           choices=ASTAR_HEURISTICS.keys(),
                            help="heuristics used for astar decoding; "
-                           "default: %s" % DEFAULT_HEURISTIC)
+                           "default: %s" % DEFAULT_HEURISTIC.name)
     astar_grp.add_argument("--rfc", "-r",
-                           default=DEFAULT_RFC,
+                           default=DEFAULT_RFC.name,
                            choices=["full", "simple", "none"],
                            help="with astar decoding, what kind of RFC is "
                            "applied: simple of full; simple means everything "
-                           "is subordinating (default: %s)" % DEFAULT_RFC)
+                           "is subordinating (default: %s)" % DEFAULT_RFC.name)
    
     astar_grp.add_argument("--beamsize", "-B",
                            default=DEFAULT_BEAMSIZE,

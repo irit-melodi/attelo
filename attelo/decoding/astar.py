@@ -16,7 +16,8 @@ import copy
 import math
 import sys
 import numpy
-from collections import defaultdict
+from collections import defaultdict, namedtuple
+from enum import Enum
 
 from attelo.optimisation.Astar import State, Search, BeamSearch
 from attelo.edu                import EDU
@@ -59,6 +60,20 @@ for one in _class_schemes["minsdrt"]:
         subord_coord[rel] = subord_coord[one]
 
 
+# pylint: disable=no-init, too-few-public-methods
+class RfcConstraint(Enum):
+    """
+    What sort of right frontier constraint to apply during decoding:
+
+        * simple: every relation is treated as subordinating
+        * full: (falls back to simple in case of unlabelled prediction)
+    """
+    simple = 1
+    full = 2
+    none = 3
+# pylint: enable=no-init, too-few-public-methods
+
+
 class DiscData: 
     """ 
     Natural reading order decoding: incremental building of tree in order of text (one edu at a time)
@@ -86,7 +101,8 @@ class DiscData:
     def tobedone(self):
         return self._tolink
 
-    def link(self,to_edu,from_edu,relation,RFC="full"):
+    def link(self,to_edu,from_edu,relation,
+             RFC=RfcConstraint.full):
         """
         RFC = "full": use the distinction coord/subord
         RFC = "simple": consider everything as subord   
@@ -101,12 +117,15 @@ class DiscData:
             # unknown relations are subord
             #print >> sys.stderr, type(relation)
             #print >> sys.stderr, map(type,subord_coord.values())
-            if RFC=="full" and subord_coord.get(relation,"subord")=="coord":
+            if RFC == RfcConstraint.full and\
+                subord_coord.get(relation, "subord") == "coord":
                 self._accessible = self._accessible[:index]
-            elif RFC=="simple":
+            elif RFC == RfcConstraint.simple:
                 self._accessible = self._accessible[:index+1]
-            else: # no RFC, leave everything. 
+            elif RFC == RfcConstraint.none:
                 pass
+            else:
+                raise Exception("Unknown RFC: {}".format(RFC))
             self._accessible.append(from_edu)
 
     def __str__(self):
@@ -198,6 +217,12 @@ class DiscourseState(State):
 
 
     # heuristiques
+    # pylint: disable=no-self-use
+    def h_zero(self):
+        "always 0"
+        return 0.
+    # pylint: enable=no-self-use
+
     def h_average(self):
         # return the average probability possible when n nodes still need to be attached
         # assuming the best overall prob in the distrib
@@ -373,11 +398,66 @@ class DiscourseBeamSearch(BeamSearch):
         all.reverse()
         return all
 
-  
-h0=(lambda x: 0.)
-h_max=DiscourseState.h_best_overall
-h_best=DiscourseState.h_best
-h_average= DiscourseState.h_average
+
+class Heuristic(namedtuple("Heuristic",
+                           "name function")):
+    """
+    Named heuristic function
+
+    :param name: a unique name that can be used to refer to this heuristic
+    elsewhere (eg. command line arguments, reporting, etc)
+    :type name: `String`
+
+    :param function: the heuristic function proper
+    :type function: `DiscourseState -> Float`
+    """
+    pass
+
+
+H_ZERO = Heuristic("zero", DiscourseState.h_zero)
+H_MAX = Heuristic("max", DiscourseState.h_best_overall)
+H_BEST = Heuristic("best", DiscourseState.h_best)
+H_AVERAGE = Heuristic("average", DiscourseState.h_average)
+HEURISTICS = {h.name: h for h in
+              [H_ZERO, H_MAX, H_BEST, H_AVERAGE]}
+
+
+# pylint: disable=too-many-arguments
+class AstarArgs(namedtuple('AstarArgs',
+                           ['heuristics',
+                            'rfc',
+                            'beam',
+                            'nbest',
+                            'use_prob'])):
+    """
+    Configuration options for the A* decoder
+
+    :param heuristics: an a* heuristic funtion (estimate the cost of what has
+     not been explored yet)
+    :type heuristics:
+
+    :param use_prob: indicates if previous scores are probabilities in [0,1]
+    (to be mapped to -log) or arbitrary scores (untouched)
+    :type use_prob: Boolean
+
+    :param beam: size of the beam-search (if None: vanilla astar)
+    :type beam: Int or None
+
+    :param rfc: what sort of right frontier constraint to apply
+    :type rfc: RfcConstraint
+    """
+    def __new__(cls,
+                heuristics=H_ZERO,
+                beam=None,
+                rfc=RfcConstraint.simple,
+                use_prob=True,
+                nbest=1):
+        return super(AstarArgs, cls).__new__(cls,
+                                             heuristics, rfc,
+                                             beam, nbest, use_prob)
+# pylint: enable=too-many-arguments
+
+
 
 def preprocess_heuristics(prob_distrib):
     """precompute a set of useful information used by heuristics, such as
@@ -409,24 +489,17 @@ def prob_distrib_convert(prob_distrib):
 
 
 
-
 # TODO: order function should be a method parameter
 # - root should be specified ? or a fake root ? for now, it is the first edu
 # - should allow for (at least local) argument inversion (eg background), for more expressivity
 # - dispatch of various strategies should happen here. 
 #   the original strategy should be called simpleNRO or NRO
-def astar_decoder(prob_distrib,heuristics=h0,beam=None,RFC="simple",use_prob=True,nbest=1,**kwargs):
+def astar_decoder(prob_distrib,
+                  astar_args,
+                  **kwargs):
     """wrapper for astar decoder to be used by processing pipeline
     returns a structure, or nbest structures
 
-    - heuristics is a* heuristic funtion (estimate the cost of what has not been explored yet)
-    - prob_distrib is a list of (a1,a2,p,r): scores p on each possible edge (a1,a2), and the best label r corresponding to that score 
-    - use_prob: indicates if previous scores are probabilities in [0,1] (to be mapped to -log) or arbitrary scores (untouched)
-    - beam: size of the beam-search (if None: vanilla astar)
-    - RFC: whether to use a "simple" right-frontier-constraint, ~= every relation is subord, or the "full" RFC (falls back to simple
-    in case of unlabelled predictions)
-    TODO: nbest=n generates the best n solutions. done at search level as a generator, but propagatingwould break interface with prediction
-    solution: store the n_best somewhere ...  
     """
     prob = {}
     edus = set()
@@ -442,20 +515,26 @@ def astar_decoder(prob_distrib,heuristics=h0,beam=None,RFC="simple",use_prob=Tru
     edus = map(lambda x:x[0],edus)
     print >> sys.stderr, "\t %s nodes to attach"%(len(edus)-1)
     
-    pre_heurist = preprocess_heuristics(prob_distrib)
-    if beam:
-        a = DiscourseBeamSearch(heuristic=heuristics,shared={"probs":prob,"use_prob":use_prob,"heuristics":pre_heurist,"RFC":RFC},queue_size=beam)
+    search_shared = {"probs":prob,
+                     "use_prob":astar_args.use_prob,
+                     "heuristics":preprocess_heuristics(prob_distrib),
+                     "RFC":astar_args.rfc}
+    if astar_args.beam:
+        a = DiscourseBeamSearch(heuristic=astar_args.heuristics.function,
+                                shared=search_shared,
+                                queue_size=astar_args.beam)
     else:
-        a = DiscourseSearch(heuristic=heuristics,shared={"probs":prob,"use_prob":use_prob,"heuristics":pre_heurist,"RFC":RFC})
+        a = DiscourseSearch(heuristic=astar_args.heuristics.function,
+                            shared=search_shared)
     genall = a.launch(DiscData(accessible=[edus[0]],tolink=edus[1:]),norepeat=True,verbose=False)
     # nbest solutions handling
     all_solutions = []
-    for i in range(nbest):
+    for i in range(astar_args.nbest):
         endstate = genall.next()
         sol =  a.recover_solution(endstate)
         all_solutions.append(sol)
-    print >> sys.stderr, "nbest=%d"%nbest
-    if nbest==1:
+    print >> sys.stderr, "nbest=%d" % astar_args.nbest
+    if astar_args.nbest==1:
         return sol
     else:
         return all_solutions
@@ -491,7 +570,11 @@ if __name__=="__main__":
 
 
     t0=time.time()
-    a = DiscourseSearch(heuristic=h_average,shared={"probs":prob,"heuristics":pre_heurist,"use_prob":True,"RFC":"full"})
+    a = DiscourseSearch(heuristic=H_AVERAGE.function,
+                        shared={"probs":prob,
+                                "heuristics":pre_heurist,
+                                "use_prob":True,
+                                "RFC": RfcConstraint.full})
     genall = a.launch(DiscData(accessible=[edus[1]],tolink=edus[2:]),norepeat=True,verbose=True)
     endstate = genall.next()
     print "total time:",time.time()-t0
@@ -510,6 +593,6 @@ if __name__=="__main__":
     # test with discourse input file (.features)
     print "new function test"
     
-    print astar_decoder(prob_distrib,nbest=1)
-    print astar_decoder(prob_distrib,nbest=2)
+    print astar_decoder(prob_distrib, AstarArgs(nbest=1))
+    print astar_decoder(prob_distrib, AstarArgs(nbest=2))
     
