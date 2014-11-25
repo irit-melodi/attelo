@@ -123,6 +123,11 @@ KNOWN_ATTACH_LEARNERS = _known_learners(last_baseline, {},
                                         PerceptronArgs(0, False, False)).keys()
 KNOWN_RELATION_LEARNERS = _known_learners(last_baseline, {}, None)
 
+# default values for perceptron learner
+DEFAULT_PERCEPTRON_ARGS = PerceptronArgs(iterations=1,
+                                         averaging=False,
+                                         use_prob=True)
+
 # default values for A* decoder
 # (NB: not the same as in the default initialiser)
 DEFAULT_ASTAR_ARGS = AstarArgs(rfc=RfcConstraint.full,
@@ -136,7 +141,7 @@ DEFAULT_RFC = DEFAULT_ASTAR_ARGS.rfc
 
 #
 DEFAULT_DECODER = "local"
-DEFAULT_NIT = 1
+DEFAULT_NIT = DEFAULT_PERCEPTRON_ARGS.iterations
 DEFAULT_NFOLD = 10
 
 
@@ -329,7 +334,7 @@ def _add_decoder_args(psr):
                            "default: %s" % DEFAULT_HEURISTIC.name)
     astar_grp.add_argument("--rfc", "-r",
                            default=DEFAULT_RFC.name,
-                           choices=["full", "simple", "none"],
+                           choices=[x.name for x in RfcConstraint],
                            help="with astar decoding, what kind of RFC is "
                            "applied: simple of full; simple means everything "
                            "is subordinating (default: %s)" % DEFAULT_RFC.name)
@@ -349,7 +354,8 @@ def _add_decoder_args(psr):
 
     perc_grp = psr.add_argument_group('perceptron arguments')
     perc_grp.add_argument("--use_prob", "-P",
-                          default=True, action="store_false",
+                          default=DEFAULT_PERCEPTRON_ARGS.use_prob,
+                          action="store_false",
                           help="convert perceptron scores "
                           "into probabilities")
 
@@ -386,12 +392,15 @@ def add_learner_args(psr):
     perc_grp = groups.get("perceptron",
                           psr.add_argument_group('perceptron arguments'))
     perc_grp.add_argument("--averaging", "-m",
-                          default=False, action="store_true",
+                          default=DEFAULT_PERCEPTRON_ARGS.averaging,
+                          action="store_true",
                           help="averaged perceptron")
     perc_grp.add_argument("--nit", "-i",
-                          default=DEFAULT_NIT, type=int,
+                          default=DEFAULT_PERCEPTRON_ARGS.iterations,
+                          type=int,
                           help="number of iterations for "
-                          "perceptron models (default: %d)" % DEFAULT_NIT)
+                          "perceptron models (default: %d)" %
+                          DEFAULT_PERCEPTRON_ARGS.iterations)
 
 
 def add_report_args(psr):
