@@ -67,7 +67,7 @@ def _known_decoders(astar_args):
             "local": local_baseline,
             "locallyGreedy": locallyGreedy,
             "mst": mst_decoder,
-            "astar": astar_args}
+            "astar": _mk_astar_decoder(astar_args)}
 
 
 def _known_learners(decoder, phrasebook, perc_args=None):
