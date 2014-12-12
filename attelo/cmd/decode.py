@@ -145,7 +145,7 @@ def _export_csv(phrasebook, doc, predicted, attach_instances, folder):
     if not os.path.exists(folder):
         os.makedirs(folder)
     predicted_map = {(e1, e2): label for e1, e2, label in predicted}
-    metas = attach_instances.domain.getmetas().values()
+    metas = attach_instances.domain.getmetas(False).values()
 
     with open(fname, 'wb') as fout:
         writer = csv.writer(fout)
