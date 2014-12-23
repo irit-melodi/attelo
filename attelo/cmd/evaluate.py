@@ -109,7 +109,7 @@ def main(args):
     phrasebook = args_to_phrasebook(args)
     data_attach, data_relate = read_data(args.data_attach,
                                          args.data_relations)
-    #print(args, file=sys.stderr)
+    # print(args, file=sys.stderr)
     decoder = args_to_decoder(args)
     
     # TODO: more models for intra-sentence

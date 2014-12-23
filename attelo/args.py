@@ -20,7 +20,7 @@ from .decoding.greedy import locallyGreedy
 from .features import Phrasebook
 from .learning.megam import MaxentLearner
 from .learning.perceptron import\
-    PerceptronArgs, Perceptron, StructuredPerceptron
+    PerceptronArgs, Perceptron, PassiveAggressive, StructuredPerceptron, StructuredPassiveAggressive
 
 
 def args_to_phrasebook(args):
@@ -96,15 +96,29 @@ def _known_learners(decoder, phrasebook, perc_args=None):
         # home made perceptron
         perc = Perceptron(phrasebook,
                           nber_it=perc_args.iterations,
-                          avg=perc_args.averaging)
+                          avg=perc_args.averaging,
+                          use_prob=perc_args.use_prob)
+        # home made PA (PA-II in fact)
+        pa = PassiveAggressive(phrasebook,
+                               nber_it=perc_args.iterations,
+                               avg=perc_args.averaging,
+                               use_prob=perc_args.use_prob) # TODO: expose C parameter
         # home made structured perceptron
         struc_perc = StructuredPerceptron(phrasebook, decoder,
                                           nber_it=perc_args.iterations,
                                           avg=perc_args.averaging,
                                           use_prob=perc_args.use_prob)
+        # home made structured PA
+        struc_pa = StructuredPassiveAggressive(phrasebook, decoder,
+                                                 nber_it=perc_args.iterations,
+                                                 avg=perc_args.averaging,
+                                                 use_prob=perc_args.use_prob)
+        
 
         learners["perc"] = perc
+        learners["pa"] = pa
         learners["struc_perc"] = struc_perc
+        learners["struc_pa"] = struc_pa
 
     return learners
 
@@ -117,8 +131,8 @@ def _is_perceptron_learner_name(learner_name):
     return learner_name in ["perc", "struc_perc"]
 
 # default values for perceptron learner
-DEFAULT_PERCEPTRON_ARGS = PerceptronArgs(iterations=1,
-                                         averaging=False,
+DEFAULT_PERCEPTRON_ARGS = PerceptronArgs(iterations=10,
+                                         averaging=True,
                                          use_prob=True)
 
 # default values for A* decoder
