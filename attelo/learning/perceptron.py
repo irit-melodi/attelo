@@ -22,15 +22,14 @@ def is_perceptron_model(model):
     """
     If the model in question is somehow based on perceptrons
     """
-    return model.name in ["Perceptron", "PassiveAggressive",\
-                          "StructuredPerceptron", "StructuredPassiveAggressive"]
+    return model.name in ["Perceptron", "PassiveAggressive", "StructuredPerceptron", "StructuredPassiveAggressive"]
 
 
 class Perceptron( object ):
     """ Vanilla binary perceptron learner """
-    def __init__(self, meta_features, nber_it=10, avg=False, use_prob=False): 
+    def __init__(self, phrasebook, nber_it=10, avg=False, use_prob=False): 
         self.name = "Perceptron"
-        self.meta_features = meta_features
+        self.phrasebook = phrasebook
         self.nber_it = nber_it
         self.avg = avg
         self.weights = None
@@ -42,7 +41,7 @@ class Perceptron( object ):
     
     def __call__(self, orange_train_data):
         """ learn perceptron weights """
-        interface = OrangeInterface( orange_train_data, self.meta_features )
+        interface = OrangeInterface( orange_train_data, self.phrasebook )
         train_instances = interface.train_instance_generator()
         self.init_model( interface.get_feature_map() )
         self.learn( train_instances ) 
@@ -132,8 +131,8 @@ class PassiveAggressive( Perceptron ):
 	rule for the binary setting (see Crammer et. al 2006). Default
 	C=inf parameter makes it equivalent to simple PA.""" 
 
-    def __init__( self, meta_features, nber_it=10, avg=False, use_prob=False, C=inf ):
-        Perceptron.__init__(self, meta_features, nber_it=nber_it, avg=avg, use_prob=use_prob)
+    def __init__( self, phrasebook, nber_it=10, avg=False, use_prob=False, C=inf ):
+        Perceptron.__init__(self, phrasebook, nber_it=nber_it, avg=avg, use_prob=use_prob)
         self.name = "PassiveAggressive"
         self.aggressiveness = C 
         return
@@ -153,7 +152,9 @@ class PassiveAggressive( Perceptron ):
         loss = 0.0 
         if margin < 1.0:
             loss = 1.0-margin
-        tau = loss / float(norm(fv)**2)
+        norme = norm(delta_fv)
+        if norme != 0:
+            tau = loss / float(norme**2)
         tau = min( C, tau )
         w = w + tau * ref * fv
         self.weights = w
@@ -173,15 +174,15 @@ class StructuredPerceptron( Perceptron ):
     problems.""" 
 
 
-    def __init__( self, meta_features, decoder, nber_it=10, avg=False, use_prob=False ): 
-        Perceptron.__init__(self, meta_features, nber_it=nber_it, avg=avg, use_prob=use_prob)
+    def __init__( self, phrasebook, decoder, nber_it=10, avg=False, use_prob=False ): 
+        Perceptron.__init__(self, phrasebook, nber_it=nber_it, avg=avg, use_prob=use_prob)
         self.name = "StructuredPerceptron"
         self.decoder = decoder 
         return
     
 
     def __call__(self, orange_train_data):
-        interface = OrangeInterface( orange_train_data, self.meta_features )
+        interface = OrangeInterface( orange_train_data, self.phrasebook )
         train_instances = interface.train_instance_generator()
         self.init_model( interface.get_feature_map() )
         # group EDU pair instances by documents and build document
@@ -189,7 +190,7 @@ class StructuredPerceptron( Perceptron ):
         doc2fvs = defaultdict(dict)
         doc2ref_graph = defaultdict(list)
         for edu_pair_inst in orange_train_data:
-            doc_name = edu_pair_inst[self.meta_features.grouping].value
+            doc_name = edu_pair_inst[self.phrasebook.grouping].value
             edu_pair, label, fv = interface.instance_convertor( edu_pair_inst )
             edu1,edu2 = edu_pair
             doc2fvs[doc_name][edu1.id,edu2.id] = fv
@@ -294,8 +295,8 @@ class StructuredPassiveAggressive( StructuredPerceptron ):
     problems.""" 
 
 
-    def __init__( self, meta_features, decoder, nber_it=10, avg=False, use_prob=False, C=inf ):
-        StructuredPerceptron.__init__(self, meta_features, decoder, nber_it=nber_it, avg=avg, use_prob=use_prob)
+    def __init__( self, phrasebook, decoder, nber_it=10, avg=False, use_prob=False, C=inf ):
+        StructuredPerceptron.__init__(self, phrasebook, decoder, nber_it=nber_it, avg=avg, use_prob=use_prob)
         self.name = "StructuredPassiveAggressive"
         self.aggressiveness = C
         return
@@ -349,9 +350,9 @@ class StructuredPassiveAggressive( StructuredPerceptron ):
 
 class OrangeInterface( object ):
 
-    def __init__(self, data, meta_features):
+    def __init__(self, data, phrasebook):
         self.__data = data
-        self.__meta_features = meta_features
+        self.__phrasebook = phrasebook
         self.set_feature_map()
         return
 
@@ -383,7 +384,7 @@ class OrangeInterface( object ):
 
 
     def get_edu_pair(self, orange_inst):
-        return mk_edu_pairs(self.__meta_features, self.__domain)(orange_inst)
+        return mk_edu_pairs(self.__phrasebook, self.__domain)(orange_inst)
     
 
     def instance_convertor( self, orange_inst ):
@@ -398,7 +399,7 @@ class OrangeInterface( object ):
             att_val = av.value
             # print "Type '%s': '%s'='%s'" %(att_type, att_name, att_val)
             # get class label (do not use it as feature :-))
-            if att_name == self.__meta_features.label: 
+            if att_name == self.__phrasebook.label: 
                 if av.value == "True":
                     classe = 1
                 elif av.value == "False":

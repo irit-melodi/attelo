@@ -131,7 +131,7 @@ def _is_perceptron_learner_name(learner_name):
     return learner_name in ["perc", "struc_perc"]
 
 # default values for perceptron learner
-DEFAULT_PERCEPTRON_ARGS = PerceptronArgs(iterations=10,
+DEFAULT_PERCEPTRON_ARGS = PerceptronArgs(iterations=20,
                                          averaging=True,
                                          use_prob=True)
 
