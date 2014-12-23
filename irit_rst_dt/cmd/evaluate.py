@@ -107,7 +107,7 @@ class FakeEvalArgs(object):
         self.fold_file = open(lconf.fold_file, "r")
         self.fold = fold
         self.threshold = None
-        self.use_prob = None
+        self.use_prob = True
         # decoder-specific: atm, A* only
         self.heuristics = DEFAULT_HEURISTIC
         self.rfc = DEFAULT_RFC
@@ -127,7 +127,7 @@ class FakeEnfoldArgs(object):
     """
     def __init__(self, lconf):
         self.config = ATTELO_CONFIG_FILE
-        self.nfold = DEFAULT_NFOLD
+        self.nfold = 3 # DEFAULT_NFOLD
         self.attachment_model = _eval_csv_path(lconf, "edu-pairs")
         self.relation_model = None
         self.shuffle = False
@@ -148,9 +148,9 @@ class FakeLearnArgs(FakeEvalArgs):
         self.decoder = econf.decoder.decoder
         self.learner = econf.learner.attach
         self.relation_learner = econf.learner.relate
-        self.nit = DEFAULT_NIT
-        self.averaging = False
-
+        self.nit = 20 # DEFAULT NIT
+        self.averaging = True # DEFAULT AVG
+        
 
 class FakeDecodeArgs(FakeEvalArgs):
     """
@@ -368,6 +368,7 @@ def _do_corpus(lconf):
 
     attach_file = _eval_csv_path(lconf, "edu-pairs")
     relate_file = _eval_csv_path(lconf, "relations")
+    
     if not os.path.exists(attach_file):
         _exit_ungathered()
     data_attach, data_relate =\
