@@ -127,7 +127,7 @@ class FakeEnfoldArgs(object):
     """
     def __init__(self, lconf):
         self.config = ATTELO_CONFIG_FILE
-        self.nfold = 3 # DEFAULT_NFOLD
+        self.nfold = DEFAULT_NFOLD
         self.attachment_model = _eval_csv_path(lconf, "edu-pairs")
         self.relation_model = None
         self.shuffle = False
@@ -144,7 +144,6 @@ class FakeLearnArgs(FakeEvalArgs):
     """
     def __init__(self, lconf, econf, fold):
         super(FakeLearnArgs, self).__init__(lconf, econf, fold)
-
         self.decoder = econf.decoder.decoder
         self.learner = econf.learner.attach
         self.relation_learner = econf.learner.relate
