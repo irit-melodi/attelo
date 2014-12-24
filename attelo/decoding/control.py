@@ -4,7 +4,6 @@ Central interface to the decoders
 
 from __future__ import print_function
 from collections import namedtuple
-from operator import itemgetter
 from Orange.classification import Classifier
 import sys
 
@@ -12,6 +11,7 @@ from attelo.edu import mk_edu_pairs
 from attelo.learning.perceptron import is_perceptron_model
 from attelo.table import index_by_metas, select_edu_pair
 from attelo.report import Count
+from .util import DecoderException
 
 _DecoderConfig = namedtuple("DecoderConfig",
                             ["phrasebook",
@@ -56,8 +56,11 @@ def _combine_single_prob(attach, relate, att, rel):
     helper for _combine_prob
     """
     if is_perceptron_model(attach.model):
-        assert attach.model.use_prob == True, "ERROR: Trying to output probabilities, while Perceptron parametrized with use_prob=False!"
-        p_attach = attach.model.get_scores( [att] )[0][2]
+        if not attach.model.use_prob == True:
+            raise DecoderException("ERROR: Trying to output probabilities "
+                                   "while Perceptron parametrized with "
+                                   "use_prob=False!")
+        p_attach = attach.model.get_scores([att])[0][2]
     else:
         p_attach = attach.model(att, Classifier.GetProbabilities)[1]
     p_relate = relate.model(rel, Classifier.GetBoth)
@@ -141,13 +144,17 @@ def _instance_help(phrasebook, instance):
 # ---------------------------------------------------------------------
 
 
+# pylint: disable=unused-argument
 def _get_attach_prob_perceptron(config, attach):
     """
     Attachment probabilities (only) for each EDU pair in the data
     """
-    assert attach.model.use_prob == True, "ERROR: Trying to output probabilities, while Perceptron parametrized with use_prob=False!"
+    if not attach.model.use_prob:
+        raise DecoderException("ERROR: Trying to output probabilities, "
+                               "while Perceptron parametrized with "
+                               "use_prob=False!")
     return attach.model.get_scores(attach.data)
-
+# pylint: enable=unused-argument
 
 def _get_attach_prob_orange(config, attach):
     """
@@ -169,12 +176,13 @@ def decode(config, decoder, attach, relate=None, nbest=1):
     relations too if we have the data/model for it).
     Return the predictions made
 
-    TODO: check that call to learner can be uniform with 2 parameters (as
-    logistic), as the documentation is inconsistent on this
-
     :type attach: DataAndModel
     :type relate: DataAndModel
     """
+
+    # TODO issue #9: check that call to learner can be uniform
+    # with 2 parameters (as logistic), as the documentation is
+    # inconsistent on this
     if relate is not None and not config.post_labelling:
         prob_distrib = _combine_probs(config.phrasebook,
                                       attach, relate)
@@ -189,7 +197,7 @@ def decode(config, decoder, attach, relate=None, nbest=1):
     # get prediction (input is just prob_distrib)
     # not all decoders support the threshold keyword argument
     # hence the apparent redundancy here
-    # PM CHECK if works with nbest decoding 
+    # TODO: issue #8: PM CHECK if works with nbest decoding
     if config.threshold is not None:
         predicted = decoder(prob_distrib,
                             threshold=config.threshold,
@@ -199,10 +207,11 @@ def decode(config, decoder, attach, relate=None, nbest=1):
                             use_prob=config.use_prob)
 
     if config.post_labelling:
-        if nbest==1:
+        if nbest == 1:
             predicted = _add_labels(config.phrasebook, predicted, relate)
         else:
-            predicted = [_add_labels(config.phrasebook, x, relate) for x in predicted]
+            predicted = [_add_labels(config.phrasebook, x, relate)
+                         for x in predicted]
 
     return predicted
 
