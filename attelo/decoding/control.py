@@ -4,6 +4,7 @@ Central interface to the decoders
 
 from __future__ import print_function
 from collections import namedtuple
+from operator import itemgetter
 from Orange.classification import Classifier
 import sys
 
@@ -54,9 +55,12 @@ def _combine_single_prob(attach, relate, att, rel):
 
     helper for _combine_prob
     """
-    p_attach = attach.model(att, Classifier.GetProbabilities)[1]
+    if is_perceptron_model(attach.model):
+        assert attach.model.use_prob == True, "ERROR: Trying to output probabilities, while Perceptron parametrized with use_prob=False!"
+        p_attach = attach.model.get_scores( [att] )[0][2]
+    else:
+        p_attach = attach.model(att, Classifier.GetProbabilities)[1]
     p_relate = relate.model(rel, Classifier.GetBoth)
-    # FIXME: this should be investigated
     try:
         best_rel = p_relate[0].value
     except:
@@ -141,8 +145,8 @@ def _get_attach_prob_perceptron(config, attach):
     """
     Attachment probabilities (only) for each EDU pair in the data
     """
-    return attach.model.get_scores(attach.data,
-                                   use_prob=config.use_prob)
+    assert attach.model.use_prob == True, "ERROR: Trying to output probabilities, while Perceptron parametrized with use_prob=False!"
+    return attach.model.get_scores(attach.data)
 
 
 def _get_attach_prob_orange(config, attach):
