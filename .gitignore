@@ -1,5 +1,9 @@
 *.py[cod]
 
+# Sphinx
+_build
+_sources
+
 # virtualenv
 venv
 
