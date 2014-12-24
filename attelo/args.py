@@ -7,8 +7,15 @@ from argparse import ArgumentTypeError
 from functools import wraps
 from ConfigParser import ConfigParser
 import argparse
-import Orange
 import sys
+
+import Orange
+# pylint: disable=no-name-in-module
+# pylint at the time of this writing doesn't deal well with
+# packages that dynamically generate methods
+# https://bitbucket.org/logilab/pylint/issue/58/false-positive-no-member-on-numpy-imports
+from numpy import inf
+# pylint: enable-no-name-in-module
 
 from .decoding.astar import\
     AstarArgs, RfcConstraint,\
@@ -20,7 +27,8 @@ from .decoding.greedy import locallyGreedy
 from .features import Phrasebook
 from .learning.megam import MaxentLearner
 from .learning.perceptron import\
-    PerceptronArgs, Perceptron, PassiveAggressive, StructuredPerceptron, StructuredPassiveAggressive
+    (PerceptronArgs, Perceptron, PassiveAggressive, StructuredPerceptron,
+     StructuredPassiveAggressive)
 
 
 def args_to_phrasebook(args):
@@ -94,32 +102,13 @@ def _known_learners(decoder, phrasebook, perc_args=None):
 
     if perc_args is not None:
         # home made perceptron
-        perc = Perceptron(phrasebook,
-                          nber_it=perc_args.iterations,
-                          avg=perc_args.averaging,
-                          use_prob=perc_args.use_prob)
+        learners["perc"] = Perceptron(phrasebook, perc_args)
         # home made PA (PA-II in fact)
-        pa = PassiveAggressive(phrasebook,
-                               nber_it=perc_args.iterations,
-                               avg=perc_args.averaging,
-                               use_prob=perc_args.use_prob) # TODO: expose C parameter
+        learners["pa"] = PassiveAggressive(phrasebook, perc_args) # TODO: expose C parameter
         # home made structured perceptron
-        struc_perc = StructuredPerceptron(phrasebook, decoder,
-                                          nber_it=perc_args.iterations,
-                                          avg=perc_args.averaging,
-                                          use_prob=perc_args.use_prob)
+        learners["struc_perc"] = StructuredPerceptron(phrasebook, decoder, perc_args)
         # home made structured PA
-        struc_pa = StructuredPassiveAggressive(phrasebook, decoder,
-                                                 nber_it=perc_args.iterations,
-                                                 avg=perc_args.averaging,
-                                                 use_prob=perc_args.use_prob)
-        
-
-        learners["perc"] = perc
-        learners["pa"] = pa
-        learners["struc_perc"] = struc_perc
-        learners["struc_pa"] = struc_pa
-
+        learners["struc_pa"] = StructuredPassiveAggressive(phrasebook, decoder, perc_args)
     return learners
 
 
@@ -133,7 +122,8 @@ def _is_perceptron_learner_name(learner_name):
 # default values for perceptron learner
 DEFAULT_PERCEPTRON_ARGS = PerceptronArgs(iterations=20,
                                          averaging=True,
-                                         use_prob=True)
+                                         use_prob=True,
+                                         aggressiveness=inf)
 
 # default values for A* decoder
 # (NB: not the same as in the default initialiser)
@@ -413,6 +403,13 @@ def add_learner_args(psr):
                           help="number of iterations for "
                           "perceptron models (default: %d)" %
                           DEFAULT_PERCEPTRON_ARGS.iterations)
+    perc_grp.add_argument("--aggressiveness",
+                          default=DEFAULT_PERCEPTRON_ARGS.aggressiveness,
+                          type=float,
+                          help="aggressivness (passive-aggressive perceptrons "
+                          "only); (default: %f)" %
+                          DEFAULT_PERCEPTRON_ARGS.aggressiveness)
+
 
 
 def add_report_args(psr):

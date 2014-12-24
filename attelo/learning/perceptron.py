@@ -20,7 +20,6 @@ from attelo.edu import EDU, mk_edu_pairs
 
 """
 TODO:
-- expose PA-II C aggressiveness parameter
 - add more principled scores to probs conversion (right now, we do just 1-norm
   weight normalization and use logit function)
 - old problem with ('word_last_DU1', '?') and ('word_last_DU2', '?') features
@@ -29,7 +28,18 @@ TODO:
 - fold relation prediction into structured learning
 """
 
-PerceptronArgs = namedtuple('PerceptronArgs', 'iterations averaging use_prob')
+class PerceptronArgs(namedtuple('PerceptronArgs',
+                                ['iterations',
+                                 'averaging',
+                                 'use_prob',
+                                 'aggressiveness'])):
+    """
+    Parameters for perceptron initialisation
+
+    :param aggressivness: only used for passive-aggressive perceptrons
+                          (ignored elsewhere)
+    """
+
 
 
 def is_perceptron_model(model):
@@ -43,15 +53,15 @@ def is_perceptron_model(model):
 
 class Perceptron(object):
     """ Vanilla binary perceptron learner """
-    def __init__(self, phrasebook, nber_it=10, avg=False, use_prob=False):
+    def __init__(self, phrasebook, pconfig):
         self.name = "Perceptron"
         self.phrasebook = phrasebook
-        self.nber_it = nber_it
-        self.avg = avg
+        self.nber_it = pconfig.iterations
+        self.avg = pconfig.averaging
         self.weights = None
         self.avg_weights = None
         self.orange_converter = None
-        self.use_prob = use_prob
+        self.use_prob = pconfig.use_prob
         return
 
 
@@ -140,10 +150,10 @@ class PassiveAggressive(Perceptron):
     C=inf parameter makes it equivalent to simple PA.
     """
 
-    def __init__(self, phrasebook, nber_it=10, avg=False, use_prob=False, C=inf):
-        Perceptron.__init__(self, phrasebook, nber_it=nber_it, avg=avg, use_prob=use_prob)
+    def __init__(self, phrasebook, pconfig):
+        Perceptron.__init__(self, phrasebook, pconfig)
         self.name = "PassiveAggressive"
-        self.aggressiveness = C
+        self.aggressiveness = pconfig.aggressiveness
         return
 
 
@@ -177,8 +187,8 @@ class StructuredPerceptron(Perceptron):
     problems."""
 
 
-    def __init__(self, phrasebook, decoder, nber_it=10, avg=False, use_prob=False):
-        Perceptron.__init__(self, phrasebook, nber_it=nber_it, avg=avg, use_prob=use_prob)
+    def __init__(self, phrasebook, decoder, pconfig):
+        Perceptron.__init__(self, phrasebook, pconfig)
         self.name = "StructuredPerceptron"
         self.decoder = decoder
         return
@@ -292,12 +302,10 @@ class StructuredPassiveAggressive(StructuredPerceptron):
     problems."""
 
 
-    def __init__(self, phrasebook, decoder, nber_it=10, avg=False, use_prob=False, C=inf):
-        StructuredPerceptron.__init__(self, phrasebook, decoder,
-                                      nber_it=nber_it, avg=avg,
-                                      use_prob=use_prob)
+    def __init__(self, phrasebook, decoder, pconfig):
+        StructuredPerceptron.__init__(self, phrasebook, decoder, pconfig)
         self.name = "StructuredPassiveAggressive"
-        self.aggressiveness = C
+        self.aggressiveness = pconfig.aggressiveness
         return
 
 
