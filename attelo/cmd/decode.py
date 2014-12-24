@@ -133,31 +133,6 @@ def _export_graph(predicted, doc, folder):
                   file=fout)
 
 
-def _export_csv(phrasebook, doc, predicted, attach_instances, folder):
-    """
-    Write the predictions out as a CSV table in the Orange CSV
-    format, with columns for the identifying meta phrasebook, and
-    the assigned class.
-
-    The output will be saved to FOLDER/DOC.csv
-    """
-    fname = os.path.join(folder, doc + ".csv")
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    predicted_map = {(e1, e2): label for e1, e2, label in predicted}
-    metas = attach_instances.domain.getmetas().values()
-
-    with open(fname, 'wb') as fout:
-        writer = csv.writer(fout)
-        writer.writerow(["m#" + x.name for x in metas] +
-                        ["c#" + phrasebook.label])
-        for inst in attach_instances:
-            du1 = inst[phrasebook.source].value
-            du2 = inst[phrasebook.target].value
-            label = predicted_map.get((du1, du2), "UNRELATED")
-            writer.writerow([inst[x].value for x in metas] + [label])
-
-
 def _export_conllish(phrasebook, doc, predicted, attach_instances, folder):
     """
     Append the predictions to our CONLL like output file documented in
@@ -223,7 +198,6 @@ def _write_predictions(config, doc, predicted, attach, output):
     Save predictions to disk in various formats
     """
     _export_graph(predicted, doc, output)
-    _export_csv(config.phrasebook, doc, predicted, attach.data, output)
     _export_conllish(config.phrasebook, doc, predicted, attach.data, output)
 
 
