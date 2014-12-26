@@ -17,7 +17,8 @@ import sys
 import os
 
 # for readthedocs
-MOCK_MODULES = ['Orange',
+MOCK_MODULES = ['climate',
+                'Orange',
                 'Orange.classification',
                 'scipy',
                 'scipy.sparse',
