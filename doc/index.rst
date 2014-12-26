@@ -11,6 +11,9 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   output
+   report
+   troubleshooting
    api-doc/modules
 
 Indices and tables
