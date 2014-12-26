@@ -1,5 +1,5 @@
-attelo
-======
+attelo API
+==========
 
 .. toctree::
    :maxdepth: 4
