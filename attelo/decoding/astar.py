@@ -336,9 +336,8 @@ class TwoStageNRO(DiscourseState):
 
     def nextStates(self):
         """must return a state and a cost
-        TODO: 
-            - decode differently on intra/inter sentence
         """
+        # TODO: decode differently on intra/inter sentence
         all=[]
         one=self.data().tobedone()[0]
         # inter/intra
@@ -413,19 +412,21 @@ class DiscourseBeamSearch(BeamSearch):
         return all
 
 
+# pylint: disable=too-few-public-methods
 class Heuristic(namedtuple("Heuristic",
                            "name function")):
     """
     Named heuristic function
 
     :param name: a unique name that can be used to refer to this heuristic
-    elsewhere (eg. command line arguments, reporting, etc)
+                 elsewhere (eg. command line arguments, reporting, etc)
     :type name: `String`
 
     :param function: the heuristic function proper
     :type function: `DiscourseState -> Float`
     """
     pass
+# pylint: enable=too-few-public-methods
 
 
 H_ZERO = Heuristic("zero", DiscourseState.h_zero)
@@ -458,11 +459,11 @@ class AstarArgs(namedtuple('AstarArgs',
     Configuration options for the A* decoder
 
     :param heuristics: an a* heuristic funtion (estimate the cost of what has
-     not been explored yet)
-    :type heuristics:
+                       not been explored yet)
+    :type heuristics: `Heuristic`
 
     :param use_prob: indicates if previous scores are probabilities in [0,1]
-    (to be mapped to -log) or arbitrary scores (untouched)
+                     (to be mapped to -log) or arbitrary scores (untouched)
     :type use_prob: Boolean
 
     :param beam: size of the beam-search (if None: vanilla astar)
