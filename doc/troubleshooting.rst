@@ -1,3 +1,6 @@
+Troubleshooting
+---------------
+
 Things that can go wrong
 
 1. **Symptom**: ValueError: Import of scipy package failed: No module
