@@ -22,6 +22,7 @@ SNAPSHOTS = 'SNAPSHOTS'
 """Results over time we are making a point of saving"""
 
 TRAINING_CORPORA = ['corpus/RSTtrees-WSJ-double-1.0']
+
 """Corpora for use in building/training models and running our
 incremental experiments. Later on we should consider using the
 held-out test data for something, but let's make a point of
@@ -41,7 +42,14 @@ parsed/mrg/wsj)
 """
 
 LEARNERS = [LearnerConfig.simple("bayes"),
-            LearnerConfig.simple("maxent")]
+            LearnerConfig.simple("maxent"),
+            LearnerConfig("perc-maxent","perc","maxent"),
+            LearnerConfig("pa-maxent","pa","maxent"),
+            LearnerConfig("struc_perc-maxent","struc_perc","maxent"),
+            LearnerConfig("struc_pa-maxent","struc_pa","maxent")
+            ]
+
+
 """Attelo learner algorithms to try
 If the second element is None, we use the same learner for attachment
 and relations; otherwise we use the first for attachment and the second
@@ -50,6 +58,10 @@ for relations
 
 DECODERS = [DecoderConfig.simple(x) for x in
             ["last", "local", "locallyGreedy", "mst"]]
+
+
+
+
 """Attelo decoders to try in experiment"""
 
 
