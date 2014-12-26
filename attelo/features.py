@@ -22,12 +22,13 @@ class Phrasebook(_Phrasebook):
     """
     Distinguished feature names. Any attelo feature vector must
     contain at least these features (but they can have any name)
-    ::
 
     * for a source and a target node:
-        * its id
-        * its text-span start
-        * its text-span end
+
+      * its id
+      * its text-span start
+      * its text-span end
+
     * a label
     * some grouping of nodes into larger units (for example,
       the nodes for annotations in the same file)
