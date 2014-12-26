@@ -75,14 +75,18 @@ def process_by_file_folds(data, selection,
     just for demo/example purposes
     could be a template of processing a corpus based on folds-on-files
 
-    ;param data: a data table
+    :param data: a data table
+
     :param selection: an index of folds for each instance, eg
-           can be computed with
-           `orange.MakeRandomIndicesCV(data, folds=5)`
+                      can be computed with
+                      `orange.MakeRandomIndicesCV(data, folds=5)`
+
     :param f_train: what to do on training/testing (same with `f_test`)
+
     :param f_eval: evaluate one fold
+
     :param folds: number of folds. must be the same as the nb in
-           selection (should/could be recomputed from selection)
+                  selection (should/could be recomputed from selection)
     """
     evals = []
     for test_fold in range(folds):
