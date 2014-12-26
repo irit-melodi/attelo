@@ -181,7 +181,8 @@ def args_to_learners(decoder, phrasebook, args):
 
     perc_args = PerceptronArgs(iterations=args.nit,
                                averaging=args.averaging,
-                               use_prob=args.use_prob)
+                               use_prob=args.use_prob,
+                               aggressiveness=args.aggressiveness)
     _learners = _known_learners(decoder, phrasebook, perc_args)
 
     if args.learner in _learners:
