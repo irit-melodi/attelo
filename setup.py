@@ -8,6 +8,7 @@ setup(
       scripts  = [ "scripts/attelo" ],
       install_requires=['depparse',
                         'enum34',
+                        'mock',
                         'nltk',
                         'numpy',
                         'Orange',
