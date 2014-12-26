@@ -158,12 +158,20 @@ class PassiveAggressive(Perceptron):
 
 
     def update(self, pred, ref, fv, score):
-        """ PA-II update rule:
-        w = w + t * y * x
-        where: t = min {C, loss / ||x||**2}
-               loss = 0  if margin >= 1.0
-                      1.0 - margin  o.w.
-               margin =  y (w . x)
+        r"""PA-II update rule
+
+        .. math::
+
+           w = w + \tau y x \textrm{ where}
+
+           \tau = min(C, \frac{loss}{||x||^2})
+
+           loss  = \begin{cases}
+                   0            & \textrm{if } margin \ge 1.0\\
+                   1.0 - margin & \textrm{otherwise}
+                   \end{cases}
+
+           margin =  y (w \cdot x)
         """
         w = self.weights
         C = self.aggressiveness
@@ -310,12 +318,20 @@ class StructuredPassiveAggressive(StructuredPerceptron):
 
 
     def update(self, pred_graph, ref_graph, fvs, rate=1.0):
-        """ PA-II update rule:
-        w = w + t * Phi(x,y)-Phi(x-y^)
-        where: t = min {C, loss / ||Phi(x,y)-Phi(x-y^)||**2}
-               loss = 0  if margin >= 1.0
-                      1.0 - margin  o.w.
-               margin =  w . (Phi(x,y)-Phi(x-y^))
+        r"""PA-II update rule:
+
+        .. math::
+
+            w = w + \tau * (\Phi(x,y)-\Phi(x-\hat{y})) \text{ where}
+
+            \tau = min(C, \frac{loss}{||\Phi(x,y)-\Phi(x-\hat{y})||^2})
+
+            loss = \begin{cases}
+                   0             & \text{if } margin \ge 1.0\\
+                   1.0 - margin  & \text{otherwise}
+                   \end{cases}
+
+            margin =  w \cdot (\Phi(x,y)-\Phi(x-\hat{y}))
         """
         w = self.weights
         C = self.aggressiveness
