@@ -14,7 +14,7 @@ Contents:
    output
    report
    troubleshooting
-   api-doc/attelo
+   api-doc/modules
 
 Indices and tables
 ==================
