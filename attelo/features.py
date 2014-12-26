@@ -18,6 +18,10 @@ _Phrasebook = namedtuple("Phrasebook",
                           "label"])
 
 
+# pylint: disable=too-few-public-methods
+# named tuple, so don't care about methods
+# (ony extending it to have a docstring)
+# (wish pylint was smart enough for this)
 class Phrasebook(_Phrasebook):
     """
     Distinguished feature names. Any attelo feature vector must
@@ -37,3 +41,4 @@ class Phrasebook(_Phrasebook):
     features.
     """
     pass
+# pylint: enable=too-few-public-methods
