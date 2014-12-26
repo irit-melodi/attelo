@@ -233,11 +233,11 @@ class SimulatedAnnealing(AbstractLocalSearch):
 
     def launch(self,maxIter,T0,stageNb,stop="noimprovement",alpha=0.9):
         """
-        T0 = initial temperature, if <0, method must make a guess
-        stageNb: number of temperature stages
-        stop: stopping method; defaut is "noimprovement", meaning
-              stop when a stage does not improve the best solution found
-        alpha= decreasing factor for T
+        :param T0: initial temperature, if <0, method must make a guess
+        :param stageNb: number of temperature stages
+        :param stop: stopping method; defaut is "noimprovement", meaning
+                     stop when a stage does not improve the best solution found
+                     :param alpha: decreasing factor for T
         """
         stages=0
         noBetter=False

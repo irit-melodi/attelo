@@ -5,13 +5,14 @@
 """
 Various search algorithms for combinatorial problems:
 
- ok - Astar (shortest path with heuristics)
-    - variants:
-      ok   - beam search (astar with size limit on waiting queue)
-      ok   - nbest solutions: implies storing solutions and a counter, and changing return values
-             (actually most search will make use of a recover_solution(s) to reconstruct desired data)
-         - branch and bound (astar with forward lookahead)
-  
+* [OK] Astar (shortest path with heuristics),
+  and variants:
+
+  * [OK] beam search (astar with size limit on waiting queue)
+  * [OK] nbest solutions: implies storing solutions and a counter, and changing
+         return values (actually most search will make use of a
+         recover_solution(s) to reconstruct desired data)
+  * branch and bound (astar with forward lookahead)
 """
 
 import sys
@@ -69,21 +70,21 @@ class State:
 class Search:
     """abstract class for search
     each state to be explored must have methods
-       - nextStates() (successor states + costs)
-       - isSolution() (is the state a valid solution)
-       - cost()       (cost of the state so far)
-       cost must be additive
-       
+
+    * :py:meth:`nextStates` - successor states + costs
+    * :py:meth:`isSolution` - is the state a valid solution
+    * :py:meth:`cost` - cost of the state so far (must be additive)
+
     default is astar search (search the minimum cost from init state to a solution
 
-    heuristic: heuristics guiding the search (applies to state-specific data(), see State)
+    :param heuristic: heuristics guiding the search (applies to state-specific
+                      data(), see :py:class:`State`)
 
-    shared: other data shared by all nodes (eg. for heuristic computation )
+    :param shared: other data shared by all nodes (eg. for heuristic computation)
 
-    queue_size: limited beam-size to store states. (commented out, pending tests). 
-    
+    :param queue_size: limited beam-size to store states. (commented out,
+                       pending tests)
     """
-    
     def __init__(self,heuristic = (lambda x: 0.),shared = None,queue_size = None):
         self._todo = []
         self._seen = {}
