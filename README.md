@@ -1,4 +1,5 @@
 [![Build Status](https://secure.travis-ci.org/kowey/attelo.png)](http://travis-ci.org/kowey/attelo)
+[![Documentation Status](https://readthedocs.org/projects/attelo/badge/?version=latest)](https://readthedocs.org/projects/attelo/?badge=latest)
 
 ## About
 
@@ -13,6 +14,11 @@ program with the following subcommands:
 * attelo decode: (the parser proper) Predict links given models (from
   `attelo learn`) and a set of features
 * attelo evaluate: Cross-fold evaluation a pair of feature files
+
+## Documentation
+
+* [documentation root][docroot]
+* [API][apidoc]
 
 ## Requirements
 
@@ -113,6 +119,8 @@ requirement mentioned in article 5.3.4 quoted below:
 > External Module designed for use in connection with the Software, the
 > Licensee shall submit said External Module to the foregoing obligations.
 
+[docroot]: http://attelo.readthedocs.org/
+[apidoc]: http://attelo.readthedocs.org/en/latest/api-doc/attelo/
 [educe]: http://github.com/kowey/educe
 [irit-rst-dt]: http://github.com/kowey/irit-rst-dt
 [shake]: http://community.haskell.org/~ndm/shake/
