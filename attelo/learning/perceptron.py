@@ -28,6 +28,7 @@ TODO:
 - fold relation prediction into structured learning
 """
 
+# pylint: disable=too-few-public-methods
 class PerceptronArgs(namedtuple('PerceptronArgs',
                                 ['iterations',
                                  'averaging',
@@ -36,10 +37,22 @@ class PerceptronArgs(namedtuple('PerceptronArgs',
     """
     Parameters for perceptron initialisation
 
-    :param aggressivness: only used for passive-aggressive perceptrons
-                          (ignored elsewhere)
-    """
+    :param iterations: number of iterations to run
+    :type iterations: int > 0
 
+    :param averaging: do averaging on weights
+    :type averaging: bool
+
+    :param use_prob: fake a notion of probabilities by using `log` tricks
+                     to return scores in [0, 1]
+    :type use_prob: bool
+
+    :param aggressiveness: only used for passive-aggressive perceptrons
+                           (ignored elsewhere); `inf` gets us a regular
+                           perceptron
+    :type aggressiveness: float
+    """
+# pylint: enable=too-few-public-methods
 
 
 def is_perceptron_model(model):
