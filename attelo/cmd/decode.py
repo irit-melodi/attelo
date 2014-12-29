@@ -243,6 +243,7 @@ def config_argparser(psr):
     psr.add_argument("--relation-model", "-R", default=None,
                      help="model needed for relations prediction")
     psr.add_argument("--scores",
+                     metavar='FILE',
                      type=argparse.FileType('w'),
                      help="score our decoding (test data must have "
                      "ref labels to score against) and save it here")
