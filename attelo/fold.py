@@ -38,7 +38,10 @@ def make_n_fold(data, folds=5, meta_index="FILE"):
         if not file_key in fold_dict:
             fold_dict[file_key] = -1
     keys = fold_dict.keys()
-    if len(keys) < folds:
+
+    if folds < 2:
+        raise ValueError("Must have more than 1 fold")
+    elif len(keys) < folds:
         oops = ("Too many folds: I can't make {folds} folds when "
                 "there are only {groupings} distinct values for '{key}'")
         raise ValueError(oops.format(folds=folds,
