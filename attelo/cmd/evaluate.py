@@ -49,41 +49,6 @@ def _prepare_folds(phrasebook, num_folds, table, shuffle=True):
     return fold_struct, selection
 
 
-def _save_scores(evals, args):
-    """
-    Save results of crossfold evaluation (list of list of individual
-    scores)
-    """
-    report = Report(list(itertools.chain.from_iterable(evals)),
-                    params=args,
-                    correction=args.correction)
-    json_scores = []
-    for fold_evals in evals:
-        fold_report = Report(fold_evals,
-                             params=args,
-                             correction=args.correction)
-        json_scores.append(fold_report.for_json())
-
-    json_report = {"params": report.json_params(),
-                   "combined_scores": report.for_json(),
-                   "fold_scores": json_scores}
-    print(">>> FINAL EVAL:", report.summary())
-    fname_fmt = "_".join("{" + x + "}" for x in
-                         ["relations",
-                          "context",
-                          "decoder",
-                          "learner",
-                          "relation_learner",
-                          "heuristics",
-                          "unlabelled",
-                          "post_label",
-                          "rfc"])
-    report.save("results/"+fname_fmt.format(**args.__dict__))
-    with open("results/"+fname_fmt.format(**args.__dict__) + ".json", "wb")\
-            as fout:
-        json.dump(json_report, fout, indent=2)
-
-
 def config_argparser(psr):
     "add subcommand arguments to subparser"
 
@@ -188,4 +153,7 @@ def main(args):
         # --end of file level
        # --- end of fold level
     # end of test for a set of parameter
-    _save_scores(evals, args)
+    report = Report(list(itertools.chain.from_iterable(evals)),
+                    params=args,
+                    correction=args.correction)
+    print(">>> FINAL EVAL:", report.summary())

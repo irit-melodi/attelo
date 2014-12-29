@@ -341,16 +341,6 @@ class Report(object):
                   "labeling": label}
         return scores
 
-    def json_params(self):
-        """
-        Return a JSON-serialisable dictionary representing the params
-        for this run
-        """
-
-        res = copy.copy(self.params.__dict__)
-        del res["func"]
-        return res
-
     def _params_to_filename(self):
         "One line parameter listing"
 
