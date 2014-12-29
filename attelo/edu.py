@@ -5,6 +5,7 @@ Uniquely identifying information for an EDU
 from collections import namedtuple
 
 
+# pylint: disable=too-few-public-methods
 class EDU(namedtuple("EDU_", "id start end file")):
     """ a class representing the EDU (id, span start and end, file) """
 
@@ -28,6 +29,7 @@ class EDU(namedtuple("EDU_", "id start end file")):
         Starting and ending position of the EDU as an integer pair
         """
         return (int(self.start), int(self.end))
+# pylint: enable=too-few-public-methods
 
 
 def mk_edu_pairs(phrasebook, domain):

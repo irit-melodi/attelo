@@ -8,7 +8,9 @@ UNRELATED = "UNRELATED"
 # pylint: enable=pointless-string-statement
 
 
-def AtteloTableException(Exception):
+class AtteloTableException(Exception):
+    "An exception which arises when worknig with an attelo table"
+
     def __init__(self, msg):
         super(AtteloTableException, self).__init__(msg)
 

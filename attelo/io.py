@@ -107,18 +107,21 @@ def read_data(attachments, relations, verbose=False):
 # ---------------------------------------------------------------------
 
 
-# TODO: describe model type
 def load_model(filename):
     """
     Load model into memory from file
+
+    :rtype: Orange.classification.Classifier
     """
-    with open(filename, "rb") as f:
-        return cPickle.load(f)
+    with open(filename, "rb") as stream:
+        return cPickle.load(stream)
 
 
 def save_model(filename, model):
     """
     Dump model into a file
+
+    :type: model: Orange.classification.Classifier
     """
-    with open(filename, "wb") as f:
-        cPickle.dump(model, f)
+    with open(filename, "wb") as stream:
+        cPickle.dump(model, stream)

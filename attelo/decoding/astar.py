@@ -443,7 +443,7 @@ HEURISTICS = {Heuristic.zero: DiscourseState.h_zero,
               Heuristic.average: DiscourseState.h_average}
 
 
-# pylint: disable=too-many-arguments
+# pylint: disable=too-many-arguments, too-few-public-methods
 class AstarArgs(namedtuple('AstarArgs',
                            ['heuristics',
                             'rfc',
