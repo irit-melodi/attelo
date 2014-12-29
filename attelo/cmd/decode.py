@@ -3,25 +3,21 @@
 from __future__ import print_function
 from collections import defaultdict
 from functools import wraps
-from itertools import chain, repeat
+from itertools import chain
+from os import path as fp
 import argparse
-import itertools
 import csv
 import json
 import os
 import sys
 
-from ..args import\
-    add_common_args, add_decoder_args,\
-    add_fold_choice_args, validate_fold_choice_args,\
-    args_to_decoder, args_to_phrasebook, args_to_threshold
+from ..args import (add_common_args, add_decoder_args,
+                    add_fold_choice_args, validate_fold_choice_args,
+                    args_to_decoder, args_to_phrasebook, args_to_threshold)
 from ..fold import folds_to_orange
-from ..io import\
-    read_data, load_model
-from ..table import\
-    related_attachments, related_relations, select_data_in_grouping
-from ..decoding import\
-    DataAndModel, DecoderConfig, decode, count_correct
+from ..io import read_data, load_model
+from ..table import (related_attachments, related_relations, select_data_in_grouping)
+from ..decoding import DataAndModel, DecoderConfig, decode, count_correct
 from ..report import Count
 
 
@@ -134,14 +130,13 @@ def _export_graph(predicted, doc, folder):
                   file=fout)
 
 
-def _export_conllish(phrasebook, doc, predicted, attach_instances, folder):
+def _export_conllish(phrasebook, predicted, attach_instances, folder):
     """
     Append the predictions to our CONLL like output file documented in
     `doc/output.md`
 
     (FOLDER/graph.conll)
     """
-    fname = os.path.join(folder, "graph.conll")
     incoming = defaultdict(list)
     for edu1, edu2, label in predicted:
         incoming[edu2].append((edu1, label))
@@ -158,8 +153,6 @@ def _export_conllish(phrasebook, doc, predicted, attach_instances, folder):
                       inst[phrasebook.target_span_end].value,
                       inst[phrasebook.grouping].value)
 
-    concat_map = lambda f, xs: list(chain.from_iterable(map(f, xs)))
-
     def mk_row(edu):
         "csv row for the given edu"
 
@@ -167,17 +160,15 @@ def _export_conllish(phrasebook, doc, predicted, attach_instances, folder):
             raise ValueError('We assume that no EDU is labelled 0')
 
         start, end, grouping = edus[edu]
-        row = [edu, grouping, start, end]
-        linkstuff = []
         if incoming.get(edu):
-            linkstuff = concat_map(list, incoming[edu])
+            linkstuff = list(chain.from_iterable(incoming[edu]))
         else:
             linkstuff = ["0", "ROOT"]
         pad_len = max_indegree * 2 - len(linkstuff)
-        return row + linkstuff + ([''] * pad_len)
+        return [edu, grouping, start, end] + linkstuff + ([''] * pad_len)
 
 
-    with open(fname, 'a') as fout:
+    with open(fp.join(folder, 'graph.conll'), 'a') as fout:
         writer = csv.writer(fout, dialect=csv.excel_tab)
         for edu in sorted(edus, key=lambda x: x[0]):
             writer.writerow(mk_row(edu))
@@ -199,30 +190,35 @@ def _write_predictions(config, doc, predicted, attach, output):
     Save predictions to disk in various formats
     """
     _export_graph(predicted, doc, output)
-    _export_conllish(config.phrasebook, doc, predicted, attach.data, output)
+    _export_conllish(config.phrasebook, predicted, attach.data, output)
 
 
-def _score_predictions(config, attach, relate, predicted,nbest=1):
+def _score_predictions(config, attach, relate, predicted, nbest=1):
     """
     Return scores for predictions on the given data
 
-    'relate' if True, labels (relations) are to be evaluated to, otherwise only attachments 
+    :param relate: if True, labels (relations) are to be evaluated too
+                   otherwise only attachments
+    :param predicted: an ordered list (singleton if `nbest == 1`)
+    :rtype: `Count`
 
-    nbest=1: plain score for 1 prediction
-    nbest: 'predicted' is an ordered list, returns the best score on the set of predictions
-               best here means attachment score if relate=False, relations score otherwise 
+    If `nbest == 1` we use the plain score for 1 prediction, otherwise
+    return the count corresponding to the best prediction.  What we
+    consider to be best depends on `relate` being set or not
     """
     reference = related_attachments(config.phrasebook, attach.data)
     labels = related_relations(config.phrasebook, relate.data)\
         if relate else None
-    if nbest>1:
+    if nbest > 1:
         all_counts = [count_correct(config.phrasebook,
                                     one_predicted,
                                     reference,
                                     labels=labels)
                       for one_predicted in predicted]
-        # count the best relation score or the best attachment is there is no relation labels
-        return max(all_counts,key=lambda x : x.correct_label) if labels else max(all_counts,key=lambda x: x.correct_attach) 
+        # count the best relation score or the best attachment is there is no
+        # relation labels
+        max_key = lambda x: x.correct_label if labels else x.correct_attach
+        return max(all_counts, key=max_key)
     else:
         return count_correct(config.phrasebook,
                              predicted,
@@ -305,7 +301,8 @@ def main_for_harness(args, config, decoder, attach, relate):
         if not args.quiet:
             print("decoding on file : ", onedoc, file=sys.stderr)
         doc_attach, doc_relate = _select_doc(config, onedoc, attach, relate)
-        predicted = decode(config, decoder, doc_attach, doc_relate,nbest=args.nbest)
+        predicted = decode(config, decoder, doc_attach, doc_relate,
+                           nbest=args.nbest)
         _write_predictions(config, onedoc, predicted, doc_attach, args.output)
         if args.scores is not None:
             scores[onedoc] = _score_predictions(config, doc_attach, doc_relate,
