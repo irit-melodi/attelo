@@ -13,7 +13,6 @@ TODO: unlabelled evaluation seems to bug on RF decoding (relation is of type ora
 """
 
 from argparse import ArgumentTypeError
-import random
 import copy
 import math
 import sys
@@ -564,61 +563,3 @@ def astar_decoder(prob_distrib,
         return sol
     else:
         return all_solutions
-
-
-if __name__=="__main__":
-    import sys
-    import time
-    from pprint import pprint
-
-    def mkFakeEDU(id):
-        return EDU(id, 0, 0, "x");
-
-    edus = map(mkFakeEDU, ["x0","x1","x2","x3","x4"])
-
-    # would result of prob models  max_relation (p(attachement)*p(relation|attachmt))  
-    prob_distrib=[
-        (edus[1],edus[2],0.6,'elaboration'),
-        (edus[2],edus[3],0.3,'narration'),
-        (edus[1],edus[3],0.4,'continuation'),
-        ]
-    for one in edus[1:-1]:
-        prob_distrib.append((one,edus[4],0.1,'continuation'))
-
-
-    pre_heurist = preprocess_heuristics(prob_distrib)
-
-    prob = {}
-    for (a1,a2,p,r) in prob_distrib:
-        prob[(a1,a2)]=(r,p)
-
-    
-
-
-    t0=time.time()
-    a = DiscourseSearch(heuristic=H_AVERAGE.function,
-                        shared={"probs":prob,
-                                "heuristics":pre_heurist,
-                                "use_prob":True,
-                                "RFC": RfcConstraint.full})
-    genall = a.launch(DiscData(accessible=[edus[1]],tolink=edus[2:]),norepeat=True,verbose=True)
-    endstate = genall.next()
-    print "total time:",time.time()-t0
-    sol =  a.recover_solution(endstate)
-    print "solution:", sol
-    print "cost:", endstate.cost()
-    print a.iterations
-    print "total time:", time.time()-t0
-    # a = DiscourseSearch(heuristic=h2, shared={"probs":prob,"nodes":edus[2:]})
-    # sol=a.launch(DiscData(nodes=edus[1:2],accessible=edus[1:2]),norepeat=True)
-    # print sol
-    # print sol.cost()
-    # print a.iterations
-    # print "total time:",time.time()-t0
-
-    # test with discourse input file (.features)
-    print "new function test"
-    
-    print astar_decoder(prob_distrib, AstarArgs(nbest=1))
-    print astar_decoder(prob_distrib, AstarArgs(nbest=2))
-    
