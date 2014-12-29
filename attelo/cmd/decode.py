@@ -145,7 +145,7 @@ def _export_conllish(phrasebook, doc, predicted, attach_instances, folder):
     incoming = defaultdict(list)
     for edu1, edu2, label in predicted:
         incoming[edu2].append((edu1, label))
-    max_indegree = max(len(x) for x in incoming.items())
+    max_indegree = max(len(x) for x in incoming.items()) if incoming else 1
 
     edus = {}
     for inst in attach_instances:
