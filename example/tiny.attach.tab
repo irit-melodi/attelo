@@ -1,0 +1,27 @@
+CLASS	grp	id1	id2	s1	e1	s2	e2	foo	
+d	s	d	d	c	c	c	c	d	
+class	m								
+True	a	a1	a2	1	2	2	3	x	
+False	a	a1	a3	1	2	3	4	y	
+True	a	a1	a4	1	2	4	5	z	
+False	a	a2	a3	2	3	3	4	x	
+True	a	a2	a4	2	3	4	5	y	
+True	a	a3	a4	3	4	4	5	z	
+False	a	a2	a1	1	2	2	3	x	
+False	a	a3	a1	1	2	3	4	y	
+False	a	a4	a1	1	2	4	5	z	
+False	a	a3	a2	2	3	3	4	x	
+False	a	a4	a2	2	3	4	5	y	
+False	a	a4	a3	3	4	4	5	z	
+False	b	b1	b2	1	2	2	3	x	
+False	b	b1	b3	1	2	3	4	y	
+False	b	b1	b4	1	2	4	5	z	
+False	b	b2	b3	2	3	3	4	x	
+False	b	b2	b4	2	3	4	5	y	
+False	b	b3	b4	3	4	4	5	z	
+False	b	b2	b1	1	2	2	3	x	
+False	b	b3	b1	1	2	3	4	y	
+False	b	b4	b1	1	2	4	5	z	
+False	b	b3	b2	2	3	3	4	x	
+False	b	b4	b2	2	3	4	5	y	
+False	b	b4	b3	3	4	4	5	z	

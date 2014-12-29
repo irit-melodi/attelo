@@ -1,0 +1,27 @@
+CLASS	grp	id1	id2	s1	e1	s2	e2	foo	
+d	s	d	d	c	c	c	c	d	
+class	m								
+elaboration	a	a1	a2	1	2	2	3	x	
+UNRELATED	a	a1	a3	1	2	3	4	y	
+narration	a	a1	a4	1	2	4	5	z	
+UNRELATED	a	a2	a3	2	3	3	4	x	
+continuation	a	a2	a4	2	3	4	5	y	
+continuation	a	a3	a4	3	4	4	5	z	
+UNRELATED	a	a2	a1	1	2	2	3	x	
+UNRELATED	a	a3	a1	1	2	3	4	y	
+UNRELATED	a	a4	a1	1	2	4	5	z	
+UNRELATED	a	a3	a2	2	3	3	4	x	
+UNRELATED	a	a4	a2	2	3	4	5	y	
+UNRELATED	a	a4	a3	3	4	4	5	z	
+UNRELATED	b	b1	b2	1	2	2	3	x	
+UNRELATED	b	b1	b3	1	2	3	4	y	
+UNRELATED	b	b1	b4	1	2	4	5	z	
+UNRELATED	b	b2	b3	2	3	3	4	x	
+UNRELATED	b	b2	b4	2	3	4	5	y	
+UNRELATED	b	b3	b4	3	4	4	5	z	
+UNRELATED	b	b2	b1	1	2	2	3	x	
+UNRELATED	b	b3	b1	1	2	3	4	y	
+UNRELATED	b	b4	b1	1	2	4	5	z	
+UNRELATED	b	b3	b2	2	3	3	4	x	
+UNRELATED	b	b4	b2	2	3	4	5	y	
+UNRELATED	b	b4	b3	3	4	4	5	z	
