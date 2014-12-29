@@ -165,8 +165,9 @@ def _get_attach_prob_orange(config, attach):
     prob_distrib = []
     for inst in attach.data:
         edu1, edu2 = edu_pair(inst)
-        probs = attach.model(inst, Classifier.GetProbabilities)[1]
-        prob_distrib.append((edu1, edu2, probs, "unlabelled"))
+        dist = attach.model(inst, Classifier.GetProbabilities)
+        prob = dist['True'] if 'True' in dist else 0.
+        prob_distrib.append((edu1, edu2, prob, "unlabelled"))
     return prob_distrib
 
 
