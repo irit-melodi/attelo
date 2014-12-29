@@ -18,9 +18,7 @@ from numpy import inf
 # pylint: enable-no-name-in-module
 
 from .decoding.astar import\
-    AstarArgs, RfcConstraint,\
-    named_heuristic, H_AVERAGE,\
-    astar_decoder
+    AstarArgs, RfcConstraint, Heuristic, astar_decoder
 from .decoding.baseline import local_baseline, last_baseline
 from .decoding.mst import mst_decoder
 from .decoding.greedy import locallyGreedy
@@ -128,7 +126,7 @@ DEFAULT_PERCEPTRON_ARGS = PerceptronArgs(iterations=20,
 # default values for A* decoder
 # (NB: not the same as in the default initialiser)
 DEFAULT_ASTAR_ARGS = AstarArgs(rfc=RfcConstraint.full,
-                               heuristics=H_AVERAGE,
+                               heuristics=Heuristic.average,
                                beam=None,
                                nbest=1)
 DEFAULT_HEURISTIC = DEFAULT_ASTAR_ARGS.heuristics
@@ -333,7 +331,7 @@ def _add_decoder_args(psr):
     astar_grp = psr.add_argument_group("A* decoder arguments")
     astar_grp.add_argument("--heuristics", "-e",
                            default=DEFAULT_HEURISTIC,
-                           type=named_heuristic,
+                           type=Heuristic.from_string,
                            help="heuristics used for astar decoding; "
                            "default: %s" % DEFAULT_HEURISTIC.name)
     astar_grp.add_argument("--rfc", "-r",

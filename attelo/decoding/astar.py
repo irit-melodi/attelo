@@ -412,39 +412,35 @@ class DiscourseBeamSearch(BeamSearch):
 
 
 # pylint: disable=too-few-public-methods
-class Heuristic(namedtuple("Heuristic",
-                           "name function")):
+class Heuristic(Enum):
     """
-    Named heuristic function
+    What sort of right frontier constraint to apply during decoding:
 
-    :param name: a unique name that can be used to refer to this heuristic
-                 elsewhere (eg. command line arguments, reporting, etc)
-    :type name: `String`
-
-    :param function: the heuristic function proper
-    :type function: `DiscourseState -> Float`
+        * simple: every relation is treated as subordinating
+        * full: (falls back to simple in case of unlabelled prediction)
     """
-    pass
-# pylint: enable=too-few-public-methods
+    zero = 0
+    max = 1
+    best = 2
+    average = 3
 
+    @classmethod
+    def from_string(cls, string):
+        "command line arg to Heuristic"
+        names = {x.name: x for x in cls}
+        val = names.get(string)
+        if val is not None:
+            return val
+        else:
+            oops = "invalid choice: {}, choose from {}"
+            choices = ", ".join('{}'.format(x) for x in names)
+            raise ArgumentTypeError(oops.format(string, choices))
+# pylint: enable=no-init, too-few-public-methods
 
-H_ZERO = Heuristic("zero", DiscourseState.h_zero)
-H_MAX = Heuristic("max", DiscourseState.h_best_overall)
-H_BEST = Heuristic("best", DiscourseState.h_best)
-H_AVERAGE = Heuristic("average", DiscourseState.h_average)
-HEURISTICS = {h.name: h for h in
-              [H_ZERO, H_MAX, H_BEST, H_AVERAGE]}
-
-
-def named_heuristic(string):
-    "Heuristic from command line argument"
-    heuristic = HEURISTICS.get(string)
-    if heuristic is not None:
-        return heuristic
-    else:
-        oops = "invalid choice: {}, choose from {}"
-        choices = ", ".join('{}'.format(x) for x in HEURISTICS)
-        raise ArgumentTypeError(oops.format(string, choices))
+HEURISTICS = {Heuristic.zero: DiscourseState.h_zero,
+              Heuristic.max: DiscourseState.h_best_overall,
+              Heuristic.best: DiscourseState.h_best,
+              Heuristic.average: DiscourseState.h_average}
 
 
 # pylint: disable=too-many-arguments
@@ -472,7 +468,7 @@ class AstarArgs(namedtuple('AstarArgs',
     :type rfc: RfcConstraint
     """
     def __new__(cls,
-                heuristics=H_ZERO,
+                heuristics=Heuristic.zero,
                 beam=None,
                 rfc=RfcConstraint.simple,
                 use_prob=True,
@@ -539,17 +535,18 @@ def astar_decoder(prob_distrib,
     saved = edus
     edus = map(lambda x:x[0],edus)
     print >> sys.stderr, "\t %s nodes to attach"%(len(edus)-1)
-    
+   
+    heuristic_function = HEURISTICS[astar_args.heuristics]
     search_shared = {"probs":prob,
                      "use_prob":astar_args.use_prob,
                      "heuristics":preprocess_heuristics(prob_distrib),
                      "RFC":astar_args.rfc}
     if astar_args.beam:
-        a = DiscourseBeamSearch(heuristic=astar_args.heuristics.function,
+        a = DiscourseBeamSearch(heuristic=heuristic_function,
                                 shared=search_shared,
                                 queue_size=astar_args.beam)
     else:
-        a = DiscourseSearch(heuristic=astar_args.heuristics.function,
+        a = DiscourseSearch(heuristic=heuristic_function,
                             shared=search_shared)
     genall = a.launch(DiscData(accessible=[edus[0]],tolink=edus[1:]),norepeat=True,verbose=False)
     # nbest solutions handling
