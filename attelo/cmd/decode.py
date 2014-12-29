@@ -104,11 +104,12 @@ def _select_doc(config, onedoc, attach, relate):
     return a narrower pair selecting only the data that
     correspond to a given document
     """
+    relate_data = relate.data if relate is not None else None
     attach_instances, relate_instances =\
         select_data_in_grouping(config.phrasebook,
                                 onedoc,
                                 attach.data,
-                                relate.data)
+                                relate_data)
     doc_attach = DataAndModel(attach_instances, attach.model)
     doc_relate = DataAndModel(relate_instances, relate.model)\
         if relate else None
