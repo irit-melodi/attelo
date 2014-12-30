@@ -15,6 +15,11 @@ import Orange
 
 # nice trick from http://stackoverflow.com/a/6796752
 class RedirectStdStreams(object):
+    """
+    utility class to help us redirect output that would otherwise
+    go to the sys.stdout or sys.stderr
+    """
+
     def __init__(self, stdout=None, stderr=None):
         self._stdout = stdout or sys.stdout
         self._stderr = stderr or sys.stderr
