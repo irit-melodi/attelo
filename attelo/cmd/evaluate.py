@@ -135,15 +135,13 @@ def main(args):
 
                 doc_attach, doc_relate =\
                     _select_doc(config, onedoc, attach, relate)
-                predicted = decode(config, decoder, doc_attach, doc_relate,
-                                   nbest=args.nbest)
+                predicted = decode(config, decoder, doc_attach, doc_relate)
 
                 score_doc_relate = doc_relate if score_labels else None
                 fold_evals.append(_score_predictions(config,
                                                      doc_attach,
                                                      score_doc_relate,
-                                                     predicted,
-                                                     nbest=args.nbest,))
+                                                     predicted))
 
         fold_report = Report(fold_evals,
                              params=args,

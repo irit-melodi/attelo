@@ -40,6 +40,7 @@ def args_to_decoder_config(phrasebook, model, decoder, args):
     return DecoderConfig(phrasebook=phrasebook,
                          threshold=threshold,
                          post_labelling=args.post_label,
+                         nbest=args.nbest,
                          use_prob=args.use_prob)
 
 
@@ -196,23 +197,23 @@ def _write_predictions(config, doc, predicted, attach, output):
     _export_conllish(config.phrasebook, predicted, attach.data, output)
 
 
-def _score_predictions(config, attach, relate, predicted, nbest=1):
+def _score_predictions(config, attach, relate, predicted):
     """
     Return scores for predictions on the given data
 
     :param relate: if True, labels (relations) are to be evaluated too
                    otherwise only attachments
-    :param predicted: an ordered list (singleton if `nbest == 1`)
-    :rtype: `Count`
+    :param predicted: an ordered list (singleton if `config.nbest == 1`)
+    :rtype: :py:class:`attelo.report.Count`
 
-    If `nbest == 1` we use the plain score for 1 prediction, otherwise
+    If `config.nbest == 1` we use the plain score for 1 prediction, otherwise
     return the count corresponding to the best prediction.  What we
     consider to be best depends on `relate` being set or not
     """
     reference = related_attachments(config.phrasebook, attach.data)
     labels = related_relations(config.phrasebook, relate.data)\
         if relate else None
-    if nbest > 1:
+    if config.nbest > 1:
         all_counts = [count_correct(config.phrasebook,
                                     one_predicted,
                                     reference,
@@ -305,8 +306,7 @@ def main_for_harness(args, config, decoder, attach, relate):
         if not args.quiet:
             print("decoding on file : ", onedoc, file=sys.stderr)
         doc_attach, doc_relate = _select_doc(config, onedoc, attach, relate)
-        predicted = decode(config, decoder, doc_attach, doc_relate,
-                           nbest=args.nbest)
+        predicted = decode(config, decoder, doc_attach, doc_relate)
         _write_predictions(config, onedoc, predicted, doc_attach, args.output)
         if args.scores is not None:
             scores[onedoc] = _score_predictions(config, doc_attach, doc_relate,

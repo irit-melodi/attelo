@@ -19,6 +19,7 @@ class DecoderConfig(namedtuple("DecoderConfig",
                                ["phrasebook",
                                 "threshold",
                                 "post_labelling",
+                                "nbest",
                                 "use_prob"])):
     """
     Parameters needed by decoder.
@@ -31,6 +32,9 @@ class DecoderConfig(namedtuple("DecoderConfig",
                            predict relations on the resulting
                            graph afterwards
     :type post_labelling: bool
+
+    :param nbest: (for the A* decoder) return at most this many results
+    :type nbest: 1
 
     :param use_prob: `True` if model scores are probabilities in [0,1]
                      (to be mapped to -log), `False` if arbitrary scores
@@ -45,12 +49,14 @@ class DecoderConfig(namedtuple("DecoderConfig",
                 phrasebook,
                 threshold=None,
                 post_labelling=False,
+                nbest=1,
                 use_prob=True):
         sup = super(DecoderConfig, cls)
         return sup.__new__(cls,
                            phrasebook=phrasebook,
                            threshold=threshold,
                            post_labelling=post_labelling,
+                           nbest=nbest,
                            use_prob=use_prob)
 
 
@@ -209,7 +215,7 @@ def _get_attach_prob_orange(config, attach):
     return prob_distrib
 
 
-def decode(config, decoder, attach, relate=None, nbest=1):
+def decode(config, decoder, attach, relate=None):
     """
     Decode every instance in the attachment table (predicting
     relations too if we have the data/model for it).
@@ -246,7 +252,7 @@ def decode(config, decoder, attach, relate=None, nbest=1):
                             use_prob=config.use_prob)
 
     if config.post_labelling:
-        if nbest == 1:
+        if config.nbest == 1:
             predicted = _add_labels(config.phrasebook, predicted, relate)
         else:
             predicted = [_add_labels(config.phrasebook, x, relate)
