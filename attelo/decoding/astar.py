@@ -476,7 +476,7 @@ class AstarArgs(namedtuple('AstarArgs',
         return super(AstarArgs, cls).__new__(cls,
                                              heuristics, rfc,
                                              beam, nbest, use_prob)
-# pylint: enable=too-many-arguments
+# pylint: enable=too-many-arguments, too-few-public-methods
 
 
 
