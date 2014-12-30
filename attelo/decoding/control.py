@@ -22,6 +22,24 @@ class DecoderConfig(namedtuple("DecoderConfig",
                                 "use_prob"])):
     """
     Parameters needed by decoder.
+
+    :param phrasebook: names for core features
+    :type phrasebook: :py:class:`attelo.features.Phrasebook`
+
+    :param post_labelling: a decoding mode where we decode only
+                           on attachment and indpendently
+                           predict relations on the resulting
+                           graph afterwards
+    :type post_labelling: bool
+
+    :param use_prob: `True` if model scores are probabilities in [0,1]
+                     (to be mapped to -log), `False` if arbitrary scores
+                     (to be untouched)
+    :type use_prob: bool
+
+    :param threshold: For some decoders, a probability floor that helps
+                      the decoder decide whether or not to attach something
+    :type threshold: float
     """
     def __new__(cls,
                 phrasebook,
