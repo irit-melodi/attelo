@@ -13,36 +13,36 @@ from attelo.table import index_by_metas, select_edu_pair
 from attelo.report import Count
 from .util import DecoderException
 
-_DecoderConfig = namedtuple("DecoderConfig",
-                            ["phrasebook",
-                             "threshold",
-                             "post_labelling",
-                             "use_prob"])
 
-
-class DecoderConfig(_DecoderConfig):
+# pylint: disable=too-few-public-methods
+class DecoderConfig(namedtuple("DecoderConfig",
+                               ["phrasebook",
+                                "threshold",
+                                "post_labelling",
+                                "use_prob"])):
     """
     Parameters needed by decoder.
     """
-    def __init__(self, phrasebook,
-                 threshold=None,
-                 post_labelling=False,
-                 use_prob=True):
-        super(DecoderConfig, self).__init__(phrasebook=phrasebook,
-                                            threshold=threshold,
-                                            post_labelling=post_labelling,
-                                            use_prob=use_prob)
+    def __new__(cls,
+                phrasebook,
+                threshold=None,
+                post_labelling=False,
+                use_prob=True):
+        sup = super(DecoderConfig, cls)
+        return sup.__new__(cls,
+                           phrasebook=phrasebook,
+                           threshold=threshold,
+                           post_labelling=post_labelling,
+                           use_prob=use_prob)
 
 
-_DataAndModel = namedtuple("_DataAndModel", "data model")
-
-
-class DataAndModel(_DataAndModel):
+class DataAndModel(namedtuple("_DataAndModel", "data model")):
     """
     Tuple of a data table accompanied with a model for the kind of
     data within
     """
     pass
+# pylint: enable=too-few-public-methods
 
 # ---------------------------------------------------------------------
 # helpers
