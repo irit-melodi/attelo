@@ -28,9 +28,12 @@ NAME = 'decode'
 # ---------------------------------------------------------------------
 
 
-def _args_to_decoder_config(phrasebook, model, decoder, args):
+def args_to_decoder_config(phrasebook, model, decoder, args):
     """
-    Package up command line arguments into a DecoderConfig
+    Package up command line arguments into a
+    `DecoderConfig`
+
+    :param decoder: actual decoder function
     """
     threshold = args_to_threshold(model, decoder,
                                   requested=args.threshold)
@@ -320,8 +323,8 @@ def main(args):
     phrasebook = args_to_phrasebook(args)
     decoder = args_to_decoder(args)
     attach, relate = _load_data_and_model(phrasebook, args)
-    config = _args_to_decoder_config(phrasebook,
-                                     attach.model,
-                                     decoder,
-                                     args)
+    config = args_to_decoder_config(phrasebook,
+                                    attach.model,
+                                    decoder,
+                                    args)
     main_for_harness(args, config, decoder, attach, relate)

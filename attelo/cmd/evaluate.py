@@ -22,9 +22,8 @@ from ..table import\
     related_attachments, related_relations, select_data_in_grouping
 # TODO: figure out what parts I want to export later
 from .decode import\
-    _select_doc,\
-    _score_predictions,\
-    _args_to_decoder_config
+        (args_to_decoder_config,
+         _select_doc, _score_predictions)
 
 
 NAME = 'evaluate'
@@ -123,10 +122,10 @@ def main(args):
             if data_relate else None
 
         # decoding options for this fold
-        config = _args_to_decoder_config(phrasebook,
-                                         attach.model,
-                                         decoder,
-                                         args)
+        config = args_to_decoder_config(phrasebook,
+                                        attach.model,
+                                        decoder,
+                                        args)
 
         # -- file level --
         fold_evals = []
