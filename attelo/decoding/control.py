@@ -54,7 +54,7 @@ class DecoderConfig(namedtuple("DecoderConfig",
                            use_prob=use_prob)
 
 
-class DataAndModel(namedtuple("_DataAndModel", "data model")):
+class DataAndModel(namedtuple("DataAndModel", "data model")):
     """
     Tuple of a data table accompanied with a model for the kind of
     data within
@@ -262,7 +262,7 @@ def count_correct(phrasebook,
     data contains the reference attachments
     labels the corresponding relations
 
-    return_type: `Count` object
+    :rtype: :py:class:`attelo.report.Count`
     """
     score_attach = 0
     score_label = 0
