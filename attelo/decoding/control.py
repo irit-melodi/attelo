@@ -49,11 +49,36 @@ class DataAndModel(_DataAndModel):
 # ---------------------------------------------------------------------
 
 
+def _get_inst_attach_orange(model, inst):
+    """
+    Return the probability of attachment for a single instance,
+    given an attachment model.
+
+    :rtype: float
+    """
+    dist = model(inst, Classifier.GetProbabilities)
+    return dist['True'] if 'True' in dist else 0.
+
+
+def _get_inst_relate_orange(model, inst):
+    """
+    Return the best label for an instance and the associated
+    probability (ie. probability of that label being chosen
+    among others)
+
+    :rtype: (float, string)
+    """
+    label, probs = model(inst, Classifier.GetBoth)
+    return max(probs), label.value
+
+
 def _combine_single_prob(attach, relate, att, rel):
     """return the best relation for a given EDU pair and its
     joint probability with the pair being attached
 
     helper for _combine_prob
+
+    :rtype (float, string)
     """
     if is_perceptron_model(attach.model):
         if not attach.model.use_prob == True:
@@ -62,14 +87,10 @@ def _combine_single_prob(attach, relate, att, rel):
                                    "use_prob=False!")
         p_attach = attach.model.get_scores([att])[0][2]
     else:
-        p_attach = attach.model(att, Classifier.GetProbabilities)[1]
-    p_relate = relate.model(rel, Classifier.GetBoth)
-    try:
-        best_rel = p_relate[0].value
-    except:
-        best_rel = p_relate[0]
+        p_attach = _get_inst_attach_orange(attach.model, att)
 
-    rel_prob = max(p_relate[1])
+    rel_prob, best_rel = _get_inst_relate_orange(relate.model, rel)
+
     return (p_attach * rel_prob, best_rel)
 
 
@@ -165,8 +186,7 @@ def _get_attach_prob_orange(config, attach):
     prob_distrib = []
     for inst in attach.data:
         edu1, edu2 = edu_pair(inst)
-        dist = attach.model(inst, Classifier.GetProbabilities)
-        prob = dist['True'] if 'True' in dist else 0.
+        prob = _get_inst_attach_orange(attach.model, inst)
         prob_distrib.append((edu1, edu2, prob, "unlabelled"))
     return prob_distrib
 
