@@ -21,7 +21,7 @@ from .decoding.astar import\
     AstarArgs, RfcConstraint, Heuristic, astar_decoder
 from .decoding.baseline import local_baseline, last_baseline
 from .decoding.mst import mst_decoder
-from .decoding.greedy import locallyGreedy
+from .decoding.greedy import locally_greedy
 from .features import Phrasebook
 from .learning.megam import MaxentLearner
 from .learning.perceptron import\
@@ -71,7 +71,7 @@ def _known_decoders(astar_args):
     """
     return {"last": last_baseline,
             "local": local_baseline,
-            "locallyGreedy": locallyGreedy,
+            "locallyGreedy": locally_greedy,
             "mst": mst_decoder,
             "astar": _mk_astar_decoder(astar_args)}
 
