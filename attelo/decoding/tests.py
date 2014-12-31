@@ -6,7 +6,7 @@ from __future__ import print_function
 import unittest
 
 from ..edu import EDU
-from . import astar
+from . import astar, greedy
 
 def mk_fake_edu(edu_id, start=0, end=0, edu_file="x"):
     """
@@ -31,6 +31,8 @@ class DecoderTest(unittest.TestCase):
     for one in edus[1:-1]:
         prob_distrib.append((one, edus[4], 0.1, 'continuation'))
 
+
+class AstarTest(DecoderTest):
     def _test_heuristic(self, heuristic):
         prob = {(a1, a2): (l, p) for a1, a2, p, l in self.prob_distrib}
         pre_heurist = astar.preprocess_heuristics(self.prob_distrib)
@@ -67,3 +69,9 @@ class DecoderTest(unittest.TestCase):
 
     def test_nbest_2(self):
         self._test_nbest(2)
+
+class LocallyGreedyTest(DecoderTest):
+    def test_locally_greedy(self):
+        'check that the locally greedy decoder works'
+        attachments = greedy.locally_greedy(self.prob_distrib)
+        self.assertTrue(attachments)
