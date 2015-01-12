@@ -169,10 +169,10 @@ class DiscourseState(State):
     
     """
     def __init__(self,data,heuristics,shared):
-        self._data=data
-        self._cost=0
-        self._shared=shared
-        self._h=heuristics(self)
+        super(DiscourseState, self).__init__(data,
+                                             cost=0,
+                                             future_cost=heuristics(self))
+        self._shared = shared
         
         
     def data(self):
@@ -191,11 +191,11 @@ class DiscourseState(State):
     
     # solution found when everything has been instantiated
     # TODO: adapt to disc parse, according to choice made for data
-    def isSolution(self):
+    def is_solution(self):
         return self.data().final()
 
  
-    def nextStates(self):
+    def next_states(self):
         """must return a state and a cost
         TODO: adapt to disc parse, according to choice made for data -> especially update to RFC
         """
@@ -333,7 +333,7 @@ class TwoStageNRO(DiscourseState):
         """
         return self.shared().get("same_sentence",lambda x:False)(edu1,edu2)
 
-    def nextStates(self):
+    def next_states(self):
         """must return a state and a cost
         """
         # TODO: decode differently on intra/inter sentence
@@ -378,8 +378,8 @@ class DiscourseSearch(Search):
     - parent : parent state
     - _link : the actual prediction made at this stage (1 state =  1 relation = (du1,du2,relation)
     """
-    def newState(self,data):
-        return DiscourseState(data,self._hFunc,self.shared())
+    def new_state(self,data):
+        return DiscourseState(data, self._h_func, self.shared())
 
     def recover_solution(self,endstate):
         # follow back pointers to collect list of chosen relations on edus. 
@@ -396,8 +396,8 @@ class DiscourseSearch(Search):
 
 class DiscourseBeamSearch(BeamSearch):
 
-    def newState(self,data):
-        return DiscourseState(data,self._hFunc,self.shared())
+    def new_state(self,data):
+        return DiscourseState(data,self._h_func, self.shared())
 
     def recover_solution(self,endstate):
         # follow back pointers to collect list of chosen relations on edus. 

@@ -23,15 +23,18 @@ class TestState(State):
             "-1": lambda x: x-1,
             "+2": lambda x: x+2}
 
+    def __init__(self, data, heuristic):
+        super(TestState, self).__init__(data, future_cost=heuristic(data))
+
     def _update_data(self, opr):
         left = self.data()[0]
         right = self.data()[1]
         return (self._ops[opr](left), right+opr)
 
-    def isSolution(self):
+    def is_solution(self):
         return ((self.data()[0]) == 21)
 
-    def nextStates(self):
+    def next_states(self):
         return [(self._update_data(x), 1.) for x in self._ops]
 
     def __str__(self):
@@ -42,12 +45,12 @@ class TestState(State):
 
 
 class TestSearch(Search):
-    def newState(self, data):
-        return TestState(data, self._hFunc)
+    def new_state(self, data):
+        return TestState(data, self._h_func)
 
 class TestSearch2(BeamSearch):
-    def newState(self, data):
-        return TestState(data, self._hFunc)
+    def new_state(self, data):
+        return TestState(data, self._h_func)
 
 
 class AstarTest(unittest.TestCase):
