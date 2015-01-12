@@ -15,6 +15,7 @@ Various search algorithms for combinatorial problems:
   * branch and bound (astar with forward lookahead)
 """
 
+from __future__ import print_function
 import sys
 import heapq
 from pprint import pformat
@@ -154,14 +155,14 @@ class Search:
             self.iterations += 1
             e = self.popBest()
             if verbose:
-                print "\033[91mcurrent best state",  pformat(e.__dict__),   "\033[0m"
-                print 'states todo=', self._todo
-                print 'seen=', self._seen
+                print("\033[91mcurrent best state", pformat(e.__dict__), "\033[0m")
+                print('states todo=', self._todo)
+                print('seen=', self._seen)
             if not norepeat:
                 if self.alreadySeen(e):
                     skip = True
                     if verbose:
-                        print 'already seen',  e
+                        print('already seen', e)
                 else:
                     skip = False
             if not skip:
@@ -171,12 +172,12 @@ class Search:
                     if not norepeat:
                         self.addSeen(e)
                     next = e.nextStates()
-                    #print next
+                    #print(next)
                     self.addQueue(next, e.cost())
             if verbose:
-                print 'update:'
-                print 'states todo=',  self._todo
-                print 'seen=',  self._seen
+                print('update:')
+                print('states todo=', self._todo)
+                print('seen=', self._seen)
 
         # if it comes to that,  there is no solution
         raise StopIteration
