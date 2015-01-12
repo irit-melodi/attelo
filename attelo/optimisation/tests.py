@@ -7,7 +7,7 @@ from math import log
 import sys
 import unittest
 
-from .Astar import BeamSearch, Search, State
+from .astar import BeamSearch, Search, State
 
 class TestState(State):
     """dummy cost uniform search: starting from int, find minimum numbers of

@@ -20,7 +20,7 @@ import numpy
 from collections import defaultdict, namedtuple
 from enum import Enum
 
-from attelo.optimisation.Astar import State, Search, BeamSearch
+from attelo.optimisation.astar import State, Search, BeamSearch
 from attelo.edu                import EDU
 
 _class_schemes = {
