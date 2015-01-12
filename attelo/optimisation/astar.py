@@ -128,12 +128,6 @@ class Search:
         #    new = heapq.nsmallest(self._queue_size, self._todo)
         #    self._todo = new
 
-    def getBest(self):
-        """
-        Return the lowest cost item from the search queue
-        """
-        return heapq.min(self._todo)
-
     def popBest(self):
         """
         Return and remove the lowest cost item from the search queue
