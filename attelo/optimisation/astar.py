@@ -16,9 +16,10 @@ Various search algorithms for combinatorial problems:
 """
 
 from __future__ import print_function
-import sys
 import heapq
 from pprint import pformat
+
+# pylint: disable=too-few-public-methods
 
 class State:
     """
@@ -35,9 +36,11 @@ class State:
         self._h = heuristics(data)
 
     def cost(self):
+        "past path cost"
         return self._cost
 
     def data(self):
+        "actual distinguishing contents of a state"
         return self._data
 
     def updateCost(self, value):
@@ -47,11 +50,11 @@ class State:
         return self.data() == other.data()
 
     def __lt__(self, other):
-        f1 = self.cost() + self._h
-        f2 = other.cost() + other._h
-        if f1 < f2:
+        f_self = self.cost() + self._h
+        f_other = other.cost() + other._h
+        if f_self < f_other:
             return True
-        elif f1 == f2:
+        elif f_self == f_other:
             return self.cost() > other.cost()
         else:
             return False
@@ -111,39 +114,58 @@ class Search:
         return State(data, self._hFunc)
 
     def addQueue(self, items, ancestorCost):
+        """
+        Add a set of succesors to the search queue
+
+        :type items [(data, float)]
+        """
         # each item must be a successor and a cost
         for one, cost in items:
-            s = self.newState(one)
-            s.updateCost(ancestorCost+cost)
-            heapq.heappush(self._todo, s)
+            succ = self.newState(one)
+            succ.updateCost(ancestorCost+cost)
+            heapq.heappush(self._todo, succ)
         #if self._queue_size is not None:
         #    new = heapq.nsmallest(self._queue_size, self._todo)
         #    self._todo = new
 
     def getBest(self):
+        """
+        Return the lowest cost item from the search queue
+        """
         return heapq.min(self._todo)
 
     def popBest(self):
+        """
+        Return and remove the lowest cost item from the search queue
+        """
         return heapq.heappop(self._todo)
 
     def emptyQueue(self):
+        """
+        Return `True` if the search queue is empty
+        """
         return self._todo == []
 
-    def alreadySeen(self, e):
-        return hash(e) in self._seen
+    def alreadySeen(self, state):
+        """
+        Return `True` if the given search state has already been seen
+        """
+        return hash(state) in self._seen
 
-    def addSeen(self, e):
-        self._seen[hash(e)] = e
+    def addSeen(self, state):
+        """
+        Mark a state as seen
+        """
+        self._seen[hash(state)] = state
 
     def launch(self, initState,
                verbose=False,
                norepeat=False):
         """launch search from initital state value
 
-        norepeat means there's no need for an "already seen states" datastructure
-
-        Todo: should be able to change the queue_size here
+        :param: norepeat: there's no need for an "already seen states" datastructure
         """
+        # TODO: should be able to change the queue_size here
         self.resetQueue()
         if not norepeat:
             self.resetSeen()
@@ -171,9 +193,9 @@ class Search:
                 else:
                     if not norepeat:
                         self.addSeen(e)
-                    next = e.nextStates()
+                    nxt = e.nextStates()
                     #print(next)
-                    self.addQueue(next, e.cost())
+                    self.addQueue(nxt, e.cost())
             if verbose:
                 print('update:')
                 print('states todo=', self._todo)
@@ -203,9 +225,9 @@ class BeamSearch(Search):
     def addQueue(self, items, ancestorCost):
         # each item must be a successor and a cost
         for one, cost in items:
-            s = self.newState(one)
-            s.updateCost(ancestorCost+cost)
-            heapq.heappush(self._todo, s)
+            succ = self.newState(one)
+            succ.updateCost(ancestorCost+cost)
+            heapq.heappush(self._todo, succ)
         if self._queue_size is not None:
             new = heapq.nsmallest(self._queue_size, self._todo)
             self._todo = new
