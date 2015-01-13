@@ -12,6 +12,7 @@ TODO: unlabelled evaluation seems to bug on RF decoding (relation is of type ora
 
 """
 
+from __future__ import print_function
 from argparse import ArgumentTypeError
 import copy
 import math
@@ -122,7 +123,7 @@ class DiscData:
         RFC = "none" no constraint on attachment
         """
         #if to_edu not in self.accessible():
-        #    print >> sys.stderr, "error: unreachable node", to_edu, "(ignored)"
+        #    print("error: unreachable node", to_edu, "(ignored)", file= sys.stderr)
         if True:
             index = self.accessible().index(to_edu)
             self._link = (to_edu, from_edu, relation)
@@ -130,8 +131,8 @@ class DiscData:
             # attachment points, subord are appended, and evrything below
             # disappear from the RF
             # unknown relations are subord
-            #print >> sys.stderr, type(relation)
-            #print >> sys.stderr, map(type, subord_coord.values())
+            #print(type(relation), file= sys.stderr)
+            #print(map(type, subord_coord.values()), file= sys.stderr)
             if RFC == RfcConstraint.full and\
                 subord_coord.get(relation, "subord") == "coord":
                 self._accessible = self._accessible[: index]
@@ -258,8 +259,8 @@ class DiscourseState(State):
             pr = sum(transform(self.shared()["heuristics"]["average"][x])
                      for x in missing_links)
         except:
-            print >> sys.stderr, missing_links
-            print >> sys.stderr, self.shared()["heuristics"]["average"][x]
+            print(missing_links, file= sys.stderr)
+            print(self.shared()["heuristics"]["average"][x], file= sys.stderr)
             sys.exit(0)
         return pr
 
@@ -509,7 +510,7 @@ def preprocess_heuristics(prob_distrib):
 
     for one in result["average"]:
         result["average"][one] = sum(result["average"][one])/len(result["average"][one])
-    #print >> sys.stderr, result
+    #print(result, file= sys.stderr)
     return result
 
 def prob_distrib_convert(prob_distrib):
@@ -545,7 +546,7 @@ def astar_decoder(prob_distrib,
     edus.sort(key=lambda x: x[1])
     saved = edus
     edus = map(lambda x: x[0], edus)
-    print >> sys.stderr, "\t %s nodes to attach"%(len(edus)-1)
+    print("\t %s nodes to attach"%(len(edus)-1), file=sys.stderr)
 
     heuristic_function = HEURISTICS[astar_args.heuristics]
     search_shared = {"probs": prob,
@@ -567,7 +568,7 @@ def astar_decoder(prob_distrib,
         endstate = genall.next()
         sol = a.recover_solution(endstate)
         all_solutions.append(sol)
-    print >> sys.stderr, "nbest=%d" % astar_args.nbest
+    print("nbest=%d" % astar_args.nbest, file=sys.stderr)
     if astar_args.nbest == 1:
         return sol
     else:
