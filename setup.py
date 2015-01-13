@@ -18,5 +18,6 @@ setup(name="attelo",
                         'nltk',
                         'numpy',
                         'Orange',
+                        'six',
                         'scipy',
                         'tabulate'])
