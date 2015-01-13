@@ -13,6 +13,8 @@ import sys
 
 from .util import get_sorted_edus
 
+# pylint: disable=too-few-public-methods
+
 
 def are_strictly_adjacent(one, two, edus):
     """ returns True in the following cases ::
@@ -35,6 +37,7 @@ def are_strictly_adjacent(one, two, edus):
                 return False
 
     return True
+
 
 def is_embedded(one, two):
     """ returns True when one is embedded in two, that is ::
@@ -75,7 +78,6 @@ def get_neighbours(edus):
     return neighbours
 
 
-#pylint: disable=too-few-public-methods
 class LocallyGreedyState(object):
     '''
     the mutable parts of the locally greedy algorithm
@@ -88,7 +90,6 @@ class LocallyGreedyState(object):
         for src, tgt, prob, label in instances:
             self._prob_dist[(src.id, tgt.id)] = (prob, label)
 
-
     def _remove_edu(self, original, target):
         '''
         Given a locally greedy state, an original EDU, and a target EDU
@@ -100,10 +101,9 @@ class LocallyGreedyState(object):
         # PM : added to propagate locality to percolated span heads
         tgt_neighbours = self._neighbours[target]
         tgt_neighbours.extend(self._neighbours[original])
-        #print >> sys.stderr, neighbours[new_span]
+        # print(neighbours[new_span], file=sys.stderr)
         tgt_neighbours = [x for x in tgt_neighbours
                           if x.id in self._edu_ids and x.id != target.id]
-
 
     def _attach_best(self):
         '''
@@ -111,7 +111,7 @@ class LocallyGreedyState(object):
         highest probability link between any two neighbours.
         Remove the source EDU from future consideration.
 
-        :rtype: _State
+        :rtype: None
         '''
         highest = 0.0
         to_remove = None
@@ -131,12 +131,12 @@ class LocallyGreedyState(object):
         if to_remove is not None:
             self._remove_edu(to_remove, new_span)
             return attachment
-        else: #stop if nothing to attach, but this is wrong
-            #print >> sys.stderr, "warning: no attachment found"
-            #print edus
-            #print edus_id
-            #print [neighbours[x] for x in edus]
-            #sys.exit(0)
+        else:  # stop if nothing to attach, but this is wrong
+            # print("warning: no attachment found", file=sys.stderr)
+            # print(edus)
+            # print(edus_id)
+            # print([neighbours[x] for x in edus])
+            # sys.exit(0)
             self._edus = []
             return None
 
@@ -144,7 +144,7 @@ class LocallyGreedyState(object):
         '''
         Run the decoder
 
-        :rtype [(EDU, EDU, String)]
+        :rtype [(EDU, EDU, string)]
         '''
         attachments = []
         while len(self._edus) > 1:
@@ -154,14 +154,12 @@ class LocallyGreedyState(object):
                 attachments.append(attach)
         print("", file=sys.stderr)
         return attachments
-#pylint: enable=too-few-public-methods
 
 
-
-#pylint: disable=unused-argument
+# pylint: disable=unused-argument
 def locally_greedy(instances, use_prob=True):
     '''
     The locally greedy decoder
     '''
     return LocallyGreedyState(instances).decode()
-#pylint: enable=unused-argument
+# pylint: enable=unused-argument
