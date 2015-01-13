@@ -22,6 +22,7 @@ from collections import defaultdict, namedtuple
 from enum import Enum
 
 from attelo.optimisation.astar import State, Search, BeamSearch
+from .util import get_sorted_edus, get_prob_map
 
 # pylint: disable=too-few-public-methods
 
@@ -537,14 +538,6 @@ def preprocess_heuristics(prob_distrib):
     #print(result, file= sys.stderr)
     return result
 
-def prob_distrib_convert(prob_distrib):
-    """convert a probability distribution table to desired input for a* decoder
-    NOT IMPLEMENTED: to be factored in from astar_decoder
-    """
-    pass
-
-
-
 
 # TODO: order function should be a method parameter
 # - root should be specified ? or a fake root ? for now, it is the first edu
@@ -558,14 +551,8 @@ def astar_decoder(prob_distrib,
     returns a structure, or nbest structures
 
     """
-    probs = {}
-    edus = set()
-    for du1, du2, prob, label in prob_distrib:
-        probs[(du1.id, du2.id)] = (label, prob)
-        edus.add((du1.id, int(du1.start)))
-        edus.add((du2.id, int(du2.start)))
-    # edu ids sorted by starting position
-    edus = [x[0] for x in sorted(edus, key=lambda x: x[1])]
+    probs = get_prob_map(prob_distrib)
+    edus = [x.id for x in get_sorted_edus(prob_distrib)]
     print("\t %s nodes to attach"%(len(edus)-1), file=sys.stderr)
 
     heuristic_function = HEURISTICS[astar_args.heuristics]

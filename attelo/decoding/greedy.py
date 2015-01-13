@@ -11,7 +11,7 @@ July 2012
 from __future__ import print_function
 import sys
 
-from .util import get_sorted_edus
+from .util import get_sorted_edus, get_prob_map
 
 # pylint: disable=too-few-public-methods
 
@@ -86,9 +86,7 @@ class LocallyGreedyState(object):
         self._edus = get_sorted_edus(instances)
         self._edu_ids = set(x.id for x in self._edus)
         self._neighbours = get_neighbours(self._edus)
-        self._prob_dist = dict()
-        for src, tgt, prob, label in instances:
-            self._prob_dist[(src.id, tgt.id)] = (prob, label)
+        self._prob_dist = get_prob_map(instances)
 
     def _remove_edu(self, original, target):
         '''
@@ -121,7 +119,7 @@ class LocallyGreedyState(object):
         for source in self._edus:
             for target in self._neighbours[source]:
                 if (source.id, target.id) in self._prob_dist:
-                    prob, label = self._prob_dist[(source.id, target.id)]
+                    label, prob = self._prob_dist[(source.id, target.id)]
                     if prob > highest:
                         highest = prob
                         to_remove = source

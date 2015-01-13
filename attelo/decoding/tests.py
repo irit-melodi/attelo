@@ -8,10 +8,13 @@ import unittest
 from ..edu import EDU
 from . import astar, greedy
 
-def mk_fake_edu(edu_id, start=0, end=0, edu_file="x"):
+def mk_fake_edu(start, end=None, edu_file="x"):
     """
     Return a blank EDU object going nowhere
     """
+    if end is None:
+        end = start
+    edu_id = 'x{}'.format(start)
     return EDU(edu_id, start, end, edu_file)
 
 
@@ -20,7 +23,7 @@ class DecoderTest(unittest.TestCase):
     We could split this into AstarTest, etc
     """
     edus = [mk_fake_edu(x)
-            for x in ["x0", "x1", "x2", "x3", "x4"]]
+            for x in range(0, 5)]
 
     # would result of prob models max_relation
     # (p(attachement)*p(relation|attachmt))
