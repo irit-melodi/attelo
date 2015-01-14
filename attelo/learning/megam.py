@@ -96,9 +96,9 @@ class MaxentClassifier:
         if result_type == Orange.classification.Classifier.GetValue:
             return v#label
         elif result_type == Orange.classification.Classifier.GetProbabilities:
-            return [prob_dist.prob(x) for x in self.domain.classVar.values]
+            return {x: prob_dist.prob(x) for x in self.domain.classVar.values}
         else:
-            return v, [prob_dist.prob(x) for x in self.domain.classVar.values]
+            return v, {x: prob_dist.prob(x) for x in self.domain.classVar.values}
 
     #def __call__(self,instance):
     #    return self(instance,Orange.classification.Classifier.GetValue)
