@@ -80,8 +80,6 @@ def main(args):
     attach_learner, relation_learner = \
         args_to_learners(decoder, phrasebook, args)
 
-    RECALL_CORRECTION = args.correction
-
     fold_struct, selection =\
         _prepare_folds(phrasebook, args.nfold, data_attach,
                        shuffle=args.shuffle)
@@ -145,7 +143,7 @@ def main(args):
 
         fold_report = Report(fold_evals,
                              params=args,
-                             correction=RECALL_CORRECTION)
+                             correction=args.correction)
         print("Fold eval:", fold_report.summary())
         evals.append(fold_evals)
         # --end of file level
