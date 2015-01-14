@@ -171,7 +171,6 @@ def _export_conllish(phrasebook, predicted, attach_instances, folder):
         pad_len = max_indegree * 2 - len(linkstuff)
         return [edu, grouping, start, end] + linkstuff + ([''] * pad_len)
 
-
     with open(fp.join(folder, 'graph.conll'), 'a') as fout:
         writer = csv.writer(fout, dialect=csv.excel_tab)
         for edu in sorted(edus, key=lambda x: x[0]):
@@ -294,7 +293,7 @@ def main_for_harness(args, config, decoder, attach, relate):
     yourself
     """
     _prepare_combined_outputs(args.output)
-    if not attach.data: # there may be legitimate uses for empty inputs
+    if not attach.data:  # there may be legitimate uses for empty inputs
         return
 
     grouping_index = attach.data.domain.index(config.phrasebook.grouping)
