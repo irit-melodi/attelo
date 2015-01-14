@@ -213,7 +213,7 @@ def decode(phrasebook, mode, decoder, attach,
     # get prediction (input is just prob_distrib)
     # hence the apparent redundancy here
     # TODO: issue #8: PM CHECK if works with nbest decoding
-    predicted = decoder(prob_distrib)
+    predicted = decoder.decode(prob_distrib)
 
     if mode == DecodingMode.post_label:
         predicted = [_add_labels(phrasebook, x, relate)

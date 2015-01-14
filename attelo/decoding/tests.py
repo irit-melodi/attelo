@@ -56,7 +56,7 @@ class AstarTest(DecoderTest):
 
     def _test_nbest(self, nbest):
         decoder = astar.AstarDecoder(astar.AstarArgs(nbest=nbest))
-        soln = decoder(self.prob_distrib)
+        soln = decoder.decode(self.prob_distrib)
         self.assertEqual(nbest, len(soln))
         return soln
 
@@ -74,7 +74,7 @@ class LocallyGreedyTest(DecoderTest):
     def test_locally_greedy(self):
         'check that the locally greedy decoder works'
         decoder = greedy.LocallyGreedy()
-        predictions = decoder(self.prob_distrib)
+        predictions = decoder.decode(self.prob_distrib)
         # made one prediction
         self.assertEqual(1, len(predictions))
         # predicted some attachments in that prediction

@@ -31,20 +31,15 @@ class Decoder(with_metaclass(ABCMeta, object)):
         - a **prediction** is morally a set (in practice a list) of links
 
         - a **distribution** is morally a set of proposed links
-
-    :param prob_distrib: the proposed links that we would like to decode over
-    :type prob_distrib: [(string, string, float, string)]
-
-    :param config: how we would like this decoder to behave
-    :type config: :py:class:`DecoderConfig`
-
-    :rtype: [ [(string,string,string)] ]
     '''
 
     @abstractmethod
-    def __call__(self, prob_distrib):
+    def decode(self, prob_distrib):
+        '''
+        :param prob_distrib: the proposed links that we would like
+                             to decode over
+        :type prob_distrib: [(string, string, float, string)]
+
+        :rtype: [ [(string,string,string)] ]
+        '''
         raise NotImplementedError
-
-        '''
-
-        '''

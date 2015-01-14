@@ -14,7 +14,7 @@ class LocalBaseline(Decoder):
         self._threshold = threshold
         self._use_prob = use_prob
 
-    def __call__(self, prob_distrib):
+    def decode(self, prob_distrib):
         predicted = []
         for arg1, arg2, probs, label in prob_distrib:
             attach = probs
@@ -27,7 +27,7 @@ class LocalBaseline(Decoder):
 class LastBaseline(Decoder):
     "attach to last, always"
 
-    def __call__(self, prob_distrib):
+    def decode(self, prob_distrib):
         labels_probs = get_prob_map(prob_distrib)
 
         def get_prediction(edu1, edu2):

@@ -553,7 +553,7 @@ class AstarDecoder(Decoder):
         self._heuristic = HEURISTICS[astar_args.heuristics]
         self._args = astar_args
 
-    def __call__(self, prob_distrib):
+    def decode(self, prob_distrib):
         probs = get_prob_map(prob_distrib)
         edus = [x.id for x in get_sorted_edus(prob_distrib)]
         print("\t %s nodes to attach"%(len(edus)-1), file=sys.stderr)

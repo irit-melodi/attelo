@@ -83,6 +83,6 @@ class MstDecoder(Decoder):
         self._root = root
         self._use_prob = use_prob
 
-    def __call__(self, instances):
+    def decode(self, instances):
         prediction = _list_edges(instances, self._root, self._use_prob)
         return [prediction]
