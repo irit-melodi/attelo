@@ -1,0 +1,64 @@
+'''
+Common interface that all decoders must implement
+'''
+
+from __future__ import print_function
+from abc import ABCMeta, abstractmethod
+from six import with_metaclass
+
+# pylint: disable=abstract-class-not-used, abstract-class-little-used
+# pylint: disable=too-few-public-methods
+
+
+class Decoder(with_metaclass(ABCMeta, object)):
+    '''
+    A decoder is a function which given a probability distribution (see below)
+    and some control parameters, returns a sequence of predictions.
+
+    Most decoders only really return one prediction in practice, but some,
+    like the A* decoder might have able to return a ranked sequence of
+    the "N best" predictions it can find
+
+    We have a few informal types to consider here:
+
+        - a **link** (`(string, string, string)`) represents a link
+          between a pair of EDUs. The first two items are their
+          identifiers, and the third is the link label
+
+        - a **proposed link** (`(string, string, float, string)`)
+          is a link with a probability attached
+
+        - a **prediction** is morally a set (in practice a list) of links
+
+        - a **distribution** is morally a set of proposed links
+
+    :param prob_distrib: the proposed links that we would like to decode over
+    :type prob_distrib: [(string, string, float, string)]
+
+    :param config: how we would like this decoder to behave
+    :type config: :py:class:`DecoderConfig`
+
+    :rtype: [ [(string,string,string)] ]
+    '''
+
+    _init_warnings = []
+
+    @abstractmethod
+    def __call__(self, prob_distrib):
+        raise NotImplementedError
+
+    def _add_init_warning(self, msg):
+        '''Return a list of messages the decoder may want to tell the user
+        about upon initialisation
+
+        :rtype [string]
+        '''
+        self._init_warnings.append(msg)
+
+    def init_warnings(self):
+        '''Return a list of messages the decoder may want to tell the user
+        about upon initialisation
+
+        :rtype [string]
+        '''
+        return self._init_warnings
