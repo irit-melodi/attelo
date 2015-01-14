@@ -147,7 +147,7 @@ class LocallyGreedyState(object):
         '''
         attachments = []
         while len(self._edus) > 1:
-            print(len(self._edus), file=sys.stderr)
+            print(len(self._edus), end=' ', file=sys.stderr)
             attach = self._attach_best()
             if attach is not None:
                 attachments.append(attach)
