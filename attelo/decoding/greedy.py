@@ -11,6 +11,7 @@ July 2012
 from __future__ import print_function
 import sys
 
+from .interface import Decoder
 from .util import get_sorted_edus, get_prob_map
 
 # pylint: disable=too-few-public-methods
@@ -155,9 +156,10 @@ class LocallyGreedyState(object):
 
 
 # pylint: disable=unused-argument
-def locally_greedy(instances, use_prob=True):
+class LocallyGreedy(Decoder):
     '''
     The locally greedy decoder
     '''
-    return LocallyGreedyState(instances).decode()
+    def __call__(self, instances):
+        return [LocallyGreedyState(instances).decode()]
 # pylint: enable=unused-argument

@@ -22,6 +22,7 @@ from collections import defaultdict, namedtuple
 from enum import Enum
 
 from attelo.optimisation.astar import State, Search, BeamSearch
+from .interface import Decoder
 from .util import get_sorted_edus, get_prob_map
 
 # pylint: disable=too-few-public-methods
@@ -544,39 +545,37 @@ def preprocess_heuristics(prob_distrib):
 # - should allow for (at least local) argument inversion (eg background), for more expressivity
 # - dispatch of various strategies should happen here.
 #   the original strategy should be called simpleNRO or NRO
-def astar_decoder(prob_distrib,
-                  astar_args,
-                  **kwargs):
+class AstarDecoder(Decoder):
     """wrapper for astar decoder to be used by processing pipeline
     returns a structure, or nbest structures
-
     """
-    probs = get_prob_map(prob_distrib)
-    edus = [x.id for x in get_sorted_edus(prob_distrib)]
-    print("\t %s nodes to attach"%(len(edus)-1), file=sys.stderr)
+    def __init__(self, astar_args):
+        self._heuristic = HEURISTICS[astar_args.heuristics]
+        self._args = astar_args
 
-    heuristic_function = HEURISTICS[astar_args.heuristics]
-    search_shared = {"probs": probs,
-                     "use_prob": astar_args.use_prob,
-                     "heuristics": preprocess_heuristics(prob_distrib),
-                     "RFC": astar_args.rfc}
-    if astar_args.beam:
-        astar = DiscourseBeamSearch(heuristic=heuristic_function,
-                                    shared=search_shared,
-                                    queue_size=astar_args.beam)
-    else:
-        astar = DiscourseSearch(heuristic=heuristic_function,
-                                shared=search_shared)
-    genall = astar.launch(DiscData(accessible=[edus[0]], tolink=edus[1:]),
-                          norepeat=True, verbose=False)
-    # nbest solutions handling
-    all_solutions = []
-    for _ in range(astar_args.nbest):
-        endstate = genall.next()
-        sol = astar.recover_solution(endstate)
-        all_solutions.append(sol)
-    print("nbest=%d" % astar_args.nbest, file=sys.stderr)
-    if astar_args.nbest == 1:
-        return sol
-    else:
+    def __call__(self, prob_distrib):
+        probs = get_prob_map(prob_distrib)
+        edus = [x.id for x in get_sorted_edus(prob_distrib)]
+        print("\t %s nodes to attach"%(len(edus)-1), file=sys.stderr)
+
+        search_shared = {"probs": probs,
+                         "use_prob": self._args.use_prob,
+                         "heuristics": preprocess_heuristics(prob_distrib),
+                         "RFC": self._args.rfc}
+        if self._args.beam:
+            astar = DiscourseBeamSearch(heuristic=self._heuristic,
+                                        shared=search_shared,
+                                        queue_size=self._args.beam)
+        else:
+            astar = DiscourseSearch(heuristic=self._heuristic,
+                                    shared=search_shared)
+            genall = astar.launch(DiscData(accessible=[edus[0]], tolink=edus[1:]),
+                                  norepeat=True, verbose=False)
+        # nbest solutions handling
+        all_solutions = []
+        for _ in range(self._args.nbest):
+            endstate = genall.next()
+            sol = astar.recover_solution(endstate)
+            all_solutions.append(sol)
+            print("nbest=%d" % self._args.nbest, file=sys.stderr)
         return all_solutions

@@ -55,8 +55,8 @@ class AstarTest(DecoderTest):
         #print search.iterations
 
     def _test_nbest(self, nbest):
-        soln = astar.astar_decoder(self.prob_distrib,
-                                   astar.AstarArgs(nbest=nbest))
+        decoder = astar.AstarDecoder(astar.AstarArgs(nbest=nbest))
+        soln = decoder(self.prob_distrib)
         self.assertEqual(nbest, len(soln))
         return soln
 
@@ -64,11 +64,8 @@ class AstarTest(DecoderTest):
     #def test_h_average(self):
     #    self._test_heuristic(astar.H_AVERAGE)
 
-    # TODO: currently fails because code returns solution
-    # on nbest == 1, or list of solutions otherwise;
-    # need feedback from Philippe
-    #def test_nbest_1(self):
-    #    self._test_nbest(1)
+    def test_nbest_1(self):
+        self._test_nbest(1)
 
     def test_nbest_2(self):
         self._test_nbest(2)
@@ -76,5 +73,9 @@ class AstarTest(DecoderTest):
 class LocallyGreedyTest(DecoderTest):
     def test_locally_greedy(self):
         'check that the locally greedy decoder works'
-        attachments = greedy.locally_greedy(self.prob_distrib)
-        self.assertTrue(attachments)
+        decoder = greedy.LocallyGreedy()
+        predictions = decoder(self.prob_distrib)
+        # made one prediction
+        self.assertEqual(1, len(predictions))
+        # predicted some attachments in that prediction
+        self.assertTrue(predictions[0])

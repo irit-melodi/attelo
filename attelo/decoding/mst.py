@@ -11,6 +11,9 @@ from math import log
 import sys
 
 from depparse.graph import Digraph
+from .interface import Decoder
+
+# pylint: disable=too-few-public-methods
 
 
 def get_root(_):
@@ -72,8 +75,14 @@ def _list_edges(instances, root='1', use_prob=True):
             for src, tgt in mst.iteredges()]
 
 
-def mst_decoder(*args, **kwargs):
+class MstDecoder(Decoder):
     """ attach in such a way that the resulting subgraph is a
     maximum spanning tree of the original
     """
-    return _list_edges(*args, **kwargs)
+    def __init__(self, root='1', use_prob=True):
+        self._root = root
+        self._use_prob = use_prob
+
+    def __call__(self, instances):
+        prediction = _list_edges(instances, self._root, self._use_prob)
+        return [prediction]

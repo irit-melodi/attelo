@@ -2,28 +2,21 @@
 
 from __future__ import print_function
 import itertools
-import json
 import sys
 
 from ..args import\
-    add_common_args, add_learner_args, add_decoder_args,\
-    add_report_args,\
-    args_to_decoder,\
-    args_to_phrasebook,\
-    args_to_learners,\
-    args_to_threshold
+    (add_common_args, add_learner_args,
+     add_report_args,
+     args_to_decoder,
+     args_to_decoding_mode,
+     args_to_phrasebook,
+     args_to_learners)
 from ..decoding import\
-    DataAndModel, DecoderConfig,\
-    decode, count_correct
+    (DataAndModel, decode)
 from ..fold import make_n_fold, folds_to_orange
 from ..io import read_data
 from ..report import Report
-from ..table import\
-    related_attachments, related_relations, select_data_in_grouping
-# TODO: figure out what parts I want to export later
-from .decode import\
-        (args_to_decoder_config,
-         _select_doc, _score_predictions)
+from .decode import select_doc, score_prediction
 
 
 NAME = 'evaluate'
@@ -48,6 +41,40 @@ def _prepare_folds(phrasebook, num_folds, table, shuffle=True):
     return fold_struct, selection
 
 
+def _build_model_for_fold(selection, test_fold, learner, data):
+    '''
+    Return models for the training data in the given folds,
+    packaging them up with their data set
+
+    :rtype DataAndModel
+    '''
+    # by rights this should really select a test set but we
+    # don't bother because we filter on it later on anyway
+    # to pick out individual docs,
+    train_data = data.select_ref(selection, test_fold, negate=1)
+    return DataAndModel(data, learner(train_data))
+
+
+def best_prediction(phrasebook, attach, relate, predictions):
+    """
+    Return the best prediction for the given data along with its
+    score. Best is defined in a recall-centric way, by the number
+    of correct labels made (or if in attach-only mode, the number
+    of correct decisions to attach).
+
+    :param relate: if True, labels (relations) are to be evaluated too
+                   otherwise only attachments
+    :param predicted: a single prediction (list of id, id, label tuples)
+    """
+    def score(prediction):
+        'score a single prediction'
+        return score_prediction(phrasebook, attach, relate, prediction)
+
+    max_key = lambda x: score(x).correct_label if relate\
+                        else score(x).correct_attach
+    return max(predictions, key=max_key)
+
+
 def config_argparser(psr):
     "add subcommand arguments to subparser"
 
@@ -70,12 +97,15 @@ def config_argparser(psr):
 
 
 def main(args):
+    'subcommand main'
+
     phrasebook = args_to_phrasebook(args)
     data_attach, data_relate = read_data(args.data_attach,
                                          args.data_relations)
     # print(args, file=sys.stderr)
     decoder = args_to_decoder(args)
-    
+    decoding_mode = args_to_decoding_mode(args)
+
     # TODO: more models for intra-sentence
     attach_learner, relation_learner = \
         args_to_learners(decoder, phrasebook, args)
@@ -97,33 +127,17 @@ def main(args):
         print(">>> doing fold ", test_fold + 1, file=sys.stderr)
         print(">>> training ... ", file=sys.stderr)
 
-        train_data_attach = data_attach.select_ref(selection,
-                                                   test_fold,
-                                                   negate=1)
         # train model
         # TODO: separate models for intra-sentence/inter-sentence
-        model_attach = attach_learner(train_data_attach)
-
-        if with_relations:
-            train_data_relate = data_relate.select_ref(selection,
-                                                       test_fold,
-                                                       negate=1)
-            train_data_relate = related_relations(phrasebook,
-                                                  train_data_relate)
-            # train model
-            model_relate = relation_learner(train_data_relate)
-        else:  # no relations
-            model_relate = None
-
-        attach = DataAndModel(data_attach, model_attach)
-        relate = DataAndModel(data_relate, model_relate)\
-            if data_relate else None
-
-        # decoding options for this fold
-        config = args_to_decoder_config(phrasebook,
-                                        attach.model,
-                                        decoder,
-                                        args)
+        attach = _build_model_for_fold(selection,
+                                       test_fold,
+                                       attach_learner,
+                                       data_attach)
+        relate = _build_model_for_fold(selection,
+                                       test_fold,
+                                       relation_learner,
+                                       data_relate)\
+                if with_relations else None
 
         # -- file level --
         fold_evals = []
@@ -132,14 +146,17 @@ def main(args):
                 print("decoding on file : ", onedoc, file=sys.stderr)
 
                 doc_attach, doc_relate =\
-                    _select_doc(config, onedoc, attach, relate)
-                predicted = decode(config, decoder, doc_attach, doc_relate)
+                    select_doc(phrasebook, onedoc, attach, relate)
+                predictions = decode(phrasebook, decoding_mode, decoder,
+                                     doc_attach, doc_relate)
+                best = best_prediction(phrasebook, attach, relate,
+                                       predictions)
 
                 score_doc_relate = doc_relate if score_labels else None
-                fold_evals.append(_score_predictions(config,
-                                                     doc_attach,
-                                                     score_doc_relate,
-                                                     predicted))
+                fold_evals.append(score_prediction(phrasebook,
+                                                   doc_attach,
+                                                   score_doc_relate,
+                                                   best))
 
         fold_report = Report(fold_evals,
                              params=args,
@@ -147,7 +164,7 @@ def main(args):
         print("Fold eval:", fold_report.summary())
         evals.append(fold_evals)
         # --end of file level
-       # --- end of fold level
+    # --- end of fold level
     # end of test for a set of parameter
     report = Report(list(itertools.chain.from_iterable(evals)),
                     params=args,

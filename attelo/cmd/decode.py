@@ -13,11 +13,14 @@ import sys
 
 from ..args import (add_common_args, add_decoder_args,
                     add_fold_choice_args, validate_fold_choice_args,
-                    args_to_decoder, args_to_phrasebook, args_to_threshold)
+                    args_to_decoder, args_to_decoding_mode,
+                    args_to_phrasebook)
 from ..fold import folds_to_orange
 from ..io import read_data, load_model
-from ..table import (related_attachments, related_relations, select_data_in_grouping)
-from ..decoding import DataAndModel, DecoderConfig, decode, count_correct
+from ..table import (related_attachments, related_relations,
+                     select_data_in_grouping)
+from ..decoding import (DataAndModel, DecoderException,
+                        decode, count_correct)
 from ..report import Count
 
 
@@ -26,22 +29,6 @@ NAME = 'decode'
 # ---------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------
-
-
-def args_to_decoder_config(phrasebook, model, decoder, args):
-    """
-    Package up command line arguments into a
-    `DecoderConfig`
-
-    :param decoder: actual decoder function
-    """
-    threshold = args_to_threshold(model, decoder,
-                                  requested=args.threshold)
-    return DecoderConfig(phrasebook=phrasebook,
-                         threshold=threshold,
-                         post_labelling=args.post_label,
-                         nbest=args.nbest,
-                         use_prob=args.use_prob)
 
 
 def select_fold(data_attach, data_relate, args, phrasebook):
@@ -98,7 +85,7 @@ def _load_data_and_model(phrasebook, args):
     return attach, relate
 
 
-def _select_doc(config, onedoc, attach, relate):
+def select_doc(phrasebook, onedoc, attach, relate):
     """
     Given an attachment and relations data/model pair,
     return a narrower pair selecting only the data that
@@ -106,7 +93,7 @@ def _select_doc(config, onedoc, attach, relate):
     """
     relate_data = relate.data if relate is not None else None
     attach_instances, relate_instances =\
-        select_data_in_grouping(config.phrasebook,
+        select_data_in_grouping(phrasebook,
                                 onedoc,
                                 attach.data,
                                 relate_data)
@@ -188,46 +175,34 @@ def _prepare_combined_outputs(folder):
     open(fname, 'w').close()
 
 
-def _write_predictions(config, doc, predicted, attach, output):
+def _write_predictions(phrasebook, doc, predicted, attach, output):
     """
     Save predictions to disk in various formats
     """
     _export_graph(predicted, doc, output)
-    _export_conllish(config.phrasebook, predicted, attach.data, output)
+    _export_conllish(phrasebook, predicted, attach.data, output)
 
 
-def _score_predictions(config, attach, relate, predicted):
+def score_prediction(phrasebook, attach, relate, predicted):
     """
-    Return scores for predictions on the given data
+    Return the best prediction for the given data along with its
+    score. Best is defined in a recall-centric way, by the number
+    of correct labels made (or if in attach-only mode, the number
+    of correct decisions to attach).
 
     :param relate: if True, labels (relations) are to be evaluated too
                    otherwise only attachments
-    :param predicted: an ordered list (singleton if `config.nbest == 1`)
-    :rtype: :py:class:`attelo.report.Count`
-
-    If `config.nbest == 1` we use the plain score for 1 prediction, otherwise
-    return the count corresponding to the best prediction.  What we
-    consider to be best depends on `relate` being set or not
+    :param predicted: a single prediction (list of id, id, label tuples)
     """
-    reference = related_attachments(config.phrasebook, attach.data)
-    labels = related_relations(config.phrasebook, relate.data)\
-        if relate else None
-    if config.nbest > 1:
-        all_counts = [count_correct(config.phrasebook,
-                                    one_predicted,
-                                    reference,
-                                    labels=labels)
-                      for one_predicted in predicted]
-        # count the best relation score or the best attachment is there is no
-        # relation labels
-        max_key = lambda x: x.correct_label if labels else x.correct_attach
-        return max(all_counts, key=max_key)
+    reference = related_attachments(phrasebook, attach.data)
+    if relate:
+        labels = related_relations(phrasebook, relate.data)
     else:
-        return count_correct(config.phrasebook,
-                             predicted,
-                             reference,
-                             labels=labels)
-
+        labels = None
+    return count_correct(phrasebook,
+                         predicted,
+                         reference,
+                         labels=labels)
 
 # ---------------------------------------------------------------------
 # main
@@ -285,7 +260,7 @@ def validate_model_args(wrapped):
     return inner
 
 
-def main_for_harness(args, config, decoder, attach, relate):
+def main_for_harness(args, phrasebook, decoder, attach, relate):
     """
     main function you can hook into if writing your own harness
 
@@ -296,7 +271,7 @@ def main_for_harness(args, config, decoder, attach, relate):
     if not attach.data:  # there may be legitimate uses for empty inputs
         return
 
-    grouping_index = attach.data.domain.index(config.phrasebook.grouping)
+    grouping_index = attach.data.domain.index(phrasebook.grouping)
     all_groupings = frozenset(inst[grouping_index].value for
                               inst in attach.data)
 
@@ -304,12 +279,20 @@ def main_for_harness(args, config, decoder, attach, relate):
     for onedoc in all_groupings:
         if not args.quiet:
             print("decoding on file : ", onedoc, file=sys.stderr)
-        doc_attach, doc_relate = _select_doc(config, onedoc, attach, relate)
-        predicted = decode(config, decoder, doc_attach, doc_relate)
-        _write_predictions(config, onedoc, predicted, doc_attach, args.output)
+        doc_attach, doc_relate = select_doc(phrasebook, onedoc, attach, relate)
+        mode = args_to_decoding_mode(args)
+        predictions = decode(phrasebook, mode, decoder,
+                             doc_attach, doc_relate)
+        if not predictions:
+            raise DecoderException('decoder must make at least one prediction')
+
+        # we trust the decoder to select what it thinks is its best prediction
+        first_prediction = predictions[0]
         if args.scores is not None:
-            scores[onedoc] = _score_predictions(config, doc_attach, doc_relate,
-                                                predicted)
+            scores[onedoc] = score_prediction(phrasebook,
+                                              doc_attach, doc_relate,
+                                              first_prediction)
+
     if args.scores is not None:
         Count.write_csv(scores, args.scores)
 
@@ -320,10 +303,6 @@ def main(args):
     "subcommand main"
 
     phrasebook = args_to_phrasebook(args)
-    decoder = args_to_decoder(args)
     attach, relate = _load_data_and_model(phrasebook, args)
-    config = args_to_decoder_config(phrasebook,
-                                    attach.model,
-                                    decoder,
-                                    args)
-    main_for_harness(args, config, decoder, attach, relate)
+    decoder = args_to_decoder(args)
+    main_for_harness(args, phrasebook, decoder, attach, relate)

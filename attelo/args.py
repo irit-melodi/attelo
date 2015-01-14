@@ -4,6 +4,7 @@ Managing command line arguments
 
 from __future__ import print_function
 from argparse import ArgumentTypeError
+from collections import namedtuple
 from functools import wraps
 from ConfigParser import ConfigParser
 import argparse
@@ -18,15 +19,50 @@ from numpy import inf
 # pylint: enable-no-name-in-module
 
 from .decoding.astar import\
-    AstarArgs, RfcConstraint, Heuristic, astar_decoder
-from .decoding.baseline import local_baseline, last_baseline
-from .decoding.mst import mst_decoder
-from .decoding.greedy import locally_greedy
+    AstarArgs, RfcConstraint, Heuristic, AstarDecoder
+from .decoding.baseline import LastBaseline, LocalBaseline
+from .decoding.control import DecodingMode
+from .decoding.mst import MstDecoder
+from .decoding.greedy import LocallyGreedy
 from .features import Phrasebook
 from .learning.megam import MaxentLearner
 from .learning.perceptron import\
     (PerceptronArgs, Perceptron, PassiveAggressive, StructuredPerceptron,
      StructuredPassiveAggressive)
+
+# pylint: disable=too-few-public-methods
+
+
+# pylint: disable=too-many-arguments
+class DecoderArgs(namedtuple("DecoderAgs",
+                             ["threshold",
+                              "astar",
+                              "use_prob"])):
+    """
+    Parameters needed by decoder.
+
+    :param use_prob: `True` if model scores are probabilities in [0,1]
+                     (to be mapped to -log), `False` if arbitrary scores
+                     (to be untouched)
+    :type use_prob: bool
+
+    :param threshold: For some decoders, a probability floor that helps
+                      the decoder decide whether or not to attach something
+    :type threshold: float or None
+
+    :param astar: Config options specific to the A* decoder
+    :type astar: AstarArgs
+    """
+    def __new__(cls,
+                threshold=None,
+                astar=None,
+                use_prob=True):
+        sup = super(DecoderArgs, cls)
+        return sup.__new__(cls,
+                           threshold=threshold,
+                           astar=astar,
+                           use_prob=use_prob)
+# pylint: enable=too-many-arguments
 
 
 def args_to_phrasebook(args):
@@ -53,27 +89,31 @@ def args_to_phrasebook(args):
                           label=metacfg["Label"])
 
 
-def _mk_astar_decoder(astar_args):
+def _mk_local_decoder(config, default=0.5):
     """
-    Return an A* decoder using the given heuristics and
-    right frontier constraint parameter
+    Instantiate the local decoder
     """
-    def factory(arg, **kwargs):
-        "actually build decoder"
-        return astar_decoder(arg, astar_args, **kwargs)
-    return factory
+    if config.threshold is None:
+        threshold = default
+        print("using default threshold of {}".format(threshold),
+              file=sys.stderr)
+    else:
+        threshold = config.threshold
+        print("using requested threshold of {}".format(threshold),
+              file=sys.stderr)
+    return LocalBaseline(threshold, config.use_prob)
 
 
-def _known_decoders(astar_args):
+def _known_decoders():
     """
     Return a dictionary of possible decoders.
     This lets us grab at the names of known decoders
     """
-    return {"last": last_baseline,
-            "local": local_baseline,
-            "locallyGreedy": locally_greedy,
-            "mst": mst_decoder,
-            "astar": _mk_astar_decoder(astar_args)}
+    return {"last": lambda _: LastBaseline(),
+            "local": _mk_local_decoder,
+            "locallyGreedy": lambda _: LocallyGreedy(),
+            "mst": lambda c: MstDecoder(c.use_prob),
+            "astar": lambda c: AstarDecoder(c.astar)}
 
 
 def _known_learners(decoder, phrasebook, perc_args=None):
@@ -102,11 +142,16 @@ def _known_learners(decoder, phrasebook, perc_args=None):
         # home made perceptron
         learners["perc"] = Perceptron(phrasebook, perc_args)
         # home made PA (PA-II in fact)
-        learners["pa"] = PassiveAggressive(phrasebook, perc_args) # TODO: expose C parameter
+        # TODO: expose C parameter
+        learners["pa"] = PassiveAggressive(phrasebook, perc_args)
         # home made structured perceptron
-        learners["struc_perc"] = StructuredPerceptron(phrasebook, decoder, perc_args)
+        learners["struc_perc"] = StructuredPerceptron(phrasebook,
+                                                      decoder,
+                                                      perc_args)
         # home made structured PA
-        learners["struc_pa"] = StructuredPassiveAggressive(phrasebook, decoder, perc_args)
+        learners["struc_pa"] = StructuredPassiveAggressive(phrasebook,
+                                                           decoder,
+                                                           perc_args)
     return learners
 
 
@@ -140,16 +185,16 @@ DEFAULT_NIT = DEFAULT_PERCEPTRON_ARGS.iterations
 DEFAULT_NFOLD = 10
 
 # these are just dummy values (we just want the keys here)
-KNOWN_DECODERS = _known_decoders(DEFAULT_ASTAR_ARGS).keys()
-KNOWN_ATTACH_LEARNERS = _known_learners(last_baseline, {},
+KNOWN_DECODERS = _known_decoders().keys()
+KNOWN_ATTACH_LEARNERS = _known_learners(LastBaseline, {},
                                         DEFAULT_PERCEPTRON_ARGS).keys()
-KNOWN_RELATION_LEARNERS = _known_learners(last_baseline, {}, None)
+KNOWN_RELATION_LEARNERS = _known_learners(LastBaseline, {}, None)
 
 
 def args_to_decoder(args):
     """
-    Given the (parsed) command line arguments, return the
-    decoder that was requested from the command line
+    Given the parsed command line arguments, and an attachment model, return
+    the decoder that was requested from the command line
     """
     if args.data_relations is None:
         args.rfc = RfcConstraint.simple
@@ -158,12 +203,28 @@ def args_to_decoder(args):
                            heuristics=args.heuristics,
                            beam=args.beamsize,
                            nbest=args.nbest)
-    _decoders = _known_decoders(astar_args)
+
+    config = DecoderArgs(threshold=args.threshold,
+                         astar=astar_args,
+                         use_prob=args.use_prob)
+
+    _decoders = _known_decoders()
 
     if args.decoder in _decoders:
-        return _decoders[args.decoder]
+        factory = _decoders[args.decoder]
+        return factory(config)
     else:
-        ArgumentTypeError("Unknown decoder: " + args.decoder)
+        raise ArgumentTypeError("Unknown decoder: " + args.decoder)
+
+
+def args_to_decoding_mode(args):
+    """
+    Return configuration tuple for the decoding operation
+    """
+    if args.post_label:
+        return DecodingMode.post_label
+    else:
+        return DecodingMode.joint
 
 
 def args_to_learners(decoder, phrasebook, args):
@@ -203,29 +264,6 @@ def args_to_learners(decoder, phrasebook, args):
 
     return attach_learner, relation_learner
 
-
-def args_to_threshold(model, decoder, requested=None, default=0.5):
-    """Given a model and decoder, return a threshold if
-
-    * we request a specific threshold
-    * or the decoder absolutely requires one
-
-    In these cases, we try to return one of the following thresholds
-    in order:
-
-    1. that supplied by the model (if there is one)
-    2. the requested threshold (if supplied)
-    3. a default value
-    """
-    if requested or str(decoder.__name__) == "local_baseline":
-        if "threshold" in model.__dict__:
-            threshold = model.threshold
-        else:
-            threshold = requested if requested else default
-            print("threshold forced at : ", threshold, file=sys.stderr)
-    else:
-        threshold = None
-    return threshold
 
 # ---------------------------------------------------------------------
 # argparse
@@ -408,7 +446,6 @@ def add_learner_args(psr):
                           help="aggressivness (passive-aggressive perceptrons "
                           "only); (default: %f)" %
                           DEFAULT_PERCEPTRON_ARGS.aggressiveness)
-
 
 
 def add_report_args(psr):
