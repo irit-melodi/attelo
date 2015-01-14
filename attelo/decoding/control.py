@@ -81,7 +81,7 @@ def _get_inst_attach_orange(model, inst):
     :rtype: float
     """
     dist = model(inst, Classifier.GetProbabilities)
-    return dist['True'] if 'True' in dist else 0.
+    return dist['True'] if 'True' in dist.keys() else 0.
 
 
 def _get_inst_relate_orange(model, inst):
