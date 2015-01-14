@@ -4,7 +4,6 @@ Experiment results
 
 from __future__ import print_function
 from collections import namedtuple
-import copy
 import csv
 import os
 import sys
@@ -15,7 +14,7 @@ from tabulate import tabulate
 try:
     STATS = True
     from scipy.stats import wilcoxon, ttest_rel, mannwhitneyu, sem, bayes_mvs
-except:
+except ImportError:
     STATS = False
     print("no module scipy.stats, cannot test statistical "
           "significance of results",
@@ -23,8 +22,9 @@ except:
 
 
 class AtteloReportException(Exception):
+    '''things that arise when trying to build reports'''
     def __init__(self, msg):
-        super(self, AtteloReportException).__init__(msg)
+        super(AtteloReportException, self).__init__(msg)
 
 
 def _sloppy_div(num, den):
@@ -50,8 +50,7 @@ class Count(object):
                    "num_correctly_attached",
                    "num_correctly_labeled",
                    "num_attached_predicted",
-                   "num_attached_reference"
-                   ]
+                   "num_attached_reference"]
 
     def __init__(self,
                  correct_attach, correct_label,
@@ -118,7 +117,7 @@ class Count(object):
             oops = "Malformed counts file (expected keys: %s, got: %s)"\
                 % (cls._FIELDNAMES, header)
             raise AtteloReportException(oops)
-        
+
         def mk_count(row):
             "row to Count object"
             return cls(*[int(row[a]) for a in cls._FIELDNAMES[1:]])
