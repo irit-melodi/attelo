@@ -41,24 +41,10 @@ class Decoder(with_metaclass(ABCMeta, object)):
     :rtype: [ [(string,string,string)] ]
     '''
 
-    _init_warnings = []
-
     @abstractmethod
     def __call__(self, prob_distrib):
         raise NotImplementedError
 
-    def _add_init_warning(self, msg):
-        '''Return a list of messages the decoder may want to tell the user
-        about upon initialisation
-
-        :rtype [string]
         '''
-        self._init_warnings.append(msg)
 
-    def init_warnings(self):
-        '''Return a list of messages the decoder may want to tell the user
-        about upon initialisation
-
-        :rtype [string]
         '''
-        return self._init_warnings
