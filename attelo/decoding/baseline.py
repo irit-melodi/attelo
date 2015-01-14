@@ -35,8 +35,9 @@ class LastBaseline(Decoder):
             distribution (or None if no attachment)"""
             span1 = edu1.span()
             span2 = edu2.span()
-            if (edu1, edu2) in labels_probs:
-                label, _ = labels_probs[(edu1, edu2)]
+            id_pair = (edu1.id, edu2.id)
+            if id_pair in labels_probs:
+                label, _ = labels_probs[id_pair]
                 return (edu1.id, edu2.id, label)
             elif span1 == span2:
                 return None
