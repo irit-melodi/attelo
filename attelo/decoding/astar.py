@@ -242,10 +242,11 @@ class DiscourseState(State):
     info for heuristics)
     """
     def __init__(self, data, heuristics, shared):
+        self._data = data  # needed for heuristics
+        self._shared = shared
         super(DiscourseState, self).__init__(data,
                                              cost=0,
                                              future_cost=heuristics(self))
-        self._shared = shared
 
 
     def proba(self, edu_pair):
