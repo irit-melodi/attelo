@@ -113,7 +113,6 @@ class LearnDecodeArgs(TestArgs):
         super(LearnDecodeArgs, self).__init__(*args, **kwargs)
     # pylint: enable=unused-argument
 
-
     def argv(self):
         args = [self.eg_path('tiny.attach.tab')]
         if self._relate:
@@ -161,7 +160,6 @@ class DecodeArgs(LearnDecodeArgs):
             bname += '-{}'.format(self._fold)
         return self.tmp_path(bname)
 
-
     def argv(self):
         args = super(DecodeArgs, self).argv()
         args.extend(['--output', self._tmpdir,
@@ -171,6 +169,7 @@ class DecodeArgs(LearnDecodeArgs):
     @classmethod
     def module(cls):
         return attelo.cmd.decode
+
 
 class ReportArgs(TestArgs):
     "args to attelo report"
@@ -188,7 +187,8 @@ class ReportArgs(TestArgs):
 
 
 def fake_harness(*args, **kwargs):
-    'sequence of attelo commands that fit together like they might in a harness'
+    '''sequence of attelo commands that fit together like they
+    might in a harness'''
     EnfoldArgs.run(*args, **kwargs)
     tmpdir = kwargs['tmpdir']
     idx_filename = fp.join(tmpdir, 'index.csv')
