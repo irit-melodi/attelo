@@ -18,10 +18,10 @@ import Orange
 from numpy import inf
 # pylint: enable-no-name-in-module
 
+from .decoding import DecodingMode
 from .decoding.astar import\
     AstarArgs, RfcConstraint, Heuristic, AstarDecoder
 from .decoding.baseline import LastBaseline, LocalBaseline
-from .decoding.control import DecodingMode
 from .decoding.mst import MstDecoder
 from .decoding.greedy import LocallyGreedy
 from .features import Phrasebook
