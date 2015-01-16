@@ -107,8 +107,9 @@ class EnfoldArgs(TestArgs):
 class LearnDecodeArgs(TestArgs):
     "args to either attelo learn or decode"
     # pylint: disable=unused-argument
-    def __init__(self, fold=None, *args, **kwargs):
+    def __init__(self, fold=None, extra_args=None, *args, **kwargs):
         self._fold = fold
+        self._extra_args = extra_args or []
         super(LearnDecodeArgs, self).__init__(*args, **kwargs)
     # pylint: enable=unused-argument
 
@@ -123,6 +124,7 @@ class LearnDecodeArgs(TestArgs):
                          '--fold', str(self._fold)])
         args.extend(['--config', self.eg_path('tiny.config'),
                      '--attachment-model', self.tmp_path('attach.model')])
+        args.extend(self._extra_args)
         return args
 
     @classmethod
@@ -205,12 +207,12 @@ class CliTest(unittest.TestCase):
     """
     Run command line utilities on sample data
     """
-    def _vary(self, test):
+    def _vary(self, test, **kwargs):
         'run a test both with and without rels'
         with TmpDir() as tmpdir:
-            test(relate=False, tmpdir=tmpdir)
+            test(relate=False, tmpdir=tmpdir, **kwargs)
         with TmpDir() as tmpdir:
-            test(relate=True, tmpdir=tmpdir)
+            test(relate=True, tmpdir=tmpdir, **kwargs)
 
     def test_evaluate(self):
         'attelo evaluate'
@@ -223,6 +225,10 @@ class CliTest(unittest.TestCase):
     def test_learn(self):
         'attelo learn'
         self._vary(LearnArgs.run)
+
+    def test_learn_maxent(self):
+        'attelo learn'
+        self._vary(LearnArgs.run, extra_args=["--learner", "maxent"])
 
     def test_harness(self):
         'attelo enfold, learn, decode, report'
