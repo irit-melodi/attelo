@@ -303,7 +303,7 @@ class StructuredPerceptron(Perceptron):
                            score,
                            "unlabelled"))
         # print "SCORES:", scores
-        pred_graph = decoder(scores, use_prob=False)
+        pred_graph = decoder.decode(scores)[0]
         return pred_graph
 
 
