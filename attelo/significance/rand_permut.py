@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 from numpy.random import permutation
 from scipy.stats import tstd, tmean
@@ -5,8 +7,9 @@ from math import sqrt
 
 try:
     from scipy.misc import factorial
-except: 
-    print >> sys.stderr, "no scipy module, only approximate random permutation test possible"
+except:
+    print("no scipy module, only approximate random permutation test possible",
+          file=sys.stderr)
 
 
 def effect(data1,data2):
@@ -16,16 +19,16 @@ def effect(data1,data2):
 
 def randperm_test(data1,data2,r=None,evalfunc=sum):
     """random permutation test to evaluate significance of
-    difference between two data series of same length (n). 
+    difference between two data series of same length (n).
     do r permutations of the concatenated data, compare scores of first and 2nd part
     the prop of times f(1st part)>f(data1) is the significance level for data1>data2
-    
+
     this methos is NEVER exact, but is robust wrt the size of the data
 
     * r (int) : nb of permutations to do before stopping
         if None, do the nb of total permutations n! (warning : don't do it!)
     * evalfunc (iterable -> float): function apply for the evaluation on the data series
-      defaut is to sum all values. 
+      defaut is to sum all values.
     """
     n = len(data1)
     assert len(data1)==len(data2)
@@ -53,5 +56,5 @@ if __name__=="__main__":
     data1= [1,1,1,0,0]*5
     data2= [1,0,0,0,0]*5
     p = 1- randperm_test(data1,data2,r)
-    print "p, 1-p = ", p, 1-p
-    print "effect = ", effect(data1,data2)
+    print("p, 1-p = ", p, 1-p)
+    print("effect = ", effect(data1,data2))
