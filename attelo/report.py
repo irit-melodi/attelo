@@ -224,6 +224,18 @@ class Multiscore(object):
         "will return mean, confidence interval"
         return bayes_mvs(self.map_doc_scores(fun), alpha)[0]
 
+    def _check_can_compute_confidence(self):
+        '''Return 'True' if we should be able to compute a
+        confidence interval; emit a warning otherwise'''
+
+        if len(self.doc_scores) < 2:
+            print("WARNING: don't have the at least data points",
+                  "needed to compute compute confidence interval",
+                  file=sys.stderr)
+            return False
+        else:
+            return True
+
     # inspired by Apetite Evaluation class
     def significance(self, fun, other, test="wilcoxon"):
         """computes stats significance of difference between two sets
@@ -263,25 +275,19 @@ class Multiscore(object):
         scores = self.score.for_json()
         _f1 = lambda x: x.f1
         scores["standard_error"] = self.standard_error(_f1)
-        try:
+        if self._check_can_compute_confidence():
             mean, (int0, _) = self.confidence_interval(_f1)
             scores["confidence_mean"] = mean
             scores["confidence_interval"] = mean - int0
-        except ValueError:
-            print("warning: not able to compute confidence interval",
-                  file=sys.stderr)
         return scores
 
     def summary(self):
         "One line summary string"
 
         _f1 = lambda x: x.f1
-        try:
+        if self._check_can_compute_confidence():
             mean, (int0, _) = self.confidence_interval(_f1)
-        except ValueError:
-            # need at least two data points?
-            print("warning: not able to compute confidence interval",
-                  file=sys.stderr)
+        else:
             mean, int0 = (0, 0)
 
         output = []
