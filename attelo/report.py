@@ -11,6 +11,8 @@ import cPickle
 
 from tabulate import tabulate
 
+# pylint: disable=too-few-public-methods
+
 try:
     STATS = True
     from scipy.stats import wilcoxon, ttest_rel, mannwhitneyu, sem, bayes_mvs
@@ -130,7 +132,7 @@ DEFAULT_SCORE_CONFIG = ScoreConfig(correction=1.0,
                                    prefix=None)
 
 
-# pylint: disable=too-few-public-methods, invalid-name
+# pylint: disable=invalid-name
 class Score(object):
     """
     A basic precision, recall (and F1) tuple with correction
@@ -194,7 +196,7 @@ class Score(object):
         return res
 
 
-# pylint: enable=too-few-public-methods, invalid-name
+# pylint: enable=invalid-name
 
 
 class Multiscore(object):
@@ -208,11 +210,11 @@ class Multiscore(object):
     @classmethod
     def create(cls, fun, total, doc_level):
         "apply a scoring function to total and individual counts"
-        return cls(fun(total), list(map(fun, doc_level)))
+        return cls(fun(total), [fun(x) for x in doc_level])
 
     def map_doc_scores(self, fun):
         "apply a function on our doc-level scores"
-        return list(map(fun, self.doc_scores))
+        return [fun(x) for x in self.doc_scores]
 
     def standard_error(self, fun):
         "standard error (of the mean) on measures by text"
@@ -234,13 +236,13 @@ class Multiscore(object):
             pass
         else:
             # TODO: this is suspicious
-            scores1 = [x for (x, y) in scores1]
-            scores2 = [x for (x, y) in scores2]
+            scores1 = [x for x, _ in scores1]
+            scores2 = [x for x, _ in scores2]
 
-        #differences = [(x, y) for (x, y) in zip(scores1, scores2) if x != y]
-        #print >> sys.stderr, differences
-        #print >> sys.stderr, d2
-        #print >> sys.stderr, [x for (i,x) in enumerate(d1) if x!=d2[i]]
+        # differences = [(x, y) for (x, y) in zip(scores1, scores2) if x != y]
+        # print(difference, file=sys.stderr)
+        # print(d2, file=sys.stderr)
+        # print([x for (i,x) in enumerate(d1) if x!=d2[i]], file=sys.stderr)
         assert len(scores1) == len(scores1)
 
         results = {}
@@ -265,7 +267,7 @@ class Multiscore(object):
             mean, (int0, _) = self.confidence_interval(_f1)
             scores["confidence_mean"] = mean
             scores["confidence_interval"] = mean - int0
-        except:
+        except ValueError:
             print("warning: not able to compute confidence interval",
                   file=sys.stderr)
         return scores
@@ -276,7 +278,8 @@ class Multiscore(object):
         _f1 = lambda x: x.f1
         try:
             mean, (int0, _) = self.confidence_interval(_f1)
-        except:
+        except ValueError:
+            # need at least two data points?
             print("warning: not able to compute confidence interval",
                   file=sys.stderr)
             mean, int0 = (0, 0)
@@ -378,17 +381,15 @@ class Report(object):
             Multiscore.table_header(config_l)
 
 
-
-
 class CombinedReport(object):
     """
     Report for many different configurations
     """
-    #pylint: disable=pointless-string-statement
+    # pylint: disable=pointless-string-statement
     def __init__(self, reports):
         self.reports = reports
         "dictionary from config name (string) to Report"
-    #pylint: enable=pointless-string-statement
+    # pylint: enable=pointless-string-statement
 
     def table(self):
         """
