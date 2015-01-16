@@ -123,6 +123,7 @@ class LearnDecodeArgs(TestArgs):
             args.extend(['--fold-file', self.tmp_path('folds.json'),
                          '--fold', str(self._fold)])
         args.extend(['--config', self.eg_path('tiny.config'),
+                     '--quiet',
                      '--attachment-model', self.tmp_path('attach.model')])
         args.extend(self._extra_args)
         return args
