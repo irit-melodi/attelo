@@ -109,34 +109,3 @@ def orange2maxent(example):
     featlist = [(f.variable.name, f.value) for f in example.native() if f.variable.name != "CLASS"]
     label = example.get_class().value
     return dict(featlist), label
-
-if __name__ == "__main__":
-    """usage: prog data.csv [relation]
-
-    relation indicates that unrelated instances are to be ignored
-    """
-    from orngStat import McNemar as mcnemar
-    from scipy.stats import chi2
-
-    relation = False
-    data = Orange.data.Table(sys.argv[1])
-    if len(sys.argv)>2:
-        data = data.filter_ref({"CLASS":["UNRELATED"]}, negate = 1)
-        relation = True
-    # testing wrapper on given data by cross-validation
-    me = MaxentLearner()
-    nb = Orange.classification.bayes.NaiveLearner(adjust_threshold = True)
-    cv = Orange.evaluation.testing.cross_validation([me,nb], data, folds=10)
-    print "maxent versus naive bayes"
-    print ["accuracy = %.4f" % score for score in Orange.evaluation.scoring.CA(cv,report_se=True)]
-    print "chi2 by mcnemar = ",mcnemar(cv)[1][0]
-    print "p value = %.3e"% chi2(1).sf(mcnemar(cv)[1][0])
-    cm = Orange.evaluation.scoring.confusion_matrices(cv)
-    if not(relation):
-        print "F1 for True class: %.4f" % Orange.evaluation.scoring.F1(cm[0])
-        print "P/R for True class", Orange.evaluation.scoring.precision(cm[0]), Orange.evaluation.scoring.recall(cm[0])
-        print "F1 for True class: %.4f" % Orange.evaluation.scoring.F1(cm[1])
-        print "P/R for True class", Orange.evaluation.scoring.precision(cm[1]), Orange.evaluation.scoring.recall(cm[1])
-    #print model(data[0])
-    #print model(data[0], Orange.classification.Classifier.GetValue)
-    #print model(data[0], Orange.classification.Classifier.GetProbabilities)

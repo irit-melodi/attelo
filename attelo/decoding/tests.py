@@ -6,12 +6,15 @@ from __future__ import print_function
 import unittest
 
 from ..edu import EDU
-from . import astar
+from . import astar, greedy
 
-def mk_fake_edu(edu_id, start=0, end=0, edu_file="x"):
+def mk_fake_edu(start, end=None, edu_file="x"):
     """
     Return a blank EDU object going nowhere
     """
+    if end is None:
+        end = start
+    edu_id = 'x{}'.format(start)
     return EDU(edu_id, start, end, edu_file)
 
 
@@ -20,7 +23,7 @@ class DecoderTest(unittest.TestCase):
     We could split this into AstarTest, etc
     """
     edus = [mk_fake_edu(x)
-            for x in ["x0", "x1", "x2", "x3", "x4"]]
+            for x in range(0, 5)]
 
     # would result of prob models max_relation
     # (p(attachement)*p(relation|attachmt))
@@ -31,6 +34,8 @@ class DecoderTest(unittest.TestCase):
     for one in edus[1:-1]:
         prob_distrib.append((one, edus[4], 0.1, 'continuation'))
 
+
+class AstarTest(DecoderTest):
     def _test_heuristic(self, heuristic):
         prob = {(a1, a2): (l, p) for a1, a2, p, l in self.prob_distrib}
         pre_heurist = astar.preprocess_heuristics(self.prob_distrib)
@@ -50,8 +55,8 @@ class DecoderTest(unittest.TestCase):
         #print search.iterations
 
     def _test_nbest(self, nbest):
-        soln = astar.astar_decoder(self.prob_distrib,
-                                   astar.AstarArgs(nbest=nbest))
+        decoder = astar.AstarDecoder(astar.AstarArgs(nbest=nbest))
+        soln = decoder.decode(self.prob_distrib)
         self.assertEqual(nbest, len(soln))
         return soln
 
@@ -59,11 +64,18 @@ class DecoderTest(unittest.TestCase):
     #def test_h_average(self):
     #    self._test_heuristic(astar.H_AVERAGE)
 
-    # TODO: currently fails because code returns solution
-    # on nbest == 1, or list of solutions otherwise;
-    # need feedback from Philippe
-    #def test_nbest_1(self):
-    #    self._test_nbest(1)
+    def test_nbest_1(self):
+        self._test_nbest(1)
 
     def test_nbest_2(self):
         self._test_nbest(2)
+
+class LocallyGreedyTest(DecoderTest):
+    def test_locally_greedy(self):
+        'check that the locally greedy decoder works'
+        decoder = greedy.LocallyGreedy()
+        predictions = decoder.decode(self.prob_distrib)
+        # made one prediction
+        self.assertEqual(1, len(predictions))
+        # predicted some attachments in that prediction
+        self.assertTrue(predictions[0])
