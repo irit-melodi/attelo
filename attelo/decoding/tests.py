@@ -8,6 +8,9 @@ import unittest
 from ..edu import EDU
 from . import astar, greedy
 
+# pylint: disable=too-few-public-methods
+
+
 def mk_fake_edu(start, end=None, edu_file="x"):
     """
     Return a blank EDU object going nowhere
@@ -28,49 +31,60 @@ class DecoderTest(unittest.TestCase):
     # would result of prob models max_relation
     # (p(attachement)*p(relation|attachmt))
     prob_distrib =\
-            [(edus[1], edus[2], 0.6, 'elaboration'),
-             (edus[2], edus[3], 0.3, 'narration'),
-             (edus[1], edus[3], 0.4, 'continuation')]
+        [(edus[1], edus[2], 0.6, 'elaboration'),
+         (edus[2], edus[3], 0.3, 'narration'),
+         (edus[1], edus[3], 0.4, 'continuation')]
     for one in edus[1:-1]:
         prob_distrib.append((one, edus[4], 0.1, 'continuation'))
 
 
 class AstarTest(DecoderTest):
+    '''tests for the A* decoder'''
     def _test_heuristic(self, heuristic):
+        '''
+        Run an A* search with the given heuristic
+        '''
         prob = {(a1, a2): (l, p) for a1, a2, p, l in self.prob_distrib}
         pre_heurist = astar.preprocess_heuristics(self.prob_distrib)
-        search = astar.DiscourseSearch(heuristic=heuristic.function,
-                                       shared={"probs":prob,
-                                               "heuristics":pre_heurist,
-                                               "use_prob":True,
-                                               "RFC": astar.RfcConstraint.full})
+        config = {"probs": prob,
+                  "heuristics": pre_heurist,
+                  "use_prob": True,
+                  "RFC": astar.RfcConstraint.full}
+        search = astar.DiscourseSearch(heuristic=heuristic,
+                                       shared=config)
         genall = search.launch(astar.DiscData(accessible=[self.edus[1]],
                                               tolink=self.edus[2:]),
                                norepeat=True,
                                verbose=True)
         endstate = genall.next()
-        sol = search.recover_solution(endstate)
-        #print "solution:", sol
-        #print "cost:", endstate.cost()
-        #print search.iterations
+        return search.recover_solution(endstate)
+        # print "solution:", sol
+        # print "cost:", endstate.cost()
+        # print search.iterations
 
     def _test_nbest(self, nbest):
+        'n-best A* search'
         decoder = astar.AstarDecoder(astar.AstarArgs(nbest=nbest))
         soln = decoder.decode(self.prob_distrib)
         self.assertEqual(nbest, len(soln))
         return soln
 
-    # TODO: silently crashes, need feedback from Philippe
-    #def test_h_average(self):
-    #    self._test_heuristic(astar.H_AVERAGE)
+    # FAILS: it's something to do with the initial state not having
+    # any to do links..., would need to check with PM about this
+    # def test_h_average(self):
+    #     self._test_heuristic(astar.DiscourseState.h_average)
 
     def test_nbest_1(self):
+        '1-best search'
         self._test_nbest(1)
 
     def test_nbest_2(self):
+        '2-best search'
         self._test_nbest(2)
 
+
 class LocallyGreedyTest(DecoderTest):
+    'tests for locally greedy decoder'
     def test_locally_greedy(self):
         'check that the locally greedy decoder works'
         decoder = greedy.LocallyGreedy()
