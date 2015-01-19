@@ -15,3 +15,4 @@ There are two kinds of modules in this package:
 # pylint: disable=wildcard-import
 # (just for re-export)
 from .control import *
+from .util import DecoderException

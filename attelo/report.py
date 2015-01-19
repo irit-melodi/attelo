@@ -352,12 +352,11 @@ class Report(object):
     def _params_to_filename(self):
         "One line parameter listing"
 
-        pieces = "{relations} {context} : \t "\
-            "{decoder}+{learner}+{relation_learner}, "\
-            "h={heuristics}, "\
-            "unlabelled={unlabelled},"\
-            "post={post_label},"\
-            "rfc={rfc}"
+        pieces = ("{decoder}+{learner}+{relation_learner}, "
+                  "h={heuristics}, "
+                  "unlabelled={unlabelled},"
+                  "post={post_label},"
+                  "rfc={rfc}")
         return pieces.format(**self.params.__dict__)
 
     def summary(self):

@@ -3,18 +3,37 @@ Saving and loading data or models
 """
 
 from __future__ import print_function
+from collections import defaultdict
+from itertools import chain
+from os import path as fp
 import cPickle
-import Orange
+import csv
+import os
 import sys
 import time
 import traceback
+
+from sklearn.datasets import load_svmlight_file
+
+from .edu import (EDU, FAKE_ROOT_ID, FAKE_ROOT)
+from .table import DataPack, DataPackException
+
+# pylint: disable=too-few-public-methods
+
+
+class IoException(Exception):
+    """
+    Exceptions related to reading/writing data
+    """
+    def __init__(self, msg):
+        super(IoException, self).__init__(msg)
 
 # ---------------------------------------------------------------------
 # feedback
 # ---------------------------------------------------------------------
 
 
-# pylint: disable=too-few-public-methods, redefined-builtin, invalid-name
+# pylint: disable=redefined-builtin, invalid-name
 class Torpor(object):
     """
     Announce that we're about to do something, then do it,
@@ -78,7 +97,7 @@ class Torpor(object):
                 print(oops, file=self._file)
             traceback.print_exception(type, value, tb)
             sys.exit(1)
-# pylint: enable=too-few-public-methods, redefined-builtin, invalid-name
+# pylint: redefined-builtin, invalid-name
 
 
 # ---------------------------------------------------------------------
@@ -86,20 +105,129 @@ class Torpor(object):
 # ---------------------------------------------------------------------
 
 
-def read_data(attachments, relations, verbose=False):
+def load_edus(edu_file):
     """
-    Given an attachment file and a relations file (latter can
-    be None, return their contents in table form)
-    """
-    with Torpor("Reading attachments", quiet=not verbose):
-        data_attach = Orange.data.Table(attachments)
+    Read EDUs (see :ref:`edu-input-format`), returning a list
+    of EDUs paired with ids for their possible parents.
 
-    if relations is None:
-        data_relations = None
+    Note that the order that the EDUs and parents are returned
+    in is significant as it is used to for indexing the feature
+    file
+
+    :rtype [(EDU, [String])]
+
+    .. _format: https://github.com/kowey/attelo/doc/inputs.rst
+    """
+    def mk_pair(row):
+        'interpret a single row'
+        expected_len = 6
+        if len(row) != expected_len:
+            oops = ('This row in the EDU file {efile} has {num} '
+                    'elements instead of the expected {expected}: '
+                    '{row}')
+            raise IoException(oops.format(efile=edu_file,
+                                          num=len(row),
+                                          expected=expected_len,
+                                          row=row))
+        [global_id, txt, grouping, start_str, end_str, parents_str] = row
+        start = int(start_str)
+        end = int(end_str)
+        edu = EDU(global_id,
+                  txt.decode('utf-8'),
+                  start,
+                  end,
+                  grouping)
+        parents = parents_str.split()
+        return edu, parents
+
+    with open(edu_file, 'rb') as instream:
+        reader = csv.reader(instream, dialect=csv.excel_tab)
+        return [mk_pair(r) for r in reader if r]
+
+
+def start_predictions_output(filename):
+    """
+    Initialise any output files that are to be appended to rather
+    than written separately
+    """
+    dname = fp.dirname(filename)
+    if not fp.exists(dname):
+        os.makedirs(dname)
+    open(filename, 'wb').close()
+
+
+def append_predictions_output(dpack, predicted, filename):
+    """
+    Append the predictions to a CONLL like output file documented in
+    :ref:output-format:
+
+    See also :py:method:start_predictions_file:
+    """
+    incoming = defaultdict(list)
+    for edu1, edu2, label in predicted:
+        incoming[edu2].append((edu1, label))
+    max_indegree = max(len(x) for x in incoming.items()) if incoming else 1
+
+    def mk_row(edu):
+        "csv row for the given edu"
+
+        parents = incoming.get(edu.id)
+        if parents:
+            linkstuff = list(chain.from_iterable(parents))
+        else:
+            linkstuff = ["0", "ROOT"]
+        pad_len = max_indegree * 2 - len(linkstuff)
+        padding = [''] * pad_len
+        return [edu.id,
+                edu.text.encode('utf-8'),
+                edu.grouping,
+                edu.start,
+                edu.end] + linkstuff + padding
+
+    with open(filename, 'a') as fout:
+        writer = csv.writer(fout, dialect=csv.excel_tab)
+        for edu in dpack.edus:
+            writer.writerow(mk_row(edu))
+
+
+def load_data_pack(edu_file, feature_file, verbose=False):
+    """
+    Read EDUs and features for edu pairs.
+
+    Perform some basic sanity checks, raising
+    :py:class:IoException: if they should fail
+
+    :rtype :py:class:DataPack: or None
+    """
+    with Torpor("Reading edus", quiet=not verbose):
+        edulinks = load_edus(edu_file)
+
+    edumap = {e.id: e for e, _ in edulinks}
+    parents = list(chain.from_iterable(l for _, l in edulinks))
+
+    if FAKE_ROOT_ID in parents:
+        edus = [FAKE_ROOT]
+        edumap[FAKE_ROOT_ID] = FAKE_ROOT
     else:
-        with Torpor("Reading relations", quiet=not verbose):
-            data_relations = Orange.data.Table(relations)
-    return data_attach, data_relations
+        edus = []
+
+    # this is not quite the same as the DataPack._check_edu_pairings()
+    # because here are working only with identifiers and not objects
+    naughty = [x for x in parents if x not in edumap]
+    if naughty:
+        oops = ('The EDU files mentions the following candidate parent ids, '
+                'but does not actually include EDUs to go with them: {}')
+        raise DataPackException(oops.format(', '.join(naughty)))
+
+    pairings = []
+    for edu, links in edulinks:
+        edus.append(edu)
+        pairings.extend((edu, edumap[l]) for l in links)
+
+    with Torpor("Reading features", quiet=not verbose):
+        data, targets = load_svmlight_file(feature_file)
+
+    return DataPack.load(edus, pairings, data, targets)
 
 
 # ---------------------------------------------------------------------
@@ -111,7 +239,7 @@ def load_model(filename):
     """
     Load model into memory from file
 
-    :rtype: Orange.classification.Classifier
+    :rtype: sklearn classifier
     """
     with open(filename, "rb") as stream:
         return cPickle.load(stream)
@@ -121,7 +249,7 @@ def save_model(filename, model):
     """
     Dump model into a file
 
-    :type: model: Orange.classification.Classifier
+    :type: model: sklearn classifier
     """
     with open(filename, "wb") as stream:
         cPickle.dump(model, stream)

@@ -17,7 +17,7 @@ setup(name="attelo",
                         'mock',
                         'nltk',
                         'numpy',
-                        'Orange',
+                        'scikit-learn',
                         'six',
                         'scipy',
                         'tabulate'])

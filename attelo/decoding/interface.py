@@ -40,6 +40,10 @@ class Decoder(with_metaclass(ABCMeta, object)):
                              to decode over
         :type prob_distrib: [(string, string, float, string)]
 
+        Note that in each prediction made, the number of links must
+        exactly match the number of proposed links from the
+        probability distribution
+
         :rtype: [ [(string,string,string)] ]
         '''
         raise NotImplementedError

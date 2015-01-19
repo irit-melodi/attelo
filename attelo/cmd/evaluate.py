@@ -9,53 +9,21 @@ from ..args import\
      add_report_args,
      args_to_decoder,
      args_to_decoding_mode,
-     args_to_phrasebook,
-     args_to_learners)
+     args_to_learners,
+     args_to_rng)
 from ..decoding import\
-    (DataAndModel, decode)
-from ..fold import make_n_fold, folds_to_orange
-from ..io import read_data
+    (decode, Models)
+from ..fold import make_n_fold
+from ..io import (load_data_pack)
+from ..table import (for_attachment, for_labelling)
 from ..report import Report
-from .decode import select_doc, score_prediction
+from .decode import score_prediction
 
 
 NAME = 'evaluate'
 
 
-def _prepare_folds(phrasebook, num_folds, table, shuffle=True):
-    """Return an N-fold validation setup respecting a property where
-    examples in the same grouping stay in the same fold.
-    """
-    import random
-    if shuffle:
-        random.seed()
-    else:
-        random.seed("just an illusion")
-
-    fold_struct = make_n_fold(table,
-                              folds=num_folds,
-                              meta_index=phrasebook.grouping)
-    selection = folds_to_orange(table,
-                                fold_struct,
-                                meta_index=phrasebook.grouping)
-    return fold_struct, selection
-
-
-def _build_model_for_fold(selection, test_fold, learner, data):
-    '''
-    Return models for the training data in the given folds,
-    packaging them up with their data set
-
-    :rtype DataAndModel
-    '''
-    # by rights this should really select a test set but we
-    # don't bother because we filter on it later on anyway
-    # to pick out individual docs,
-    train_data = data.select_ref(selection, test_fold, negate=1)
-    return DataAndModel(data, learner(train_data))
-
-
-def best_prediction(phrasebook, attach, relate, predictions):
+def best_prediction(dpack, predictions):
     """
     Return the best prediction for the given data along with its
     score. Best is defined in a recall-centric way, by the number
@@ -68,10 +36,9 @@ def best_prediction(phrasebook, attach, relate, predictions):
     """
     def score(prediction):
         'score a single prediction'
-        return score_prediction(phrasebook, attach, relate, prediction)
+        return score_prediction(dpack, prediction)
 
-    max_key = lambda x: score(x).correct_label if relate\
-                        else score(x).correct_attach
+    max_key = lambda x: score(x).correct_label
     return max(predictions, key=max_key)
 
 
@@ -96,68 +63,78 @@ def config_argparser(psr):
                      "prediction is made with relations")
 
 
+def _learn_for_fold(dpack, fold_dict, fold,
+                    attach_learner, relate_learner):
+    '''
+    learn models for the training data in the given fold
+
+    :rtype :py:class:Models:
+    '''
+    training_pack = dpack.training(fold_dict, fold)
+    attach_pack = for_attachment(training_pack)
+    relate_pack = for_labelling(training_pack)
+    attach_model = attach_learner.fit(attach_pack.data,
+                                      attach_pack.target)
+    relate_model = relate_learner.fit(relate_pack.data,
+                                      relate_pack.target)
+    return Models(attach=attach_model, relate=relate_model)
+
+
+def _decode_group(mode, decoder, dpack, models):
+    '''
+    decode and score a single group
+
+    :rtype Count
+    '''
+    predictions = decode(mode, decoder, dpack, models)
+    best = best_prediction(dpack, predictions)
+    return score_prediction(dpack, best)
+
+
+def _decode_fold(mode, decoder, dpack, models):
+    '''
+    decode and score all groups in the pack
+    (pack should be whittled down to test set for
+    a given fold)
+
+    :rtype [Count]
+    '''
+    scores = []
+    for onedoc, indices in dpack.groupings().items():
+        print("decoding on file : ", onedoc, file=sys.stderr)
+        onepack = dpack.selected(indices)
+        score = _decode_group(mode, decoder, onepack, models)
+        scores.append(score)
+    return scores
+
+
 def main(args):
     'subcommand main'
 
-    phrasebook = args_to_phrasebook(args)
-    data_attach, data_relate = read_data(args.data_attach,
-                                         args.data_relations)
+    dpack = load_data_pack(args.edus, args.features)
     # print(args, file=sys.stderr)
     decoder = args_to_decoder(args)
     decoding_mode = args_to_decoding_mode(args)
 
     # TODO: more models for intra-sentence
-    attach_learner, relation_learner = \
-        args_to_learners(decoder, phrasebook, args)
+    attach_learner, relate_learner = args_to_learners(decoder, args)
 
-    fold_struct, selection =\
-        _prepare_folds(phrasebook, args.nfold, data_attach,
-                       shuffle=args.shuffle)
-
-    with_relations = bool(data_relate)
-    args.relations = ["attach", "relations"][with_relations]
-    args.context = "window5" if "window" in args.data_attach else "full"
-
-    # eval procedures
-    score_labels = with_relations and not args.unlabelled
+    fold_dict = make_n_fold(dpack, args.nfold,
+                            args_to_rng(args))
 
     evals = []
     # --- fold level -- to be refactored
-    for test_fold in range(args.nfold):
-        print(">>> doing fold ", test_fold + 1, file=sys.stderr)
+    for fold in range(args.nfold):
+        print(">>> doing fold ", fold + 1, file=sys.stderr)
         print(">>> training ... ", file=sys.stderr)
 
-        # train model
-        # TODO: separate models for intra-sentence/inter-sentence
-        attach = _build_model_for_fold(selection,
-                                       test_fold,
-                                       attach_learner,
-                                       data_attach)
-        relate = _build_model_for_fold(selection,
-                                       test_fold,
-                                       relation_learner,
-                                       data_relate)\
-                if with_relations else None
-
-        # -- file level --
-        fold_evals = []
-        for onedoc in fold_struct:
-            if fold_struct[onedoc] == test_fold:
-                print("decoding on file : ", onedoc, file=sys.stderr)
-
-                doc_attach, doc_relate =\
-                    select_doc(phrasebook, onedoc, attach, relate)
-                predictions = decode(phrasebook, decoding_mode, decoder,
-                                     doc_attach, doc_relate)
-                best = best_prediction(phrasebook, attach, relate,
-                                       predictions)
-
-                score_doc_relate = doc_relate if score_labels else None
-                fold_evals.append(score_prediction(phrasebook,
-                                                   doc_attach,
-                                                   score_doc_relate,
-                                                   best))
-
+        models = _learn_for_fold(dpack, fold_dict, fold,
+                                 attach_learner,
+                                 relate_learner)
+        fold_evals = _decode_fold(decoding_mode,
+                                  decoder,
+                                  dpack.testing(fold_dict, fold),
+                                  models)
         fold_report = Report(fold_evals,
                              params=args,
                              correction=args.correction)

@@ -15,7 +15,7 @@ from numpy.linalg import norm
 from numpy import dot, exp, zeros
 # pylint: enable-no-name-in-module
 
-from attelo.edu import EDU, mk_edu_pairs
+from attelo.edu import EDU
 
 # pylint: disable=too-few-public-methods
 # pylint: disable=invalid-name

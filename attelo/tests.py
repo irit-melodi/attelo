@@ -2,7 +2,8 @@
 attelo tests
 """
 
-# pylint: disable=too-few-public-methods, no-self-use
+# pylint: disable=too-few-public-methods, no-self-use, no-member
+# no-member: numpy
 
 from __future__ import print_function
 from os import path as fp
@@ -12,12 +13,150 @@ import shutil
 import tempfile
 import unittest
 
+import scipy.sparse
+import numpy
+
 from attelo.harness.config import CliArgs
 import attelo
+
+from .edu import EDU, FAKE_ROOT
+from .table import DataPack, DataPackException
 
 
 MAX_FOLDS = 2
 
+
+def squish(matrix):
+    'convert a sparse matrix to list'
+    return matrix.todense().flatten().tolist()
+
+
+class DataPackTest(unittest.TestCase):
+    '''
+    basic tests on data pack filtering operations
+    '''
+    edus = [EDU('e1', 'hi', 0, 1, 'a'),
+            EDU('e2', 'there', 3, 8, 'a')]
+    trivial = DataPack(edus=edus,
+                       pairings=[(edus[0], edus[1])],
+                       data=scipy.sparse.csr_matrix([[6, 8]]),
+                       target=numpy.array([1]))
+    trivial_bidi = DataPack(edus,
+                            pairings=[(edus[0], edus[1]),
+                                      (edus[1], edus[0])],
+                            data=scipy.sparse.csr_matrix([[6, 8],
+                                                          [7, 0]]),
+                            target=numpy.array([1, 0]))
+
+    # pylint: disable=invalid-name
+    def assertEqualishDatapack(self, pack1, pack2):
+        '''
+        series of assertions that two datapacks are
+        equivalant enough for our tests
+        '''
+        self.assertEqual(pack1.edus, pack2.edus)
+        self.assertEqual(pack1.pairings, pack2.pairings)
+        self.assertEqual(pack1.target.tolist(), pack2.target.tolist())
+        self.assertEqual(pack1.data.shape, pack2.data.shape)
+        self.assertEqual(squish(pack1.data), squish(pack2.data))
+
+    def assertEqualEduIds(self, pack, ids):
+        '''
+        the data pack has all the of the edus with the
+        '''
+        self.assertEqual(frozenset(e.id for e in pack.edus),
+                         frozenset(ids))
+    # pylint: enable=invalid-name
+
+    def test_trivial_sanity(self):
+        'can build a full data pack from the trivial one'
+        triv = self.trivial
+        self.assertRaises(DataPackException, DataPack.load,
+                          triv.edus,
+                          triv.pairings,
+                          triv.data,
+                          [1, 1])
+
+        # check grouping of edus
+        fake1 = EDU(self.edus[1].id,
+                    self.edus[1].text,
+                    self.edus[1].start,
+                    self.edus[1].end,
+                    'b')
+        self.assertRaises(DataPackException, DataPack.load,
+                          [self.edus[0], fake1],
+                          [(self.edus[0], fake1)],
+                          triv.data,
+                          triv.target)
+        # but root is ok
+        self.assertTrue(DataPack.load([self.edus[0]],
+                                      [(self.edus[0], FAKE_ROOT)],
+                                      triv.data,
+                                      triv.target))
+        dpack2 = DataPack.load(triv.edus,
+                               triv.pairings,
+                               triv.data,
+                               triv.target)
+        self.assertEqualishDatapack(triv, dpack2)
+
+    def test_select(self):
+        'can build a full data pack from the trivial one'
+        self.assertEqualishDatapack(self.trivial,
+                                    self.trivial.selected([0]))
+        self.assertEqualishDatapack(self.trivial,
+                                    self.trivial_bidi.selected([0]))
+        other_di = DataPack(self.trivial.edus,
+                            pairings=[(self.edus[1], self.edus[0])],
+                            data=scipy.sparse.csr_matrix([[7, 0]]),
+                            target=numpy.array([0]))
+        self.assertEqualishDatapack(other_di, self.trivial_bidi.selected([1]))
+
+    def test_folds(self):
+        'test that fold selection does something sensible'
+
+        # pylint: disable=invalid-name
+        a1 = EDU('a1', 'hi', 0, 1, 'a')
+        a2 = EDU('a2', 'there', 3, 8, 'a')
+        b1 = EDU('b1', 'this', 0, 4, 'b')
+        b2 = EDU('b2', 'is', 6, 8, 'b')
+        c1 = EDU('c1', 'rather', 0, 7, 'c')
+        c2 = EDU('c2', 'tedious', 9, 16, 'c')
+        d1 = EDU('d1', 'innit', 0, 5, 'd')
+        d2 = EDU('d2', '?', 6, 7, 'd')
+        # pylint: enable=invalid-name
+
+        pack = DataPack.load(edus=[a1, a2,
+                                   b1, b2,
+                                   c1, c2,
+                                   d1, d2],
+                             pairings=[(a1, a2),
+                                       (b1, b2),
+                                       (b1, FAKE_ROOT),
+                                       (c1, c2),
+                                       (d1, d2)],
+                             data=scipy.sparse.csr_matrix([[6, 8],
+                                                           [7, 0],
+                                                           [3, 9],
+                                                           [1, 1],
+                                                           [0, 4]]),
+                             target=numpy.array([1, 0, 1, 1, 0]))
+        fold_dict = {'a': 0,
+                     'b': 1,
+                     'c': 0,
+                     'd': 1}
+        self.assertEqualEduIds(pack.training(fold_dict, 0),
+                               ['b1', 'b2', 'd1', 'd2'])
+        self.assertEqualEduIds(pack.training(fold_dict, 1),
+                               ['a1', 'a2', 'c1', 'c2'])
+        self.assertEqualEduIds(pack.testing(fold_dict, 0),
+                               ['a1', 'a2', 'c1', 'c2'])
+        self.assertEqualEduIds(pack.testing(fold_dict, 1),
+                               ['b1', 'b2', 'd1', 'd2'])
+
+
+# ---------------------------------------------------------------------
+#
+# ---------------------------------------------------------------------
 
 class TmpDir(object):
     "crude context manager for creating, deleting tmpdir"
@@ -36,9 +175,8 @@ class TmpDir(object):
 class TestArgs(CliArgs):
     "arguments in test harness"
 
-    def __init__(self, tmpdir, relate):
+    def __init__(self, tmpdir):
         self._tmpdir = tmpdir
-        self._relate = relate
         super(TestArgs, self).__init__()
 
     def parser(self):
@@ -59,6 +197,11 @@ class TestArgs(CliArgs):
         "path within tmpdir"
         return fp.join(self._tmpdir, subpath)
 
+    def argv(self):
+        "command line args"
+        return [self.eg_path('tiny.edus'),
+                self.eg_path('tiny.relate.txt')]
+
     @classmethod
     def run(cls, *args, **kwargs):
         "run the attelo command that goes with these args"
@@ -73,9 +216,7 @@ class EvaluateArgs(TestArgs):
         super(EvaluateArgs, self).__init__(*args, **kwargs)
 
     def argv(self):
-        args = [self.eg_path('tiny.attach.tab')]
-        if self._relate:
-            args.extend([self.eg_path('tiny.relate.tab')])
+        args = super(EvaluateArgs, self).argv()
         args.extend(['--config', self.eg_path('tiny.config'),
                      '--nfold', str(MAX_FOLDS)])
         return args
@@ -94,10 +235,11 @@ class EnfoldArgs(TestArgs):
     # pylint: enable=unused-argument
 
     def argv(self):
-        return [self.eg_path('tiny.attach.tab'),
-                '--config', self.eg_path('tiny.config'),
-                '--nfold', str(MAX_FOLDS),
-                '--output', self.tmp_path('folds.json')]
+        args = super(EnfoldArgs, self).argv()
+        args += ['--config', self.eg_path('tiny.config'),
+                 '--nfold', str(MAX_FOLDS),
+                 '--output', self.tmp_path('folds.json')]
+        return args
 
     @classmethod
     def module(cls):
@@ -114,16 +256,14 @@ class LearnDecodeArgs(TestArgs):
     # pylint: enable=unused-argument
 
     def argv(self):
-        args = [self.eg_path('tiny.attach.tab')]
-        if self._relate:
-            args.extend([self.eg_path('tiny.relate.tab'),
-                         '--relation-model', self.tmp_path('relate.model')])
+        args = super(LearnDecodeArgs, self).argv()
         if self._fold is not None:
             args.extend(['--fold-file', self.tmp_path('folds.json'),
                          '--fold', str(self._fold)])
         args.extend(['--config', self.eg_path('tiny.config'),
                      '--quiet',
-                     '--attachment-model', self.tmp_path('attach.model')])
+                     '--attachment-model', self.tmp_path('attach.model'),
+                     '--relation-model', self.tmp_path('relate.model')])
         args.extend(self._extra_args)
         return args
 
@@ -209,11 +349,12 @@ class CliTest(unittest.TestCase):
     Run command line utilities on sample data
     """
     def _vary(self, test, **kwargs):
-        'run a test both with and without rels'
+        '''
+        run a test through whatever systematic variations we can
+        think of
+        '''
         with TmpDir() as tmpdir:
-            test(relate=False, tmpdir=tmpdir, **kwargs)
-        with TmpDir() as tmpdir:
-            test(relate=True, tmpdir=tmpdir, **kwargs)
+            test(tmpdir=tmpdir, **kwargs)
 
     def test_evaluate(self):
         'attelo evaluate'
@@ -226,10 +367,11 @@ class CliTest(unittest.TestCase):
     def test_learn(self):
         'attelo learn'
         self._vary(LearnArgs.run)
-
-    def test_learn_maxent(self):
-        'attelo learn'
-        self._vary(LearnArgs.run, extra_args=["--learner", "maxent"])
+        for learner in ["maxent",
+                        "svm",
+                        "majority",
+                        "bayes"]:
+            self._vary(LearnArgs.run, extra_args=["--learner", learner])
 
     def test_harness(self):
         'attelo enfold, learn, decode, report'

@@ -6,17 +6,19 @@ from __future__ import print_function
 from argparse import ArgumentTypeError
 from collections import namedtuple
 from functools import wraps
-from ConfigParser import ConfigParser
 import argparse
 import sys
 
-import Orange
 # pylint: disable=no-name-in-module
 # pylint at the time of this writing doesn't deal well with
 # packages that dynamically generate methods
 # https://bitbucket.org/logilab/pylint/issue/58/false-positive-no-member-on-numpy-imports
 from numpy import inf
 # pylint: enable-no-name-in-module
+from sklearn.dummy import DummyClassifier
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
 
 from .decoding import DecodingMode
 from .decoding.astar import\
@@ -24,8 +26,6 @@ from .decoding.astar import\
 from .decoding.baseline import LastBaseline, LocalBaseline
 from .decoding.mst import MstDecoder
 from .decoding.greedy import LocallyGreedy
-from .features import Phrasebook
-from .learning.megam import MaxentLearner
 from .learning.perceptron import\
     (PerceptronArgs, Perceptron, PassiveAggressive, StructuredPerceptron,
      StructuredPassiveAggressive)
@@ -65,30 +65,6 @@ class DecoderArgs(namedtuple("DecoderAgs",
 # pylint: enable=too-many-arguments
 
 
-def args_to_phrasebook(args):
-    """
-    Given the (parsed) command line arguments, return the set of
-    core feature labels for our incoming dataset.
-
-    If no configuration file is provided, we default to the
-    Annodis experiment settings
-    """
-    config = ConfigParser()
-    # cancels case-insensitive reading of variables.
-    config.optionxform = lambda option: option
-    with open(args.config) as config_file:
-        config.readfp(config_file)
-        metacfg = dict(config.items("Meta features"))
-        return Phrasebook(source=metacfg["FirstNode"],
-                          target=metacfg["SecondNode"],
-                          source_span_start=metacfg["SourceSpanStart"],
-                          source_span_end=metacfg["SourceSpanEnd"],
-                          target_span_start=metacfg["TargetSpanStart"],
-                          target_span_end=metacfg["TargetSpanEnd"],
-                          grouping=metacfg["Grouping"],
-                          label=metacfg["Label"])
-
-
 def _mk_local_decoder(config, default=0.5):
     """
     Instantiate the local decoder
@@ -116,42 +92,34 @@ def _known_decoders():
             "astar": lambda c: AstarDecoder(c.astar)}
 
 
-def _known_learners(decoder, phrasebook, perc_args=None):
+def _known_learners(decoder, perc_args=None):
     """
     Given the (parsed) command line arguments, return a sequence of
     learners in the order they were requested on the command line
     """
 
-    # orange classifiers
-    bayes = Orange.classification.bayes.NaiveLearner(adjust_threshold=True)
-    bayes.name = "naive bayes"
-    # svm = Orange.classification.svm.SVMLearnerEasy(probability = True)
-    svm = Orange.classification.svm.SVMLearner(probability=True)
-    svm.name = "svm"
-    maxent = MaxentLearner()  # Orange.classification.logreg.LogRegLearner()
-    maxent.name = "maxent"
-    majority = Orange.classification.majority.MajorityLearner()
-    majority.name = "majority"
+    learners =\
+        {"bayes": lambda _: MultinomialNB(),
+         "maxent": lambda _: LogisticRegression(),
+         "svm": lambda _: SVC(),
+         "majority": lambda _: DummyClassifier(strategy="most_frequent"),
+        }
 
-    learners = {"bayes": bayes,
-                "svm": svm,
-                "maxent": maxent,
-                "majority": majority}
+#    if perc_args is not None:
+#        # home made perceptron
+#        learners["perc"] = Perceptron(phrasebook, perc_args)
+#        # home made PA (PA-II in fact)
+#        # TODO: expose C parameter
+#        learners["pa"] = PassiveAggressive(phrasebook, perc_args)
+#        # home made structured perceptron
+#        learners["struc_perc"] = StructuredPerceptron(phrasebook,
+#                                                      decoder,
+#                                                      perc_args)
+#        # home made structured PA
+#        learners["struc_pa"] = StructuredPassiveAggressive(phrasebook,
+#                                                           decoder,
+#                                                           perc_args)
 
-    if perc_args is not None:
-        # home made perceptron
-        learners["perc"] = Perceptron(phrasebook, perc_args)
-        # home made PA (PA-II in fact)
-        # TODO: expose C parameter
-        learners["pa"] = PassiveAggressive(phrasebook, perc_args)
-        # home made structured perceptron
-        learners["struc_perc"] = StructuredPerceptron(phrasebook,
-                                                      decoder,
-                                                      perc_args)
-        # home made structured PA
-        learners["struc_pa"] = StructuredPassiveAggressive(phrasebook,
-                                                           decoder,
-                                                           perc_args)
     return learners
 
 
@@ -186,9 +154,9 @@ DEFAULT_NFOLD = 10
 
 # these are just dummy values (we just want the keys here)
 KNOWN_DECODERS = _known_decoders().keys()
-KNOWN_ATTACH_LEARNERS = _known_learners(LastBaseline, {},
+KNOWN_ATTACH_LEARNERS = _known_learners(LastBaseline,
                                         DEFAULT_PERCEPTRON_ARGS).keys()
-KNOWN_RELATION_LEARNERS = _known_learners(LastBaseline, {}, None)
+KNOWN_RELATION_LEARNERS = _known_learners(LastBaseline, None)
 
 
 def args_to_decoder(args):
@@ -196,8 +164,7 @@ def args_to_decoder(args):
     Given the parsed command line arguments, and an attachment model, return
     the decoder that was requested from the command line
     """
-    if args.data_relations is None:
-        args.rfc = RfcConstraint.simple
+    args.rfc = RfcConstraint.simple
 
     astar_args = AstarArgs(rfc=args.rfc,
                            heuristics=args.heuristics,
@@ -227,7 +194,7 @@ def args_to_decoding_mode(args):
         return DecodingMode.joint
 
 
-def args_to_learners(decoder, phrasebook, args):
+def args_to_learners(decoder, args):
     """
     Given the (parsed) command line arguments, return a
     learner to use for attachment, and one to use for
@@ -242,7 +209,7 @@ def args_to_learners(decoder, phrasebook, args):
                                averaging=args.averaging,
                                use_prob=args.use_prob,
                                aggressiveness=args.aggressiveness)
-    _learners = _known_learners(decoder, phrasebook, perc_args)
+    _learners = _known_learners(decoder, perc_args)
 
     if args.learner in _learners:
         attach_learner = _learners[args.learner]
@@ -262,7 +229,7 @@ def args_to_learners(decoder, phrasebook, args):
         raise ArgumentTypeError("Unknown relation learner: "
                                 + args.relation_learner)
 
-    return attach_learner, relation_learner
+    return attach_learner(args), relation_learner(args)
 
 
 # ---------------------------------------------------------------------
@@ -273,10 +240,10 @@ def args_to_learners(decoder, phrasebook, args):
 def add_common_args(psr):
     "add usual attelo args to subcommand parser"
 
-    psr.add_argument("data_attach", metavar="FILE",
-                     help="attachment data")
-    psr.add_argument("data_relations", metavar="FILE", nargs="?",
-                     help="relations data")  # optional
+    psr.add_argument("edus", metavar="FILE",
+                     help="EDU input file (CONLL)")
+    psr.add_argument("features", metavar="FILE",
+                     help="EDU pair features (libsvm)")
     psr.add_argument("--config", "-C", metavar="FILE",
                      required=True,
                      default=None,
@@ -284,18 +251,6 @@ def add_common_args(psr):
                      "absent, defaults to hard-wired annodis config")
     psr.add_argument("--quiet", action="store_true",
                      help="Supress all feedback")
-
-
-def add_common_args_lite(psr):
-    "variant of add_common_args without relations table"
-
-    psr.add_argument("data_attach", metavar="FILE",
-                     help="attachment data")
-    psr.add_argument("--config", "-C", metavar="FILE",
-                     required=True,
-                     default=None,
-                     help="corpus specificities config file; if "
-                     "absent, defaults to hard-wired annodis config")
 
 
 def add_fold_choice_args(psr):

@@ -3,37 +3,20 @@
 from __future__ import print_function
 import argparse
 import json
-import random
 import sys
 
-from ..args import\
-    add_common_args_lite,\
-    args_to_phrasebook, DEFAULT_NFOLD
+from ..args import (add_common_args, args_to_rng, DEFAULT_NFOLD)
 from ..fold import make_n_fold
-from ..io import read_data
+from ..io import load_data_pack
 
 
 NAME = 'enfold'
 
 
-def _prepare_folds(phrasebook, num_folds, table, shuffle=True):
-    """Return an N-fold validation setup respecting a property where
-    examples in the same grouping stay in the same fold.
-    """
-    if shuffle:
-        random.seed()
-    else:
-        random.seed("just an illusion")
-
-    return make_n_fold(table,
-                       folds=num_folds,
-                       meta_index=phrasebook.grouping)
-
-
 def config_argparser(psr):
     "add subcommand arguments to subparser"
 
-    add_common_args_lite(psr)
+    add_common_args(psr)
     psr.set_defaults(func=main)
     psr.add_argument("--nfold", "-n",
                      default=DEFAULT_NFOLD, type=int,
@@ -48,19 +31,15 @@ def config_argparser(psr):
                      help="save folds to a json file")
 
 
-def main_for_harness(args, data_attach):
+def main_for_harness(args, dpack):
     """
     main function core that you can hook into if writing your own
     harness
 
     You have to supply the data yourself
     """
-    phrasebook = args_to_phrasebook(args)
-    fold_struct = _prepare_folds(phrasebook,
-                                 args.nfold,
-                                 data_attach,
-                                 shuffle=args.shuffle)
-
+    rng = args_to_rng(args)
+    fold_struct = make_n_fold(dpack, args.nfold, rng)
     json_output = args.output or sys.stdout
     json.dump(fold_struct, json_output, indent=2)
 
@@ -68,7 +47,7 @@ def main_for_harness(args, data_attach):
 def main(args):
     "subcommand main (called from mother script)"
 
-    data_attach, _ = read_data(args.data_attach, None, verbose=True)
-    main_for_harness(args, data_attach)
+    dpack = load_data_pack(args.edus, args.features)
+    main_for_harness(args, dpack)
     if args.output is None:
         print("")
