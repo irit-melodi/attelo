@@ -288,6 +288,8 @@ def main_for_harness(args, phrasebook, decoder, attach, relate):
 
         # we trust the decoder to select what it thinks is its best prediction
         first_prediction = predictions[0]
+        _write_predictions(phrasebook, onedoc, first_prediction,
+                           doc_attach, args.output)
         if args.scores is not None:
             scores[onedoc] = score_prediction(phrasebook,
                                               doc_attach, doc_relate,
