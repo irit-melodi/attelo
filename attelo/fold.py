@@ -20,16 +20,21 @@ contribs: phil
 import random
 
 
-def make_n_fold(dpack, folds):
+def make_n_fold(dpack, folds, rng):
     """Given a data pack and a desired number of folds, return a fold selection
     dictionary assigning a fold number to each each grouping (see
     :py:class:attelo.edu.EDU:).
 
     :type dpack: :py:class:DataPack:
     :type folds: int
+    :param rng: random number generator (hint: the random module
+                will be just fine if you don't mind shared state)
+    :type rng: :py:class:random.Random:
 
     :rtype dict(string, int)
     """
+    if rng is None:
+        rng = random
     groupings = list(set(x.grouping for x in dpack.edus))
 
     if folds < 2:
@@ -50,7 +55,7 @@ def make_n_fold(dpack, folds):
     # than we need.
     blocks = (len(groupings) / folds) + 1
     for current in xrange(blocks):
-        random_values = random.sample(xrange(folds), folds)
+        random_values = rng.sample(xrange(folds), folds)
         for i in xrange(folds):
             position = (current * folds) + i
             if position < len(groupings):

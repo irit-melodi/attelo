@@ -7,6 +7,7 @@ from argparse import ArgumentTypeError
 from collections import namedtuple
 from functools import wraps
 import argparse
+import random
 import sys
 
 # pylint: disable=no-name-in-module
@@ -157,6 +158,24 @@ KNOWN_DECODERS = _known_decoders().keys()
 KNOWN_ATTACH_LEARNERS = _known_learners(LastBaseline,
                                         DEFAULT_PERCEPTRON_ARGS).keys()
 KNOWN_RELATION_LEARNERS = _known_learners(LastBaseline, None)
+
+RNG_SEED = "just an illusion"
+
+
+def args_to_rng(args):
+    """
+    Return a random number generator instance, hard-seeded
+    unless we ask for shuffling to be enabled
+
+    (note: if shuffle mode is enable, the rng in question
+    will just be the system generator)
+    """
+    if args.shuffle:
+        return random
+    else:
+        rng = random.Random()
+        rng.seed(RNG_SEED)
+        return rng
 
 
 def args_to_decoder(args):
