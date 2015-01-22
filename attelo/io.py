@@ -6,13 +6,13 @@ from __future__ import print_function
 from collections import defaultdict
 from itertools import chain
 from os import path as fp
-import cPickle
 import csv
 import os
 import sys
 import time
 import traceback
 
+import joblib
 from sklearn.datasets import load_svmlight_file
 
 from .edu import (EDU, FAKE_ROOT_ID, FAKE_ROOT)
@@ -241,8 +241,7 @@ def load_model(filename):
 
     :rtype: sklearn classifier
     """
-    with open(filename, "rb") as stream:
-        return cPickle.load(stream)
+    return joblib.load(filename)
 
 
 def save_model(filename, model):
@@ -251,5 +250,4 @@ def save_model(filename, model):
 
     :type: model: sklearn classifier
     """
-    with open(filename, "wb") as stream:
-        cPickle.dump(model, stream)
+    joblib.dump(model, filename)
