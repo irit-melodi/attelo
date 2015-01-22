@@ -7,7 +7,9 @@ from math import log
 import sys
 import unittest
 
-from .Astar import BeamSearch, Search, State
+from .astar import BeamSearch, Search, State
+
+# pylint: disable=too-few-public-methods, protected-access
 
 class TestState(State):
     """dummy cost uniform search: starting from int, find minimum numbers of
@@ -23,15 +25,20 @@ class TestState(State):
             "-1": lambda x: x-1,
             "+2": lambda x: x+2}
 
+    def __init__(self, data, heuristic):
+        super(TestState, self).__init__(data, future_cost=heuristic(data))
+
     def _update_data(self, opr):
+        '''return the updated value and operator list we'd get from
+        applying `opr` to the current value'''
         left = self.data()[0]
         right = self.data()[1]
         return (self._ops[opr](left), right+opr)
 
-    def isSolution(self):
-        return ((self.data()[0]) == 21)
+    def is_solution(self):
+        return (self.data()[0]) == 21
 
-    def nextStates(self):
+    def next_states(self):
         return [(self._update_data(x), 1.) for x in self._ops]
 
     def __str__(self):
@@ -42,33 +49,37 @@ class TestState(State):
 
 
 class TestSearch(Search):
-    def newState(self, data):
-        return TestState(data, self._hFunc)
+    'Test instance of the A* search algorithm'
+    def new_state(self, data):
+        return TestState(data, self._h_func)
 
-class TestSearch2(BeamSearch):
-    def newState(self, data):
-        return TestState(data, self._hFunc)
+class TestBeamSearch(BeamSearch):
+    'Test instance of the A* search algorithm (beam variant)'
+    def new_state(self, data):
+        return TestState(data, self._h_func)
 
 
 class AstarTest(unittest.TestCase):
+    'Tests for the core of the A* algorithm'
 
-    def _test_search(self, name, search):
-        gc=search.launch((0, ""),
-                         verbose=False)
-        tot = 5
+    def _test_search(self, name, search, tot=5):
+        '''
+        Get the `tot` best solutions
+        '''
+        gen = search.launch((0, ""), verbose=False)
         nbest = tot
-        print("============testing %d-best for %s"%(nbest,name),
+        print("============testing %d-best for %s" % (nbest, name),
               file=sys.stderr)
         while nbest > 0:
-            c = gc.next()
+            soln = gen.next()
             print("solution no %d"%(tot+1-nbest),
                   file=sys.stderr)
-            if c is None:
+            if soln is None:
                 print("--- no solution found",
                       file=sys.stderr)
                 break
             else:
-                print("solution %d =  ?"%c.cost(), c,
+                print("solution %d =  ?" % soln.cost(), soln,
                       file=sys.stderr)
                 print("explored states =", len(search._seen),
                       file=sys.stderr)
@@ -76,14 +87,18 @@ class AstarTest(unittest.TestCase):
 
 
     def test_astar(self):
-        #init test state, defined here as a value and a string storing operators
-        # dumb testing heuristics assuming we can *2 to victory. log base 2.3 is to prevent wrong limit conditions
-        # and force h to be optimistic
+        '''
+        init test state, defined here as a value and a string storing operators
+        dumb testing heuristics assuming we can *2 to victory. log base 2.3
+        is to prevent wrong limit conditions
+        and force h to be optimistic
+        '''
         h_bete = lambda x: log(abs(21-x[0]), 2.3) if x[0] != 21 else 0
-        h0 = lambda x: 0
-        for name, b in (("UC", TestSearch(h0)),
-                        ("Astar", TestSearch(h_bete)),
-                        ("Beam/h/100 1-", TestSearch2(h_bete, queue_size=100)),
-                        ("Beam/h/100 2-", TestSearch(h_bete, queue_size=100)),
-                        ("Beam/h0/100", TestSearch2(h0, queue_size=100))):
-            self._test_search(name, b)
+        h_zero = lambda x: 0
+        tests = [("UC", TestSearch(h_zero)),
+                 ("Astar", TestSearch(h_bete)),
+                 ("Beam/h/100 1-", TestBeamSearch(h_bete, queue_size=100)),
+                 ("Beam/h/100 2-", TestSearch(h_bete, queue_size=100)),
+                 ("Beam/h0/100", TestBeamSearch(h_zero, queue_size=100))]
+        for name, search in tests:
+            self._test_search(name, search)

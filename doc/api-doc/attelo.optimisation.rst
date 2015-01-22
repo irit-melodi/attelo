@@ -4,26 +4,10 @@ attelo.optimisation package
 Submodules
 ----------
 
-attelo.optimisation.Astar module
+attelo.optimisation.astar module
 --------------------------------
 
-.. automodule:: attelo.optimisation.Astar
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-attelo.optimisation.LocalSearch module
---------------------------------------
-
-.. automodule:: attelo.optimisation.LocalSearch
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-attelo.optimisation.Problem module
-----------------------------------
-
-.. automodule:: attelo.optimisation.Problem
+.. automodule:: attelo.optimisation.astar
     :members:
     :undoc-members:
     :show-inheritance:

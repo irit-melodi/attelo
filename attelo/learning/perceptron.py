@@ -12,10 +12,14 @@ from numpy.linalg import norm
 # pylint at the time of this writing doesn't deal well with
 # packages that dynamically generate methods
 # https://bitbucket.org/logilab/pylint/issue/58/false-positive-no-member-on-numpy-imports
-from numpy import dot, exp, inf, zeros
+from numpy import dot, exp, zeros
 # pylint: enable-no-name-in-module
 
 from attelo.edu import EDU, mk_edu_pairs
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+# lots of mathy things here, so names may follow those convetions
 
 
 """
@@ -303,7 +307,7 @@ class StructuredPerceptron(Perceptron):
                            score,
                            "unlabelled"))
         # print "SCORES:", scores
-        pred_graph = decoder(scores, use_prob=False)
+        pred_graph = decoder.decode(scores)[0]
         return pred_graph
 
 

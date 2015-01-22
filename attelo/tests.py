@@ -107,11 +107,11 @@ class EnfoldArgs(TestArgs):
 class LearnDecodeArgs(TestArgs):
     "args to either attelo learn or decode"
     # pylint: disable=unused-argument
-    def __init__(self, fold=None, *args, **kwargs):
+    def __init__(self, fold=None, extra_args=None, *args, **kwargs):
         self._fold = fold
+        self._extra_args = extra_args or []
         super(LearnDecodeArgs, self).__init__(*args, **kwargs)
     # pylint: enable=unused-argument
-
 
     def argv(self):
         args = [self.eg_path('tiny.attach.tab')]
@@ -122,7 +122,9 @@ class LearnDecodeArgs(TestArgs):
             args.extend(['--fold-file', self.tmp_path('folds.json'),
                          '--fold', str(self._fold)])
         args.extend(['--config', self.eg_path('tiny.config'),
+                     '--quiet',
                      '--attachment-model', self.tmp_path('attach.model')])
+        args.extend(self._extra_args)
         return args
 
     @classmethod
@@ -158,7 +160,6 @@ class DecodeArgs(LearnDecodeArgs):
             bname += '-{}'.format(self._fold)
         return self.tmp_path(bname)
 
-
     def argv(self):
         args = super(DecodeArgs, self).argv()
         args.extend(['--output', self._tmpdir,
@@ -168,6 +169,7 @@ class DecodeArgs(LearnDecodeArgs):
     @classmethod
     def module(cls):
         return attelo.cmd.decode
+
 
 class ReportArgs(TestArgs):
     "args to attelo report"
@@ -185,7 +187,8 @@ class ReportArgs(TestArgs):
 
 
 def fake_harness(*args, **kwargs):
-    'sequence of attelo commands that fit together like they might in a harness'
+    '''sequence of attelo commands that fit together like they
+    might in a harness'''
     EnfoldArgs.run(*args, **kwargs)
     tmpdir = kwargs['tmpdir']
     idx_filename = fp.join(tmpdir, 'index.csv')
@@ -205,12 +208,12 @@ class CliTest(unittest.TestCase):
     """
     Run command line utilities on sample data
     """
-    def _vary(self, test):
+    def _vary(self, test, **kwargs):
         'run a test both with and without rels'
         with TmpDir() as tmpdir:
-            test(relate=False, tmpdir=tmpdir)
+            test(relate=False, tmpdir=tmpdir, **kwargs)
         with TmpDir() as tmpdir:
-            test(relate=True, tmpdir=tmpdir)
+            test(relate=True, tmpdir=tmpdir, **kwargs)
 
     def test_evaluate(self):
         'attelo evaluate'
@@ -223,6 +226,10 @@ class CliTest(unittest.TestCase):
     def test_learn(self):
         'attelo learn'
         self._vary(LearnArgs.run)
+
+    def test_learn_maxent(self):
+        'attelo learn'
+        self._vary(LearnArgs.run, extra_args=["--learner", "maxent"])
 
     def test_harness(self):
         'attelo enfold, learn, decode, report'

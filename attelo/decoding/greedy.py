@@ -1,25 +1,30 @@
 '''
-    July 2012
+Implementation of the locally greedy approach similar with DuVerle & Predinger
+(2009, 2010) (but adapted for SDRT, where the notion of adjacency includes
+embedded segments)
 
-    @author: stergos
+July 2012
 
-    implementation of the locally greedy approach similar with DuVerle & Predinger (2009, 2010)
-    (but adapted for SDRT, where the notion of adjacency includes embedded segments)
-
+@author: stergos
 '''
+
+from __future__ import print_function
 import sys
-from pprint import pprint
 
-from .util import get_sorted_edus
+from .interface import Decoder
+from .util import get_sorted_edus, get_prob_map
+
+# pylint: disable=too-few-public-methods
 
 
-def areStrictlyAdjacent(one, two, edus):
-    """ returns true in the following cases:
+def are_strictly_adjacent(one, two, edus):
+    """ returns True in the following cases ::
 
           [one] [two]
           [two] [one]
 
-        in the rest of the cases (when there is an edu between one and two) it returns false
+        in the rest of the cases (when there is an edu between one and two) it
+        returns False
     """
     for edu in edus:
         if edu.id != one.id and edu.id != two.id:
@@ -34,84 +39,127 @@ def areStrictlyAdjacent(one, two, edus):
 
     return True
 
-def isEmbedded(one, two):
-    """ returns true when one is embedded in two, that is:
+
+def is_embedded(one, two):
+    """ returns True when one is embedded in two, that is ::
 
             [two ... [one] ... ]
 
-        returns false in all other cases
+        returns False in all other cases
     """
 
     return two.id != one.id and two.start <= one.start and one.end <= two.end
 
-def getNeigbours(instances):
+
+def get_neighbours(edus):
+    '''
+    Return a mapping from each EDU to its neighbours
+
+    :type edus: [Edu]
+    :rtype: Dict Edu [Edu]
+    '''
 
     neighbours = dict()
-    edus = get_sorted_edus(instances)
-
-    for one in edus :
-        theNeighbours = []
-        theNeighbours_ids = set()
-        for two in edus :
+    for one in edus:
+        one_neighbours = []
+        one_neighbours_ids = set()
+        for two in edus:
             if one.id != two.id:
-                if areStrictlyAdjacent(one, two, edus):
-                    if two.id not in theNeighbours_ids:
-                        theNeighbours_ids.add(two.id)
-                        theNeighbours.append(two)
-                if isEmbedded(one, two) or isEmbedded(two, one):
-                    if two.id not in theNeighbours_ids:
-                        theNeighbours_ids.add(two.id)
-                        theNeighbours.append(two)
+                if are_strictly_adjacent(one, two, edus):
+                    if two.id not in one_neighbours_ids:
+                        one_neighbours_ids.add(two.id)
+                        one_neighbours.append(two)
+                if is_embedded(one, two) or is_embedded(two, one):
+                    if two.id not in one_neighbours_ids:
+                        one_neighbours_ids.add(two.id)
+                        one_neighbours.append(two)
 
-        neighbours[one] = theNeighbours
+        neighbours[one] = one_neighbours
 
     return neighbours
 
-def locallyGreedy(instances, prob=True, use_prob=True):
 
-    # get the probability distribution
-    probabilityDistribution = dict()
-    for s, t, p, r in instances :
-        probabilityDistribution[(s.id, t.id)] = (p, r)
+class LocallyGreedyState(object):
+    '''
+    the mutable parts of the locally greedy algorithm
+    '''
+    def __init__(self, instances):
+        self._edus = get_sorted_edus(instances)
+        self._edu_ids = set(x.id for x in self._edus)
+        self._neighbours = get_neighbours(self._edus)
+        self._prob_dist = get_prob_map(instances)
 
-    neighbours = getNeigbours(instances)
-    edus = get_sorted_edus(instances)
+    def _remove_edu(self, original, target):
+        '''
+        Given a locally greedy state, an original EDU, and a target EDU
+        (that the original in meant to point to): remove the original
+        edu and merge its neighbourhood into that of the target
+        '''
+        self._edus.remove(original)
+        self._edu_ids.remove(original.id)
+        # PM : added to propagate locality to percolated span heads
+        tgt_neighbours = self._neighbours[target]
+        tgt_neighbours.extend(self._neighbours[original])
+        # print(neighbours[new_span], file=sys.stderr)
+        tgt_neighbours = [x for x in tgt_neighbours
+                          if x.id in self._edu_ids and x.id != target.id]
 
-    attachments = []
-    edus_id = set([x.id for x in edus])
-    
-    while len(edus) > 1:    
-        print >> sys.stderr, len(edus), 
+    def _attach_best(self):
+        '''
+        Single pass of the locally greedy algorithm: pick the
+        highest probability link between any two neighbours.
+        Remove the source EDU from future consideration.
+
+        :rtype: None
+        '''
         highest = 0.0
-        toRemove = None
+        to_remove = None
         attachment = None
-        newSpan = None
+        new_span = None
 
-        for source in edus:
-            for target in neighbours[source]:
-                if (source.id, target.id) in probabilityDistribution:
-                    if probabilityDistribution[(source.id, target.id)][0] > highest:
-                        highest = probabilityDistribution[(source.id, target.id)][0]
-                        toRemove = source
-                        newSpan = target
-                        attachment = (source.id, target.id, probabilityDistribution[(source.id, target.id)][1])
+        for source in self._edus:
+            for target in self._neighbours[source]:
+                if (source.id, target.id) in self._prob_dist:
+                    label, prob = self._prob_dist[(source.id, target.id)]
+                    if prob > highest:
+                        highest = prob
+                        to_remove = source
+                        new_span = target
+                        attachment = (source.id, target.id, label)
 
-        if toRemove is not None :
-            attachments.append(attachment)
-            edus.remove(toRemove)
-            edus_id = edus_id - set([toRemove.id])
-            #print >> sys.stderr, edus_id
-            # PM : added to propagate locality to percolated span heads
-            neighbours[newSpan].extend(neighbours[toRemove])
-            #print >> sys.stderr, neighbours[newSpan]
-            neighbours[newSpan] = [x for x in neighbours[newSpan] if x.id in edus_id and not(x.id==newSpan.id)] 
-        else: #stop if nothing to attach, but this is wrong
-            #print >> sys.stderr, "warning: no attachment found"
-            #print edus
-            #print edus_id
-            #print [neighbours[x] for x in edus]
-            #sys.exit(0)
-            edus = []
-    print >> sys.stderr, ""
-    return attachments
+        if to_remove is not None:
+            self._remove_edu(to_remove, new_span)
+            return attachment
+        else:  # stop if nothing to attach, but this is wrong
+            # print("warning: no attachment found", file=sys.stderr)
+            # print(edus)
+            # print(edus_id)
+            # print([neighbours[x] for x in edus])
+            # sys.exit(0)
+            self._edus = []
+            return None
 
+    def decode(self):
+        '''
+        Run the decoder
+
+        :rtype [(EDU, EDU, string)]
+        '''
+        attachments = []
+        while len(self._edus) > 1:
+            print(len(self._edus), end=' ', file=sys.stderr)
+            attach = self._attach_best()
+            if attach is not None:
+                attachments.append(attach)
+        print("", file=sys.stderr)
+        return attachments
+
+
+# pylint: disable=unused-argument
+class LocallyGreedy(Decoder):
+    '''
+    The locally greedy decoder
+    '''
+    def decode(self, instances):
+        return [LocallyGreedyState(instances).decode()]
+# pylint: enable=unused-argument

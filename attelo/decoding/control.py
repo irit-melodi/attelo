@@ -4,6 +4,7 @@ Central interface to the decoders
 
 from __future__ import print_function
 from collections import namedtuple
+from enum import Enum
 from Orange.classification import Classifier
 import sys
 
@@ -13,51 +14,19 @@ from attelo.table import index_by_metas, select_edu_pair
 from attelo.report import Count
 from .util import DecoderException
 
-
 # pylint: disable=too-few-public-methods
-class DecoderConfig(namedtuple("DecoderConfig",
-                               ["phrasebook",
-                                "threshold",
-                                "post_labelling",
-                                "nbest",
-                                "use_prob"])):
-    """
-    Parameters needed by decoder.
 
-    :param phrasebook: names for core features
-    :type phrasebook: :py:class:`attelo.features.Phrasebook`
 
-    :param post_labelling: a decoding mode where we decode only
-                           on attachment and indpendently
-                           predict relations on the resulting
-                           graph afterwards
-    :type post_labelling: bool
+class DecodingMode(Enum):
+    '''
+    How to do decoding:
 
-    :param nbest: (for the A* decoder) return at most this many results
-    :type nbest: 1
-
-    :param use_prob: `True` if model scores are probabilities in [0,1]
-                     (to be mapped to -log), `False` if arbitrary scores
-                     (to be untouched)
-    :type use_prob: bool
-
-    :param threshold: For some decoders, a probability floor that helps
-                      the decoder decide whether or not to attach something
-    :type threshold: float
-    """
-    def __new__(cls,
-                phrasebook,
-                threshold=None,
-                post_labelling=False,
-                nbest=1,
-                use_prob=True):
-        sup = super(DecoderConfig, cls)
-        return sup.__new__(cls,
-                           phrasebook=phrasebook,
-                           threshold=threshold,
-                           post_labelling=post_labelling,
-                           nbest=nbest,
-                           use_prob=use_prob)
+        * joint: predict attachment/relations together
+        * post_label: predict attachment, then independently
+                      predict relations on resulting graph
+    '''
+    joint = 1
+    post_label = 2
 
 
 class DataAndModel(namedtuple("DataAndModel", "data model")):
@@ -66,7 +35,6 @@ class DataAndModel(namedtuple("DataAndModel", "data model")):
     data within
     """
     pass
-# pylint: enable=too-few-public-methods
 
 # ---------------------------------------------------------------------
 # helpers
@@ -81,7 +49,7 @@ def _get_inst_attach_orange(model, inst):
     :rtype: float
     """
     dist = model(inst, Classifier.GetProbabilities)
-    return dist['True'] if 'True' in dist else 0.
+    return dist['True'] if 'True' in dist.keys() else 0.
 
 
 def _get_inst_relate_orange(model, inst):
@@ -105,7 +73,7 @@ def _combine_single_prob(attach, relate, att, rel):
     :rtype (float, string)
     """
     if is_perceptron_model(attach.model):
-        if not attach.model.use_prob == True:
+        if not attach.model.use_prob:
             raise DecoderException("ERROR: Trying to output probabilities "
                                    "while Perceptron parametrized with "
                                    "use_prob=False!")
@@ -190,7 +158,7 @@ def _instance_help(phrasebook, instance):
 
 
 # pylint: disable=unused-argument
-def _get_attach_prob_perceptron(config, attach):
+def _get_attach_prob_perceptron(_, attach):
     """
     Attachment probabilities (only) for each EDU pair in the data
     """
@@ -201,12 +169,13 @@ def _get_attach_prob_perceptron(config, attach):
     return attach.model.get_scores(attach.data)
 # pylint: enable=unused-argument
 
-def _get_attach_prob_orange(config, attach):
+
+def _get_attach_prob_orange(phrasebook, attach):
     """
     Attachment probabilities (only) for each EDU pair in the data
     """
     # orange-based models
-    edu_pair = mk_edu_pairs(config.phrasebook, attach.data.domain)
+    edu_pair = mk_edu_pairs(phrasebook, attach.data.domain)
     prob_distrib = []
     for inst in attach.data:
         edu1, edu2 = edu_pair(inst)
@@ -215,7 +184,8 @@ def _get_attach_prob_orange(config, attach):
     return prob_distrib
 
 
-def decode(config, decoder, attach, relate=None):
+def decode(phrasebook, mode, decoder, attach,
+           relate=None):
     """
     Decode every instance in the attachment table (predicting
     relations too if we have the data/model for it).
@@ -228,35 +198,26 @@ def decode(config, decoder, attach, relate=None):
     # TODO issue #9: check that call to learner can be uniform
     # with 2 parameters (as logistic), as the documentation is
     # inconsistent on this
-    if relate is not None and not config.post_labelling:
-        prob_distrib = _combine_probs(config.phrasebook,
+    if (relate is not None and
+            mode != DecodingMode.post_label):
+        prob_distrib = _combine_probs(phrasebook,
                                       attach, relate)
     elif is_perceptron_model(attach.model):
         # home-made online models
-        prob_distrib = _get_attach_prob_perceptron(config, attach)
+        prob_distrib = _get_attach_prob_perceptron(phrasebook, attach)
     else:
         # orange-based models
-        prob_distrib = _get_attach_prob_orange(config, attach)
+        prob_distrib = _get_attach_prob_orange(phrasebook, attach)
     # print prob_distrib
 
     # get prediction (input is just prob_distrib)
-    # not all decoders support the threshold keyword argument
     # hence the apparent redundancy here
     # TODO: issue #8: PM CHECK if works with nbest decoding
-    if config.threshold is not None:
-        predicted = decoder(prob_distrib,
-                            threshold=config.threshold,
-                            use_prob=config.use_prob)
-    else:
-        predicted = decoder(prob_distrib,
-                            use_prob=config.use_prob)
+    predicted = decoder.decode(prob_distrib)
 
-    if config.post_labelling:
-        if config.nbest == 1:
-            predicted = _add_labels(config.phrasebook, predicted, relate)
-        else:
-            predicted = [_add_labels(config.phrasebook, x, relate)
-                         for x in predicted]
+    if mode == DecodingMode.post_label:
+        predicted = [_add_labels(phrasebook, x, relate)
+                     for x in predicted]
 
     return predicted
 

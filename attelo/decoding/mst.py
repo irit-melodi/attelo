@@ -13,6 +13,9 @@ import sys
 
 
 from depparse.graph import Digraph
+from .interface import Decoder
+
+# pylint: disable=too-few-public-methods
 
 class DigraphPlus(Digraph):
     """ Extenstion of Digraph, with MSDAG """
@@ -113,11 +116,18 @@ def _list_edges(instances, root='1', use_prob=True, use_msdag=False):
     return [(src, tgt, subgraph.get_label(src, tgt))
             for src, tgt in subgraph.iteredges()]
 
-
-def mst_decoder(*args, **kwargs):
+class MstDecoder(Decoder):
     """ attach in such a way that the resulting subgraph is a
     maximum spanning tree of the original
     """
+    def __init__(self, root='1', use_prob=True):
+        self._root = root
+        self._use_prob = use_prob
+
+    def decode(self, instances):
+        prediction = _list_edges(instances, self._root, self._use_prob)
+        return [prediction]
+
     return _list_edges(*args, **kwargs)
 
 def msdag_decoder(*args, **kwargs):

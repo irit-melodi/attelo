@@ -29,3 +29,14 @@ def get_sorted_edus(instances):
         edus.add(edu2)
 
     return sorted(edus, key=lambda x: x.span())
+
+
+def get_prob_map(instances):
+    """
+    Reformat a probability distribution as a dictionary from
+    edu id pairs to a (relation, probability) tuples
+
+    :rtype dict (string, string) (string, float)
+    """
+    return {(e1.id, e2.id): (rel, prob)
+            for e1, e2, prob, rel in instances}
