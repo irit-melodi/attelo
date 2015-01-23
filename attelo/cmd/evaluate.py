@@ -19,9 +19,6 @@ from ..report import Report
 from .decode import select_doc, score_prediction
 
 
-NAME = 'evaluate'
-
-
 def _prepare_folds(phrasebook, num_folds, table, shuffle=True):
     """Return an N-fold validation setup respecting a property where
     examples in the same grouping stay in the same fold.

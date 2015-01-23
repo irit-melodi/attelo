@@ -24,8 +24,6 @@ from ..decoding import (DataAndModel, DecoderException,
 from ..report import Count
 
 
-NAME = 'decode'
-
 # ---------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------

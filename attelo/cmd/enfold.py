@@ -13,9 +13,6 @@ from ..fold import make_n_fold
 from ..io import read_data
 
 
-NAME = 'enfold'
-
-
 def _prepare_folds(phrasebook, num_folds, table, shuffle=True):
     """Return an N-fold validation setup respecting a property where
     examples in the same grouping stay in the same fold.

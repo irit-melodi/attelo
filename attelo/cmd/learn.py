@@ -12,8 +12,6 @@ from ..io import read_data, save_model, Torpor
 from ..table import related_relations
 
 
-NAME = 'learn'
-
 _DEFAULT_MODEL_ATTACH = "attach.model"
 _DEFAULT_MODEL_RELATION = "relations.model"
 
