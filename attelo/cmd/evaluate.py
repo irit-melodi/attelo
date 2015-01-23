@@ -20,9 +20,6 @@ from ..report import Report
 from .decode import score_prediction
 
 
-NAME = 'evaluate'
-
-
 def best_prediction(dpack, predictions):
     """
     Return the best prediction for the given data along with its

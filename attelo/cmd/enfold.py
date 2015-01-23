@@ -10,9 +10,6 @@ from ..fold import make_n_fold
 from ..io import load_data_pack
 
 
-NAME = 'enfold'
-
-
 def config_argparser(psr):
     "add subcommand arguments to subparser"
 

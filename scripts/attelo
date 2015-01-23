@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+'''
+attelo command line interface
+
+(merely dispatches to subcommands)
+'''
+
 import argparse
 
 from attelo.cmd import SUBCOMMANDS
@@ -12,7 +18,13 @@ def main():
     subparsers = arg_parser.add_subparsers(help='sub-command help')
 
     for module in SUBCOMMANDS:
-        subparser = subparsers.add_parser(module.NAME,
+        if 'NAME' in module.__dict__:
+            # pylint: disable=no-member
+            module_name = module.NAME
+            # pylint: enable=no-member
+        else:
+            module_name = module.__name__.split('.')[-1]
+        subparser = subparsers.add_parser(module_name,
                                           help=module.__doc__)
         module.config_argparser(subparser)
 

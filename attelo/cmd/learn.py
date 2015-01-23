@@ -11,8 +11,6 @@ from ..io import load_data_pack, save_model, Torpor
 from ..table import for_attachment, for_labelling
 
 
-NAME = 'learn'
-
 _DEFAULT_MODEL_ATTACH = "attach.model"
 _DEFAULT_MODEL_RELATION = "relations.model"
 

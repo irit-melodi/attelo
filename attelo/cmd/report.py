@@ -11,8 +11,6 @@ from ..args import add_report_args
 from ..report import Count, Report, CombinedReport
 
 
-NAME = 'report'
-
 EXPECTED_KEYS = ["config", "fold", "counts_file"]
 
 # ---------------------------------------------------------------------

@@ -16,8 +16,6 @@ from ..decoding import (DecoderException, Models, decode, count_correct)
 from ..report import Count
 
 
-NAME = 'decode'
-
 # ---------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------
