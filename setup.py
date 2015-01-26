@@ -19,5 +19,5 @@ setup(name="attelo",
                         'numpy',
                         'Orange',
                         'six',
-                        'scipy',
+                        'scipy >= 0.14.0',
                         'tabulate'])
