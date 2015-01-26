@@ -15,15 +15,20 @@ from .interface import Decoder
 
 # pylint: disable=too-few-public-methods
 
-# Required to work with depparse, working with a "minimum" score of 1e-100
-# Unless we have more than 1e10 nodes, combined scores shouldn't reach it
+# depparse algorithm for MST uses a hardcoded minimum score of -1e100
+# Feeding it lower weights crashes the algorithm
+# We set minimum and maximum scores to avoid this
+# Unless we have more than 1e10 nodes, combined scores can't reach the limit
 MAX_SCORE = 1e90
 MIN_SCORE = -MAX_SCORE
 
 def _get_root(edus):
-    """ Returns the root node for MST/MSDAG algorithm
+    """ Returns the default root node for MST/MSDAG algorithm
 
-        Currently, the EDU in first position
+        Currently, the EDU in first position.
+
+        The Chu-Liu-Edmonds algorithm used for MST/MSDAG requires a
+        root node (with no incoming edges). We ensure there is one.
     """
     return sorted(edus, key=lambda e:e.span)[0]
 
@@ -61,7 +66,8 @@ def _msdag(graph):
     """ Returns a subgraph of graph (a Digraph) corresponding to its
         Maximum Spanning Directed Acyclic Graph
 
-        Alogrithm is semi-greedy-MSDAG as described in Schluter (2014)
+        Algorithm is semi-greedy-MSDAG as described in :
+        .. _Schluter (2014): http://aclweb.org/anthology/W14-2412        
     """
     tree = graph.mst()
     # Sort edges in orginal graph by decreasing score
@@ -95,7 +101,7 @@ def _list_edges(instances, use_prob=True, use_msdag=False):
             for src, tgt in subgraph.iteredges()]
 
 class MstDecoder(Decoder):
-    """ attach in such a way that the resulting subgraph is a
+    """ Attach in such a way that the resulting subgraph is a
     maximum spanning tree of the original
     """
     def __init__(self, use_prob=True):
