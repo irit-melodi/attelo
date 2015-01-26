@@ -82,11 +82,10 @@ def _msdag(graph):
             tree.successors[src].remove(tgt)
 
     # Update score and label functions
-    # I really wish that Digraph used a pair as single argument,
-    #   the following would be clearer
-    nscores, nlabels = (dict((k, old(*k)) for k in tree.iteredges())
-                        for old in (graph.get_score, graph.get_label))
-
+    new_map = lambda f: dict(((s, t), f(s, t)) for s, t in tree.iteredges())
+    nscores = new_map(graph.get_score)
+    nlabels = new_map(graph.get_label)
+    
     return Digraph(tree.successors,
                    lambda s, t: nscores[s, t],
                    lambda s, t: nlabels[s, t])
