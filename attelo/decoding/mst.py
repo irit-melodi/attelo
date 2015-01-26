@@ -90,26 +90,21 @@ def _msdag(graph):
     return Digraph(tree.successors,
                    lambda s, t: nscores[s, t],
                    lambda s, t: nlabels[s, t])
-
-def _list_edges(instances, use_prob=True, use_msdag=False):
-    """ Returns a list of edges for the MST/MSDAG graph """
     
-    graph = _graph(instances, use_prob=use_prob)
-    subgraph = _msdag(graph) if use_msdag else graph.mst()
-
-    return [(src, tgt, subgraph.get_label(src, tgt))
-            for src, tgt in subgraph.iteredges()]
 
 class MstDecoder(Decoder):
     """ Attach in such a way that the resulting subgraph is a
-    maximum spanning tree of the original
+        maximum spanning tree of the original
     """
     def __init__(self, use_prob=True):
         self._use_prob = use_prob
 
     def decode(self, instances):
-        prediction = _list_edges(instances, self._use_prob)
-        return [prediction]
+        graph = _graph(instances, self._use_prob)
+        subgraph = graph.mst()
+
+        return [[(src, tgt, subgraph.get_label(src, tgt))
+                for src, tgt in subgraph.iteredges()]]
 
 class MsdagDecoder(Decoder):
     """ Attach according to MSDAG (subgraph of original)"""
@@ -118,5 +113,8 @@ class MsdagDecoder(Decoder):
         self._use_prob = use_prob
 
     def decode(self, instances):
-        prediction = _list_edges(instances, self._use_prob, True)
-        return [prediction]
+        graph = _graph(instances, self._use_prob)
+        subgraph = _msdag(graph)
+
+        return [[(src, tgt, subgraph.get_label(src, tgt))
+                for src, tgt in subgraph.iteredges()]]
