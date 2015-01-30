@@ -29,7 +29,7 @@ install:
 
 # Run test
 script:
-  - nosetests --with-coverage --cov-config .coveragerc --logging-level=INFO
+  - nosetests --with-cov --cov-config .coveragerc --logging-level=INFO
 
 # Calculate coverage
 after_success:
