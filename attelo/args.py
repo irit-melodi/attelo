@@ -22,7 +22,7 @@ from .decoding import DecodingMode
 from .decoding.astar import\
     AstarArgs, RfcConstraint, Heuristic, AstarDecoder
 from .decoding.baseline import LastBaseline, LocalBaseline
-from .decoding.mst import MstDecoder
+from .decoding.mst import MstDecoder, MsdagDecoder
 from .decoding.greedy import LocallyGreedy
 from .features import Phrasebook
 from .learning.megam import MaxentLearner
@@ -113,8 +113,8 @@ def _known_decoders():
             "local": _mk_local_decoder,
             "locallyGreedy": lambda _: LocallyGreedy(),
             "mst": lambda c: MstDecoder(c.use_prob),
+            "msdag": lambda c: MsdagDecoder(c.use_prob),
             "astar": lambda c: AstarDecoder(c.astar)}
-
 
 def _known_learners(decoder, phrasebook, perc_args=None):
     """
