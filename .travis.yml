@@ -14,7 +14,7 @@ before_install:
   - sudo ln -s /run/shm /dev/shm
 # Install packages
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION atlas numpy scipy nose
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION pip atlas numpy scipy nose
   - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip install -r requirements-py3.txt --use-mirrors .; fi
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install -r requirements.txt     --use-mirrors .; fi
 # command to run tests
