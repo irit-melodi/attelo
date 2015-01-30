@@ -5,22 +5,35 @@ Created on Jun 27, 2012
 '''
 
 from __future__ import print_function
-import sys
 
 from collections import defaultdict
+# pylint: disable=no-name-in-module
 from scipy.special import logit
+# pylint: enable=no-name-in-module
 
 from depparse.graph import Digraph
 from .interface import Decoder
 
 # pylint: disable=too-few-public-methods
 
-# depparse algorithm for MST uses a hardcoded minimum score of -1e100
-# Feeding it lower weights crashes the algorithm
-# We set minimum and maximum scores to avoid this
-# Unless we have more than 1e10 nodes, combined scores can't reach the limit
+# see _cap_score
 MAX_SCORE = 1e90
 MIN_SCORE = -MAX_SCORE
+
+
+def _cap_score(score):
+    '''
+    the depparse package's MST implementation uses a hardcoded minimum score of
+    `-1e100`.
+    Feeding it lower weights crashes the algorithm
+    We set minimum and maximum scores to avoid this
+    Unless we have more than 1e10 nodes, combined scores can't reach the limit
+
+    :type score: float
+    :rtype: float
+    '''
+    return min(MAX_SCORE, max(MIN_SCORE, score))
+
 
 def _get_root(edus):
     """ Returns the default root node for MST/MSDAG algorithm
@@ -30,7 +43,8 @@ def _get_root(edus):
         The Chu-Liu-Edmonds algorithm used for MST/MSDAG requires a
         root node (with no incoming edges). We ensure there is one.
     """
-    return sorted(edus, key=lambda e:e.span)[0]
+    return sorted(edus, key=lambda e: e.span)[0]
+
 
 def _graph(instances, use_prob=True):
     """ Builds a directed graph for instances
@@ -40,8 +54,8 @@ def _graph(instances, use_prob=True):
 
         returns a Digraph
     """
-    
-    root_id = _get_root(set(e for s,t,_,_ in instances for e in (s,t))).id
+
+    root_id = _get_root(set(e for s, t, _, _ in instances for e in (s, t))).id
 
     targets = defaultdict(list)
     labels = dict()
@@ -54,7 +68,7 @@ def _graph(instances, use_prob=True):
         if tgt == root_id:
             continue
 
-        scores[src, tgt] = min(MAX_SCORE, max(MIN_SCORE, logit(prob))) if use_prob else prob
+        scores[src, tgt] = _cap_score(logit(prob)) if use_prob else prob
         labels[src, tgt] = rel
         targets[src].append(tgt)
 
@@ -62,16 +76,17 @@ def _graph(instances, use_prob=True):
                    lambda s, t: scores[s, t],
                    lambda s, t: labels[s, t])
 
+
 def _msdag(graph):
     """ Returns a subgraph of graph (a Digraph) corresponding to its
         Maximum Spanning Directed Acyclic Graph
 
-        Algorithm is semi-greedy-MSDAG as described in :
-        .. _Schluter (2014): http://aclweb.org/anthology/W14-2412        
+        Algorithm is semi-greedy-MSDAG as described in Schluter_:
+        .. _Schluter (2014): http://aclweb.org/anthology/W14-2412
     """
     tree = graph.mst()
     # Sort edges in orginal graph by decreasing score
-    edges = sorted(graph.iteredges(), key=lambda p:-graph.get_score(*p))
+    edges = sorted(graph.iteredges(), key=lambda s, t: -graph.get_score(s, t))
     for src, tgt in edges:
         # Already in graph ?
         if tgt in tree.successors[src]:
@@ -85,11 +100,11 @@ def _msdag(graph):
     new_map = lambda f: dict(((s, t), f(s, t)) for s, t in tree.iteredges())
     nscores = new_map(graph.get_score)
     nlabels = new_map(graph.get_label)
-    
+
     return Digraph(tree.successors,
                    lambda s, t: nscores[s, t],
                    lambda s, t: nlabels[s, t])
-    
+
 
 class MstDecoder(Decoder):
     """ Attach in such a way that the resulting subgraph is a
@@ -101,19 +116,20 @@ class MstDecoder(Decoder):
     def decode(self, instances):
         graph = _graph(instances, self._use_prob)
         subgraph = graph.mst()
+        predictions = [(src, tgt, subgraph.get_label(src, tgt))
+                       for src, tgt in subgraph.iteredges()]
+        return [predictions]
 
-        return [[(src, tgt, subgraph.get_label(src, tgt))
-                for src, tgt in subgraph.iteredges()]]
 
 class MsdagDecoder(Decoder):
     """ Attach according to MSDAG (subgraph of original)"""
-    
+
     def __init__(self, use_prob=True):
         self._use_prob = use_prob
 
     def decode(self, instances):
         graph = _graph(instances, self._use_prob)
         subgraph = _msdag(graph)
-
-        return [[(src, tgt, subgraph.get_label(src, tgt))
-                for src, tgt in subgraph.iteredges()]]
+        predictions = [(src, tgt, subgraph.get_label(src, tgt))
+                       for src, tgt in subgraph.iteredges()]
+        return [predictions]
