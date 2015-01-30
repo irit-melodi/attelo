@@ -22,6 +22,7 @@ MOCK_MODULES = ['climate',
                 'Orange.classification',
                 'scipy',
                 'scipy.sparse',
+                'scipy.special',
                 'scipy.stats']
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
