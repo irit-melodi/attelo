@@ -4,6 +4,8 @@ python:
 #  - "3.2"
 # Setup anaconda
 before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get -qq install python-numpy
   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
   - chmod +x miniconda.sh
   - ./miniconda.sh -b
