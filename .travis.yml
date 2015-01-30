@@ -23,5 +23,14 @@ install:
   - travis_wait pip install Orange
   - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip install -r requirements-py3.txt --use-mirrors .; fi
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install -r requirements.txt     --use-mirrors .; fi
-# command to run tests
-script: nosetests
+  # grab coverage packages from dan_blanchard's binstar channel
+  - conda install --yes -c dan_blanchard python-coveralls nose-cov
+  - python setup.py install
+
+# Run test
+script:
+  - nosetests --with-cov --cov attelo --cov-config .coveragerc --logging-level=INFO
+
+# Calculate coverage
+after_success:
+  - coveralls --config_file .coveragerc
