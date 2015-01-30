@@ -271,7 +271,7 @@ class DiscourseState(State):
         configuration"""
         if self.shared()["use_prob"]:
             # pylint: disable=no-member
-            return lambda x: numpy.inf if x == 0 else -math.log(x)
+            return lambda x: -numpy.log(x)
             # pylint: enable=no-member
         else:
             return lambda x: x
