@@ -30,6 +30,6 @@ forming a dependency tree
 
 ::
 
-    d1_492  anybody want sheep for wood?    dialogue_1  0   27  0       ROOT    d1_493  Elaboration
+    d1_492  anybody want sheep for wood?    dialogue_1  0   27  ROOT       ROOT    d1_493  Elaboration
     d1_493  nope, not me    dialogue_1  28  40  d1_492 Narration        d1_494  Parallel
-    d1_494  not me either   dialogue_1  41  54  0 ROOT	d1_491	Alternation
+    d1_494  not me either   dialogue_1  41  54  ROOT ROOT	d1_491	Alternation

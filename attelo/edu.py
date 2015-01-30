@@ -40,7 +40,7 @@ class EDU(namedtuple("EDU_", "id text start end grouping")):
 
 
 # pylint: disable=pointless-string-statement
-FAKE_ROOT_ID = '0'
+FAKE_ROOT_ID = 'ROOT'
 FAKE_ROOT = EDU(FAKE_ROOT_ID, '', 0, 0, None)
 """
 a distinguished fake root EDU which simultaneously appears in

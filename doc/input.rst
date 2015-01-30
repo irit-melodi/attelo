@@ -12,36 +12,36 @@ The pairs are defined via a list of "potential parent edus" that
 each edu can be associated with.
 
 Suppose we have three EDUs (e1, e2, e3), and they respectively
-list their potential parents as [e2, 0], [e1, e3], and [0, e1].
+list their potential parents as [e2, ROOT], [e1, e3], and [ROOT, e1].
 In this case, the first two rows of the features file would
 correspond to the e1 pairings, followed by another two rows for
 the e2 pairings, and a final two rows for the e3 pairings:
 
-1. e1, e2
-2. e1, 0
-3. e2, e1
-4. e2, e3
-5. e3, 0
-6. e3, 1
+1. e2,   e1
+2. ROOT, e1
+3. e1,   e2
+4. e3,   e2
+5. ROOT, e3
+6. 1,    e3
 
 EDU inputs
 ----------
 
 * global id: used by your application, arbitrary string?
-  (NB: `0` is a special name: no EDU should be named that,
-  but all EDUs can have 0 as a potential parent)
+  (NB: `ROOT` is a special name: no EDU should be named that,
+  but all EDUs can have ROOT as a potential parent)
 * text: good for debugging
 * grouping: eg. file, dialogue
 * span start: (int)
 * span end: (int)
 * possible parents (single column, space delimited,
-                    NB: 0 as distinguished name for root)
+                    NB: ROOT as distinguished name for root)
 
 ::
 
-    d1_492  anybody want sheep for wood?    dialogue_1  0   27  0 d1_493 d1_494
-    d1_493  nope, not me    dialogue_1  28  40  0 d1_492 d1_494
-    d1_494  not me either   dialogue_1  41  54  0 d1_491 d1_492 d1_493
+    d1_492  anybody want sheep for wood?    dialogue_1  0   27  ROOT d1_493 d1_494
+    d1_493  nope, not me    dialogue_1  28  40  ROOT d1_492 d1_494
+    d1_494  not me either   dialogue_1  41  54  ROOT d1_491 d1_492 d1_493
 
 Features
 --------
