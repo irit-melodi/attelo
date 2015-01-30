@@ -175,7 +175,7 @@ def append_predictions_output(dpack, predicted, filename):
         if parents:
             linkstuff = list(chain.from_iterable(parents))
         else:
-            linkstuff = ["0", "ROOT"]
+            linkstuff = [FAKE_ROOT_ID, "ROOT"]
         pad_len = max_indegree * 2 - len(linkstuff)
         padding = [''] * pad_len
         return [edu.id,
