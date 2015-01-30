@@ -35,7 +35,7 @@ EDU inputs
 * span start: (int)
 * span end: (int)
 * possible parents (single column, space delimited,
-                    NB: ROOT as distinguished name for root)
+  NB: ROOT as distinguished name for root)
 
 ::
 
