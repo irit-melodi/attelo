@@ -47,20 +47,38 @@ Features
 --------
 
 Features and labels are supplied as in (multiclass) libsvm/svmlight format.
-You can supply comments at the very beginning of the file which attelo
-can use to associate class/label/feature value with string values. ::
 
-    # SET N: <space delimited list of labels>
+Relation labels
+~~~~~~~~~~~~~~~
+You should supply a single comment at the very beginning of the file,
+which attelo can use to associate relation labels with string values ::
+
+    # labels: <space delimited list of labels>
 
 As an example of what a features file might look like ::
 
-    # SET 0 elaboration narration continuation
-    # SET 1 x y z
-    1 1:1 2:5
+    # labels: elaboration narration continuation
+    1 1:1 2:1
     0 1:2
-    2 1:3 3:8
+    2 1:3 3:1
     0 1:1
     3 1:2
 
+If you do not supply this information, attelo will make do without it;
+but some decoders may suffer as they use the relation labels in their
+decision making process.
+
+Categorical features
+~~~~~~~~~~~~~~~~~~~~
+Attelo no longer provides direct support for categorical features, that is,
+features whose possible values are members of a set (eg. POS tag).  You should
+perform `one hot encoding
+<http://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.OneHotEncoder.html>`_
+on any categorical features you have. Luckily, with the svmlight sparse format,
+this can be done with no additional cost in space and also opens the door for
+more straightforward filtering on your part.
+
+Other notes on features
+~~~~~~~~~~~~~~~~~~~~~~~
 Don't forget that the order that features appear in must correspond to the
 order that pairings appear in the EDU file
