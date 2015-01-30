@@ -222,7 +222,7 @@ def load_data_pack(edu_file, feature_file, verbose=False):
     pairings = []
     for edu, links in edulinks:
         edus.append(edu)
-        pairings.extend((edu, edumap[l]) for l in links)
+        pairings.extend((edumap[l], edu) for l in links)
 
     with Torpor("Reading features", quiet=not verbose):
         data, targets = load_svmlight_file(feature_file)
