@@ -20,6 +20,7 @@ before_install:
 # Install packages
 install:
   - conda install --yes python=$TRAVIS_PYTHON_VERSION pip atlas numpy scipy nose
+  - travis_wait pip install Orange
   - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip install -r requirements-py3.txt --use-mirrors .; fi
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install -r requirements.txt     --use-mirrors .; fi
 # command to run tests
