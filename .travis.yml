@@ -4,8 +4,11 @@ python:
 #  - "3.2"
 # Setup anaconda
 before_install:
+  # we only install Linux numpy so we can build Orange
+  # (not entirely clear if we need to do this though)
   - sudo apt-get -qq update
   - sudo apt-get -qq install python-numpy
+  # Conda is a sort of virtual environment mechanism for Python w/ non Python dependencies
   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
   - chmod +x miniconda.sh
   - ./miniconda.sh -b
