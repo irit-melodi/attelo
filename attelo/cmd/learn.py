@@ -4,7 +4,8 @@ from __future__ import print_function
 import json
 
 from ..args import\
-    (add_common_args, add_learner_args,
+    (add_common_args,
+     add_learner_args, validate_learner_args,
      add_fold_choice_args, validate_fold_choice_args,
      args_to_decoder, args_to_learners)
 from ..io import load_data_pack, save_model, Torpor
@@ -77,6 +78,7 @@ def main_for_harness(args, dpack):
 
 
 @validate_fold_choice_args
+@validate_learner_args
 def main(args):
     "subcommand main (invoked from outer script)"
 

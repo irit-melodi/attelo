@@ -124,10 +124,31 @@ def _get_learner(name, is_for_attach=True):
         # completely unknown
         raise ArgumentTypeError("Unknown learner: " + name)
     elif name not in ldict:
-        raise ArgumentTypeError(("Learner {} cannot be used for the "
-                                 "{} task").format(name, desc))
+        raise ArgumentTypeError(('The learner "{}" cannot be used for the '
+                                 '{} task').format(name, desc))
     else:
         return ldict[name]
+
+
+def _get_learner_set(args):
+    '''
+    Return a pair of learner wrappers (not the actual
+    learners, which we would need the other args for)
+    '''
+    aname = args.learner
+    rname = args.learner if args.relation_learner is None\
+        else args.relation_learner
+
+    has_perc = _is_perceptron_learner_name(aname)
+    if has_perc and not args.relation_learner:
+        msg = "The learner '" + args.learner + "' needs a" +\
+            "a non-perceptron relation learner to go with it"
+        raise ArgumentTypeError(msg)
+
+    attach_learner = _get_learner(aname, is_for_attach=True)
+    relate_learner = _get_learner(rname, is_for_attach=False)
+
+    return attach_learner, relate_learner
 
 
 def args_to_learners(decoder, args):
@@ -148,19 +169,7 @@ def args_to_learners(decoder, args):
     learner_args = LearnerArgs(decoder=decoder,
                                perc_args=perc_args)
 
-    aname = args.learner
-    rname = args.learner if args.relation_learner is None\
-        else args.relation_learner
-
-    attach_learner = _get_learner(aname, is_for_attach=True)
-    relate_learner = _get_learner(rname, is_for_attach=False)
-
-    has_perc = _is_perceptron_learner_name(aname)
-    if has_perc and not args.relation_learner:
-        msg = "The learner '" + args.learner + "' needs a" +\
-            "a non-perceptron relation learner to go with it"
-        raise ArgumentTypeError(msg)
-
+    attach_learner, relate_learner = _get_learner_set(args)
     return attach_learner(learner_args), relate_learner(learner_args)
 
 
@@ -333,6 +342,28 @@ def add_learner_args(psr):
                           help="aggressivness (passive-aggressive perceptrons "
                           "only); (default: %f)" %
                           DEFAULT_PERCEPTRON_ARGS.aggressiveness)
+
+
+def validate_learner_args(wrapped):
+    """
+    Given a function that accepts an argparsed object, check
+    the learner arguments before carrying on.
+
+    This is meant to be used as a decorator, eg.::
+
+        @validate_learner_args
+        def main(args):
+            blah
+    """
+    @wraps(wrapped)
+    def inner(args):
+        "die if learner are invalid"
+        try:
+            _get_learner_set(args)
+        except ArgumentTypeError as err:
+            sys.exit('arg error: ' + str(err))
+        wrapped(args)
+    return inner
 
 
 def add_report_args(psr):
