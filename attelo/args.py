@@ -16,10 +16,6 @@ import sys
 # https://bitbucket.org/logilab/pylint/issue/58/false-positive-no-member-on-numpy-imports
 from numpy import inf
 # pylint: enable-no-name-in-module
-from sklearn.dummy import DummyClassifier
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
 
 from .decoding import DecodingMode
 from .decoding.astar import\
@@ -27,9 +23,8 @@ from .decoding.astar import\
 from .decoding.baseline import LastBaseline, LocalBaseline
 from .decoding.mst import MstDecoder
 from .decoding.greedy import LocallyGreedy
-from .learning.perceptron import\
-    (PerceptronArgs, Perceptron, PassiveAggressive, StructuredPerceptron,
-     StructuredPassiveAggressive)
+from .learning import (LearnerArgs, PerceptronArgs,
+                       ATTACH_LEARNERS, RELATE_LEARNERS)
 
 # pylint: disable=too-few-public-methods
 
@@ -93,37 +88,6 @@ def _known_decoders():
             "astar": lambda c: AstarDecoder(c.astar)}
 
 
-def _known_learners(decoder, perc_args=None):
-    """
-    Given the (parsed) command line arguments, return a sequence of
-    learners in the order they were requested on the command line
-    """
-
-    learners =\
-        {"bayes": lambda _: MultinomialNB(),
-         "maxent": lambda _: LogisticRegression(),
-         "svm": lambda _: SVC(),
-         "majority": lambda _: DummyClassifier(strategy="most_frequent"),
-        }
-
-#    if perc_args is not None:
-#        # home made perceptron
-#        learners["perc"] = Perceptron(phrasebook, perc_args)
-#        # home made PA (PA-II in fact)
-#        # TODO: expose C parameter
-#        learners["pa"] = PassiveAggressive(phrasebook, perc_args)
-#        # home made structured perceptron
-#        learners["struc_perc"] = StructuredPerceptron(phrasebook,
-#                                                      decoder,
-#                                                      perc_args)
-#        # home made structured PA
-#        learners["struc_pa"] = StructuredPassiveAggressive(phrasebook,
-#                                                           decoder,
-#                                                           perc_args)
-
-    return learners
-
-
 def _is_perceptron_learner_name(learner_name):
     """
     True if the given string corresponds to the command line
@@ -155,9 +119,6 @@ DEFAULT_NFOLD = 10
 
 # these are just dummy values (we just want the keys here)
 KNOWN_DECODERS = _known_decoders().keys()
-KNOWN_ATTACH_LEARNERS = _known_learners(LastBaseline,
-                                        DEFAULT_PERCEPTRON_ARGS).keys()
-KNOWN_RELATION_LEARNERS = _known_learners(LastBaseline, None)
 
 RNG_SEED = "just an illusion"
 
@@ -213,6 +174,29 @@ def args_to_decoding_mode(args):
         return DecodingMode.joint
 
 
+def _get_learner(name, is_for_attach=True):
+    '''
+    Return learner constructor that goes with the given
+    name or raise an ArgumentTypeError
+    '''
+
+    if is_for_attach:
+        ldict = ATTACH_LEARNERS
+        desc = 'attachment'
+    else:
+        ldict = RELATE_LEARNERS
+        desc = 'relation labelling'
+
+    if not (name in ATTACH_LEARNERS or name in RELATE_LEARNERS):
+        # completely unknown
+        raise ArgumentTypeError("Unknown learner: " + name)
+    elif name not in ldict:
+        raise ArgumentTypeError(("Learner {} cannot be used for the "
+                                 "{} task").format(name, desc))
+    else:
+        return ldict[name]
+
+
 def args_to_learners(decoder, args):
     """
     Given the (parsed) command line arguments, return a
@@ -228,27 +212,23 @@ def args_to_learners(decoder, args):
                                averaging=args.averaging,
                                use_prob=args.use_prob,
                                aggressiveness=args.aggressiveness)
-    _learners = _known_learners(decoder, perc_args)
+    learner_args = LearnerArgs(decoder=decoder,
+                               perc_args=perc_args)
 
-    if args.learner in _learners:
-        attach_learner = _learners[args.learner]
-    else:
-        raise ArgumentTypeError("Unknown learner: " + args.learner)
+    aname = args.learner
+    rname = args.learner if args.relation_learner is None\
+        else args.relation_learner
 
-    has_perc = _is_perceptron_learner_name(args.learner)
+    attach_learner = _get_learner(aname, is_for_attach=True)
+    relate_learner = _get_learner(rname, is_for_attach=False)
+
+    has_perc = _is_perceptron_learner_name(aname)
     if has_perc and not args.relation_learner:
         msg = "The learner '" + args.learner + "' needs a" +\
             "a non-perceptron relation learner to go with it"
         raise ArgumentTypeError(msg)
-    if args.relation_learner is None:
-        relation_learner = attach_learner
-    elif args.relation_learner in _learners:
-        relation_learner = _learners[args.relation_learner]
-    else:
-        raise ArgumentTypeError("Unknown relation learner: "
-                                + args.relation_learner)
 
-    return attach_learner(args), relation_learner(args)
+    return attach_learner(learner_args), relate_learner(learner_args)
 
 
 # ---------------------------------------------------------------------
@@ -394,10 +374,10 @@ def add_learner_args(psr):
 
     psr.add_argument("--learner", "-l",
                      default="bayes",
-                     choices=KNOWN_ATTACH_LEARNERS,
+                     choices=ATTACH_LEARNERS.keys(),
                      help="learner for attachment [and relations]")
     psr.add_argument("--relation-learner",
-                     choices=KNOWN_RELATION_LEARNERS,
+                     choices=RELATE_LEARNERS.keys(),
                      help="learners for relation labeling "
                      "[default same as attachment]")
 
