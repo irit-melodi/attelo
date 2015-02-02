@@ -18,6 +18,13 @@ UNRELATED = "UNRELATED"
 # pylint: enable=pointless-string-statement
 
 
+def _truncate(text, width):
+    """
+    Truncate a string and append an ellipsis if truncated
+    """
+    return text if len(text) < width else text[:width] + '...'
+
+
 class DataPackException(Exception):
     "An exception which arises when worknig with an attelo data pack"
 
@@ -67,10 +74,11 @@ class DataPack(namedtuple('DataPack',
             if edu2 not in known_edus:
                 naughty.append(edu2.id)
         if naughty:
+            naughty_list = _truncate(', '.join(naughty), 1000)
             oops = ('The EDU list mentions these EDUs as candidate parents, '
                     'but does not supply any information about them: '
                     '{naughty}')
-            raise DataPackException(oops.format(naughty=', '.join(naughty)))
+            raise DataPackException(oops.format(naughty=naughty_list))
 
     def _check_table_shape(self):
         '''
