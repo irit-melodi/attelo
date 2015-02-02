@@ -2,14 +2,35 @@ language: python
 python:
   - "2.7"
 #  - "3.2"
-# command to install dependencies
-virtualenv:
-  system_site_packages: true
+# Setup anaconda
 before_install:
+  # we only install Linux numpy so we can build Orange
+  # (not entirely clear if we need to do this though)
   - sudo apt-get -qq update
-  - sudo apt-get -qq install python-numpy python-scipy
+  - sudo apt-get -qq install python-numpy
+  # Conda is a sort of virtual environment mechanism for Python w/ non Python dependencies
+  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+  - chmod +x miniconda.sh
+  - ./miniconda.sh -b
+  - export PATH=/home/travis/miniconda/bin:$PATH
+  - conda update --yes conda
+  # The next couple lines fix a crash with multiprocessing on Travis and are not specific to using Miniconda
+  - sudo rm -rf /dev/shm
+  - sudo ln -s /run/shm /dev/shm
+# Install packages
 install:
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION pip atlas numpy scipy nose
+  - travis_wait pip install Orange
   - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip install -r requirements-py3.txt --use-mirrors .; fi
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install -r requirements.txt     --use-mirrors .; fi
-# command to run tests
-script: nosetests
+  # grab coverage packages from dan_blanchard's binstar channel
+  - conda install --yes -c dan_blanchard python-coveralls nose-cov
+  - python setup.py install
+
+# Run test
+script:
+  - nosetests --with-coverage
+
+# Calculate coverage
+after_success:
+  - coveralls

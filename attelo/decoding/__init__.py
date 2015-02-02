@@ -24,7 +24,7 @@ from .util import DecoderException
 
 from .astar import (AstarDecoder)
 from .baseline import LastBaseline, LocalBaseline
-from .mst import MstDecoder
+from .mst import MsdagDecoder, MstDecoder
 from .greedy import LocallyGreedy
 
 
@@ -81,6 +81,7 @@ def _mk_local_decoder(config, default=0.5):
 DECODERS = {"last": lambda _: LastBaseline(),
             "local": _mk_local_decoder,
             "locallyGreedy": lambda _: LocallyGreedy(),
+            "msdag": lambda c: MsdagDecoder(c.use_prob),
             "mst": lambda c: MstDecoder(c.use_prob),
             "astar": lambda c: AstarDecoder(c.astar)}
 """

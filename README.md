@@ -1,4 +1,5 @@
 [![Build Status](https://secure.travis-ci.org/kowey/attelo.png)](http://travis-ci.org/kowey/attelo)
+[![Coverage Status](https://coveralls.io/repos/kowey/attelo/badge.svg?branch=master)](https://coveralls.io/r/kowey/attelo?branch=master)
 [![Documentation Status](https://readthedocs.org/projects/attelo/badge/?version=latest)](https://readthedocs.org/projects/attelo/?badge=latest)
 
 ## About
@@ -73,12 +74,9 @@ a couple of shell scripts would be better than nothing.
 
 ## Authors
 
-In alphabetical order:
-
-Stergos Afantenos<br/>
-Pascal Denis<br/>
-Eric Kow<br/>
-Philippe Muller<br/>
+Attelo is developed within the IRIT Melodi team, based on work
+originally by Stergos Afantenos, Pascal Denis, and Philippe Muller.
+At the time of this writing (2015-02) it is maintained by Eric Kow.
 
 ## License (GPL-3)
 

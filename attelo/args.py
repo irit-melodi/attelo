@@ -20,7 +20,6 @@ from .decoding import (DecodingMode, DecoderArgs, DECODERS)
 from .decoding.astar import (AstarArgs, RfcConstraint, Heuristic)
 from .learning import (LearnerArgs, PerceptronArgs,
                        ATTACH_LEARNERS, RELATE_LEARNERS)
-
 # pylint: disable=too-few-public-methods
 
 

@@ -20,5 +20,5 @@ setup(name="attelo",
                         'numpy',
                         'scikit-learn',
                         'six',
-                        'scipy',
+                        'scipy >= 0.14.0',
                         'tabulate'])

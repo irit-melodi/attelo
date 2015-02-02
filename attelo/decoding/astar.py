@@ -27,10 +27,6 @@ from .util import get_sorted_edus, get_prob_map
 
 # pylint: disable=too-few-public-methods
 
-# pylint: disable=no-member
-MINUS_INF = -numpy.inf
-# pylint: enable=no-member
-
 _CLASS_SCHEMES = {
     "subord_coord": {
         "subord": frozenset(["elaboration",
@@ -274,7 +270,9 @@ class DiscourseState(State):
         """return a function that converts scores depending on our
         configuration"""
         if self.shared()["use_prob"]:
-            return lambda x: -math.log(x) if x != 0 else -MINUS_INF
+            # pylint: disable=no-member
+            return lambda x: -numpy.log(x)
+            # pylint: enable=no-member
         else:
             return lambda x: x
 

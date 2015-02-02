@@ -6,7 +6,7 @@ from __future__ import print_function
 import unittest
 
 from ..edu import EDU
-from . import astar, greedy
+from . import astar, greedy, mst
 
 # pylint: disable=too-few-public-methods
 
@@ -26,16 +26,16 @@ class DecoderTest(unittest.TestCase):
     We could split this into AstarTest, etc
     """
     edus = [mk_fake_edu(x)
-            for x in range(0, 5)]
+            for x in range(0, 4)]
 
     # would result of prob models max_relation
     # (p(attachement)*p(relation|attachmt))
     prob_distrib =\
-        [(edus[1], edus[2], 0.6, 'elaboration'),
-         (edus[2], edus[3], 0.3, 'narration'),
-         (edus[1], edus[3], 0.4, 'continuation')]
-    for one in edus[1:-1]:
-        prob_distrib.append((one, edus[4], 0.1, 'continuation'))
+        [(edus[0], edus[1], 0.6, 'elaboration'),
+         (edus[1], edus[2], 0.3, 'narration'),
+         (edus[0], edus[2], 0.4, 'continuation')]
+    for one in edus[:3]:
+        prob_distrib.append((one, edus[3], 0.1, 'acknowledgement'))
 
 
 class AstarTest(DecoderTest):
@@ -84,7 +84,8 @@ class AstarTest(DecoderTest):
 
 
 class LocallyGreedyTest(DecoderTest):
-    'tests for locally greedy decoder'
+    """ Tests for locally greedy decoder"""
+    
     def test_locally_greedy(self):
         'check that the locally greedy decoder works'
         decoder = greedy.LocallyGreedy()
@@ -93,3 +94,16 @@ class LocallyGreedyTest(DecoderTest):
         self.assertEqual(1, len(predictions))
         # predicted some attachments in that prediction
         self.assertTrue(predictions[0])
+
+class MstTest(DecoderTest):
+    """ Tests for MST and MSDAG decoders """
+    
+    def test_mst(self):
+        edges = mst.MstDecoder().decode(self.prob_distrib)[0]
+        # Is it a tree ? (One edge less than number of vertices)
+        self.assertEqual(len(edges), len(self.edus) -1)
+
+    def test_msdag(self):
+        edges = mst.MsdagDecoder().decode(self.prob_distrib)[0]
+        # Are all links included ? (already given a MSDAG...)
+        self.assertEqual(len(edges), len(self.prob_distrib))

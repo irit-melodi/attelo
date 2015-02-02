@@ -36,6 +36,14 @@ attelo.decoding.greedy module
     :undoc-members:
     :show-inheritance:
 
+attelo.decoding.interface module
+--------------------------------
+
+.. automodule:: attelo.decoding.interface
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 attelo.decoding.mst module
 --------------------------
 
