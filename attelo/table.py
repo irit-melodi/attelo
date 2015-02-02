@@ -140,8 +140,11 @@ class DataPack(namedtuple('DataPack',
         sel_targets = numpy.take(self.target, indices)
         # pylint: enable=no-member
         sel_pairings = [self.pairings[x] for x in indices]
-        sel_edus = [e for e in self.edus if
-                    any(e in r for r in sel_pairings)]
+        sel_edus_ = set()
+        for edu1, edu2 in sel_pairings:
+            sel_edus_.add(edu1)
+            sel_edus_.add(edu2)
+        sel_edus = [e for e in self.edus if e in sel_edus_]
         sel_data = self.data[indices]
         return DataPack(edus=sel_edus,
                         pairings=sel_pairings,
