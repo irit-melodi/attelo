@@ -47,6 +47,9 @@ The wrappers must accept a :py:class:LearnerArgs: tuple,
 the idea being that it would pick out any parameters relevant to it
 and ignore the rest
 '''
+ATTACH_LEARNERS["constant"] = lambda _: DummyClassifier(strategy="constant",
+                                                        constant=1)
+
 
 # TODO (Pascal)
 #
