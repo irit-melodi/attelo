@@ -23,7 +23,8 @@ def _load_and_select_data(args):
     """
     read data and filter on fold if relevant
     """
-    dpack = load_data_pack(args.edus, args.features)
+    dpack = load_data_pack(args.edus, args.features,
+                           verbose=True)
     if args.fold is None:
         return dpack
     else:
