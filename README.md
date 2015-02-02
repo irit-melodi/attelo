@@ -1,4 +1,5 @@
 [![Build Status](https://secure.travis-ci.org/kowey/attelo.png)](http://travis-ci.org/kowey/attelo)
+[![Coverage Status](https://coveralls.io/repos/kowey/attelo/badge.svg?branch=master)](https://coveralls.io/r/kowey/attelo?branch=master)
 [![Documentation Status](https://readthedocs.org/projects/attelo/badge/?version=latest)](https://readthedocs.org/projects/attelo/?badge=latest)
 
 ## About
