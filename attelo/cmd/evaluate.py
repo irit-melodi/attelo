@@ -5,7 +5,8 @@ import itertools
 import sys
 
 from ..args import\
-    (add_common_args, add_learner_args,
+    (add_common_args,
+     add_learner_args, validate_learner_args,
      add_report_args,
      args_to_decoder,
      args_to_decoding_mode,
@@ -105,6 +106,7 @@ def _decode_fold(mode, decoder, dpack, models):
     return scores
 
 
+@validate_learner_args
 def main(args):
     'subcommand main'
 
