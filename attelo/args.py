@@ -4,7 +4,6 @@ Managing command line arguments
 
 from __future__ import print_function
 from argparse import ArgumentTypeError
-from collections import namedtuple
 from functools import wraps
 import argparse
 import random
@@ -17,75 +16,12 @@ import sys
 from numpy import inf
 # pylint: enable-no-name-in-module
 
-from .decoding import DecodingMode
-from .decoding.astar import\
-    AstarArgs, RfcConstraint, Heuristic, AstarDecoder
-from .decoding.baseline import LastBaseline, LocalBaseline
-from .decoding.mst import MstDecoder
-from .decoding.greedy import LocallyGreedy
+from .decoding import (DecodingMode, DecoderArgs, DECODERS)
+from .decoding.astar import (AstarArgs, RfcConstraint, Heuristic)
 from .learning import (LearnerArgs, PerceptronArgs,
                        ATTACH_LEARNERS, RELATE_LEARNERS)
 
 # pylint: disable=too-few-public-methods
-
-
-# pylint: disable=too-many-arguments
-class DecoderArgs(namedtuple("DecoderAgs",
-                             ["threshold",
-                              "astar",
-                              "use_prob"])):
-    """
-    Parameters needed by decoder.
-
-    :param use_prob: `True` if model scores are probabilities in [0,1]
-                     (to be mapped to -log), `False` if arbitrary scores
-                     (to be untouched)
-    :type use_prob: bool
-
-    :param threshold: For some decoders, a probability floor that helps
-                      the decoder decide whether or not to attach something
-    :type threshold: float or None
-
-    :param astar: Config options specific to the A* decoder
-    :type astar: AstarArgs
-    """
-    def __new__(cls,
-                threshold=None,
-                astar=None,
-                use_prob=True):
-        sup = super(DecoderArgs, cls)
-        return sup.__new__(cls,
-                           threshold=threshold,
-                           astar=astar,
-                           use_prob=use_prob)
-# pylint: enable=too-many-arguments
-
-
-def _mk_local_decoder(config, default=0.5):
-    """
-    Instantiate the local decoder
-    """
-    if config.threshold is None:
-        threshold = default
-        print("using default threshold of {}".format(threshold),
-              file=sys.stderr)
-    else:
-        threshold = config.threshold
-        print("using requested threshold of {}".format(threshold),
-              file=sys.stderr)
-    return LocalBaseline(threshold, config.use_prob)
-
-
-def _known_decoders():
-    """
-    Return a dictionary of possible decoders.
-    This lets us grab at the names of known decoders
-    """
-    return {"last": lambda _: LastBaseline(),
-            "local": _mk_local_decoder,
-            "locallyGreedy": lambda _: LocallyGreedy(),
-            "mst": lambda c: MstDecoder(c.use_prob),
-            "astar": lambda c: AstarDecoder(c.astar)}
 
 
 def _is_perceptron_learner_name(learner_name):
@@ -118,7 +54,7 @@ DEFAULT_NIT = DEFAULT_PERCEPTRON_ARGS.iterations
 DEFAULT_NFOLD = 10
 
 # these are just dummy values (we just want the keys here)
-KNOWN_DECODERS = _known_decoders().keys()
+KNOWN_DECODERS = DECODERS.keys()
 
 RNG_SEED = "just an illusion"
 
@@ -155,10 +91,8 @@ def args_to_decoder(args):
                          astar=astar_args,
                          use_prob=args.use_prob)
 
-    _decoders = _known_decoders()
-
-    if args.decoder in _decoders:
-        factory = _decoders[args.decoder]
+    if args.decoder in DECODERS:
+        factory = DECODERS[args.decoder]
         return factory(config)
     else:
         raise ArgumentTypeError("Unknown decoder: " + args.decoder)
