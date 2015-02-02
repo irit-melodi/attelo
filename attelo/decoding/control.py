@@ -151,7 +151,7 @@ def decode(mode, decoder, dpack, models):
         return predictions
 
 
-def count_correct(dpack, predicted, debug=False):
+def count_correct(dpack, predicted):
     """basic eval: counting correct predicted edges (labelled or not)
     data contains the reference attachments
     labels the corresponding relations
@@ -163,9 +163,8 @@ def count_correct(dpack, predicted, debug=False):
     dict_predicted = {(arg1, arg2): rel for arg1, arg2, rel in predicted}
     pack = dpack.attached_only()
     for edu_pair, ref_label in zip(pack.pairings, pack.target):
-        if debug:
-            print(edu_pair, dict_predicted.get(edu_pair), file=sys.stderr)
-        pred_label = dict_predicted.get(edu_pair)
+        edu1, edu2 = edu_pair
+        pred_label = dict_predicted.get((edu1.id, edu2.id))
         if pred_label is not None:
             score_attach += 1
             if pred_label == ref_label:
