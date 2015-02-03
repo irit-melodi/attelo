@@ -59,9 +59,9 @@ As an example of what a features file might look like ::
 
     # labels: elaboration narration continuation
     1 1:1 2:1
-    0 1:2
+    -1 1:2
     2 1:3 3:1
-    0 1:1
+    -1 1:1
     3 1:2
 
 If you do not supply this information, attelo will make do without it;
