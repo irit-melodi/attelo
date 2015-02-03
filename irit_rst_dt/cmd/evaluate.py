@@ -13,17 +13,13 @@ import json
 import os
 import sys
 
-from attelo.args import\
-    (args_to_decoder, args_to_phrasebook)
-from attelo.decoding import DataAndModel
-from attelo.io import\
-    read_data, load_model
-import attelo.cmd as att
-
+from attelo.args import args_to_decoder
+from attelo.io import load_data_pack
 from attelo.harness.config import CliArgs
 from attelo.harness.report import CountIndex
 from attelo.harness.util import\
     timestamp, call, force_symlink
+import attelo.cmd as att
 
 from ..local import\
     TRAINING_CORPORA, EVALUATIONS, ATTELO_CONFIG_FILE
@@ -40,7 +36,9 @@ LoopConfig = namedtuple("LoopConfig",
                          "dataset"])
 "that which is common to outerish loops"
 
-DataConfig = namedtuple("DataConfig", "attach relate")
+
+DataConfig = namedtuple("DataConfig",
+                        "pack folds")
 "data tables we have read"
 #pylint: enable=pointless-string-statement
 
@@ -124,8 +122,8 @@ class FakeEvalArgs(CliArgs):
         model_file_a = _eval_model_path(lconf, econf, fold, "attach")
         model_file_r = _eval_model_path(lconf, econf, fold, "relate")
 
-        argv = [_eval_csv_path(lconf, "edu-pairs"),
-                _eval_csv_path(lconf, "relations"),
+        argv = [_edu_input_path(lconf),
+                _features_path(lconf),
                 "--config", ATTELO_CONFIG_FILE,
                 "--fold", str(fold),
                 "--fold-file", lconf.fold_file,
@@ -163,7 +161,8 @@ class FakeEnfoldArgs(CliArgs):
         :rtype: `[String]`
         """
         lconf = self.lconf
-        args = [_eval_csv_path(lconf, "edu-pairs"),
+        args = [_edu_input_path(lconf),
+                _features_path(lconf),
                 "--config", ATTELO_CONFIG_FILE,
                 "--output", lconf.fold_file]
         return args
@@ -246,12 +245,26 @@ def _link_data_files(data_dir, eval_dir):
             os.link(data_file, eval_file)
 
 
-def _eval_csv_path(lconf, ext):
+def _eval_data_path(lconf, ext):
     """
     Path to data file in the evaluation dir
     """
     return os.path.join(lconf.eval_dir,
-                        "%s.%s.tab" % (lconf.dataset, ext))
+                        "%s.%s" % (lconf.dataset, ext))
+
+
+def _features_path(lconf):
+    """
+    Path to the feature file in the evaluation dir
+    """
+    return _eval_data_path(lconf, 'relations.sparse')
+
+
+def _edu_input_path(lconf):
+    """
+    Path to the feature file in the evaluation dir
+    """
+    return _features_path(lconf) + '.edu_input'
 
 
 def _fold_dir_path(lconf, fold):
@@ -307,15 +320,12 @@ def _maybe_learn(lconf, dconf, econf, fold):
         os.makedirs(fold_dir)
 
     with FakeLearnArgs(lconf, econf, fold) as args:
-        phrasebook = args_to_phrasebook(args)
-        fold_attach, fold_relate =\
-            att.learn.select_fold(dconf.attach, dconf.relate, args, phrasebook)
-
+        subpack = dconf.pack.training(dconf.folds, fold)
         if fp.exists(args.attachment_model) and fp.exists(args.relation_model):
             print("reusing %s model (already built)" % econf.learner.name,
                   file=sys.stderr)
             return
-        att.learn.main_for_harness(args, fold_attach, fold_relate)
+        att.learn.main_for_harness(args, subpack)
 
 
 def _decode(lconf, dconf, econf, fold):
@@ -332,26 +342,19 @@ def _decode(lconf, dconf, econf, fold):
     if not os.path.exists(fold_dir):
         os.makedirs(fold_dir)
     with FakeDecodeArgs(lconf, econf, fold) as args:
-        phrasebook = args_to_phrasebook(args)
         decoder = args_to_decoder(args)
 
-        fold_attach, fold_relate =\
-            att.decode.select_fold(dconf.attach, dconf.relate,
-                                   args, phrasebook)
-        attach = DataAndModel(fold_attach,
-                              load_model(args.attachment_model))
-        relate = DataAndModel(fold_relate,
-                              load_model(args.relation_model))
-        att.decode.main_for_harness(args, phrasebook, decoder,
-                                    attach, relate)
+        subpack = dconf.pack.testing(dconf.folds, fold)
+        models = att.decode.load_models(args)
+        att.decode.main_for_harness(args, decoder, subpack, models)
 
 
-def _generate_fold_file(lconf, dconf):
+def _generate_fold_file(lconf, dpack):
     """
     Generate the folds file
     """
     with FakeEnfoldArgs(lconf) as args:
-        att.enfold.main_for_harness(args, dconf.attach)
+        att.enfold.main_for_harness(args, dpack)
 
 
 def _mk_report(parent_dir, lconf, idx_file):
@@ -412,24 +415,23 @@ def _do_corpus(lconf):
     "Run evaluation on a corpus"
     print(_corpus_banner(lconf), file=sys.stderr)
 
-    attach_file = _eval_csv_path(lconf, "edu-pairs")
-    relate_file = _eval_csv_path(lconf, "relations")
+    edus_file = _edu_input_path(lconf)
+    features_file = _features_path(lconf)
 
-    if not os.path.exists(attach_file):
+    if not os.path.exists(edus_file):
         _exit_ungathered()
-    data_attach, data_relate =\
-        read_data(attach_file, relate_file, verbose=True)
-    dconf = DataConfig(attach=data_attach,
-                       relate=data_relate)
+    dpack = load_data_pack(edus_file, features_file,
+                           verbose=True)
 
-    _generate_fold_file(lconf, dconf)
+    _generate_fold_file(lconf, dpack)
 
     with open(lconf.fold_file) as f_in:
-        folds = frozenset(json.load(f_in).values())
+        dconf = DataConfig(pack=dpack,
+                           folds=json.load(f_in))
 
     idx_file = _index_file_path(lconf.scratch_dir, lconf)
     with CountIndex(idx_file) as idx:
-        for fold in folds:
+        for fold in frozenset(dconf.folds.values()):
             _do_fold(lconf, dconf, fold, idx)
     _mk_report(lconf.eval_dir, lconf, idx_file)
 
