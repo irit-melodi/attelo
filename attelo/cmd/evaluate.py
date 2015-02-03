@@ -92,7 +92,8 @@ def _decode_fold(mode, decoder, dpack, models):
 def main(args):
     'subcommand main'
 
-    dpack = load_data_pack(args.edus, args.features)
+    dpack = load_data_pack(args.edus, args.features,
+                           verbose=not args.quiet)
     # print(args, file=sys.stderr)
     decoder = args_to_decoder(args)
     decoding_mode = args_to_decoding_mode(args)
