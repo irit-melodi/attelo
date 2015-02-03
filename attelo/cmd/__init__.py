@@ -10,6 +10,7 @@ from . import\
     (decode,
      enfold,
      evaluate,
+     graph,
      learn,
      report)
 
@@ -17,4 +18,5 @@ SUBCOMMANDS = [learn,
                decode,
                enfold,
                evaluate,
+               graph,
                report]

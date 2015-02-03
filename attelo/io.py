@@ -218,7 +218,7 @@ def load_data_pack(edu_file, feature_file, verbose=False):
     return DataPack.load(edus, pairings, data, targets, labels)
 
 # ---------------------------------------------------------------------
-# saving
+# predictions
 # ---------------------------------------------------------------------
 
 
@@ -263,8 +263,51 @@ def append_predictions_output(dpack, predicted, filename):
 
     with open(filename, 'a') as fout:
         writer = csv.writer(fout, dialect=csv.excel_tab)
-        for edu in dpack.edus:
+        # by convention the zeroth edu is the root node
+        for edu in dpack.edus[1:]:
             writer.writerow(mk_row(edu))
+
+
+def load_predictions(edu_file):
+    """
+    Read back predictions (see :ref:`output-format`), returning a list
+    of EDUs along with a list of parent names and relation labels
+
+    :rtype [(EDU, [(String, String)])]
+
+    .. _format: https://github.com/kowey/attelo/doc/inputs.rst
+    """
+    def mk_pair(row):
+        'interpret a single row'
+        expected_len = 5
+        if len(row) < expected_len:
+            oops = ('This row in the EDU file {efile} has {num} '
+                    'elements instead of the expected {expected}: '
+                    '{row}')
+            raise IoException(oops.format(efile=edu_file,
+                                          num=len(row),
+                                          expected=expected_len,
+                                          row=row))
+        [global_id, txt, grouping, start_str, end_str] = row[:expected_len]
+        start = int(start_str)
+        end = int(end_str)
+        edu = EDU(global_id,
+                  txt.decode('utf-8'),
+                  start,
+                  end,
+                  grouping)
+        links = []
+        for i in range(5, len(row), 2):
+            parent_id = row[i]
+            drel = row[i + 1]
+            if parent_id != '':
+                links.append((parent_id, drel))
+        return edu, links
+
+    with open(edu_file, 'rb') as instream:
+        reader = csv.reader(instream, dialect=csv.excel_tab)
+        return [mk_pair(r) for r in reader if r]
+
 
 # ---------------------------------------------------------------------
 # models
