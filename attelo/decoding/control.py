@@ -7,7 +7,6 @@ from enum import Enum
 
 from attelo.report import Count
 from attelo.table import (for_attachment, for_labelling)
-
 # pylint: disable=too-few-public-methods
 
 

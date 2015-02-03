@@ -10,7 +10,6 @@ from ..args import\
      args_to_decoder, args_to_learners)
 from ..io import load_data_pack, save_model, Torpor
 from ..learning import learn
-from ..table import for_attachment, for_labelling
 
 
 _DEFAULT_MODEL_ATTACH = "attach.model"
