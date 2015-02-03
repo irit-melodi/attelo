@@ -12,11 +12,10 @@ from ..args import\
      args_to_decoding_mode,
      args_to_learners,
      args_to_rng)
-from ..decoding import\
-    (decode, Models)
+from ..decoding import (decode)
+from ..learning import (learn)
 from ..fold import make_n_fold
 from ..io import (load_data_pack)
-from ..table import (for_attachment, for_labelling)
 from ..report import Report
 from .decode import score_prediction
 
@@ -61,23 +60,6 @@ def config_argparser(psr):
                      "prediction is made with relations")
 
 
-def _learn_for_fold(dpack, fold_dict, fold,
-                    attach_learner, relate_learner):
-    '''
-    learn models for the training data in the given fold
-
-    :rtype :py:class:Models:
-    '''
-    training_pack = dpack.training(fold_dict, fold)
-    attach_pack = for_attachment(training_pack)
-    relate_pack = for_labelling(training_pack)
-    attach_model = attach_learner.fit(attach_pack.data,
-                                      attach_pack.target)
-    relate_model = relate_learner.fit(relate_pack.data,
-                                      relate_pack.target)
-    return Models(attach=attach_model, relate=relate_model)
-
-
 def _decode_group(mode, decoder, dpack, models):
     '''
     decode and score a single group
@@ -116,7 +98,7 @@ def main(args):
     decoding_mode = args_to_decoding_mode(args)
 
     # TODO: more models for intra-sentence
-    attach_learner, relate_learner = args_to_learners(decoder, args)
+    learners = args_to_learners(decoder, args)
 
     fold_dict = make_n_fold(dpack, args.nfold,
                             args_to_rng(args))
@@ -127,9 +109,7 @@ def main(args):
         print(">>> doing fold ", fold + 1, file=sys.stderr)
         print(">>> training ... ", file=sys.stderr)
 
-        models = _learn_for_fold(dpack, fold_dict, fold,
-                                 attach_learner,
-                                 relate_learner)
+        models = learn(learners, dpack.training(fold_dict, fold))
         fold_evals = _decode_fold(decoding_mode,
                                   decoder,
                                   dpack.testing(fold_dict, fold),

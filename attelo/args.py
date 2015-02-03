@@ -20,6 +20,7 @@ from .decoding import (DecodingMode, DecoderArgs, DECODERS)
 from .decoding.astar import (AstarArgs, RfcConstraint, Heuristic)
 from .learning import (LearnerArgs, PerceptronArgs,
                        ATTACH_LEARNERS, RELATE_LEARNERS)
+from .util import Team
 # pylint: disable=too-few-public-methods
 
 
@@ -134,6 +135,8 @@ def _get_learner_set(args):
     '''
     Return a pair of learner wrappers (not the actual
     learners, which we would need the other args for)
+
+    :rtype Team(learner wrapper)
     '''
     aname = args.learner
     rname = args.learner if args.relation_learner is None\
@@ -148,7 +151,8 @@ def _get_learner_set(args):
     attach_learner = _get_learner(aname, is_for_attach=True)
     relate_learner = _get_learner(rname, is_for_attach=False)
 
-    return attach_learner, relate_learner
+    return Team(attach=attach_learner,
+                relate=relate_learner)
 
 
 def args_to_learners(decoder, args):
@@ -160,6 +164,8 @@ def args_to_learners(decoder, args):
     By default the relations learner is just the attachment
     learner, but the user can make a point of specifying a
     different one
+
+    :rtype Team(learner)
     """
 
     perc_args = PerceptronArgs(iterations=args.nit,
@@ -169,9 +175,9 @@ def args_to_learners(decoder, args):
     learner_args = LearnerArgs(decoder=decoder,
                                perc_args=perc_args)
 
-    attach_learner, relate_learner = _get_learner_set(args)
-    return attach_learner(learner_args), relate_learner(learner_args)
-
+    wrappers = _get_learner_set(args)
+    return Team(attach=wrappers.attach(learner_args),
+                relate=wrappers.relate(learner_args))
 
 # ---------------------------------------------------------------------
 # argparse

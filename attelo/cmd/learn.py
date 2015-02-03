@@ -9,6 +9,7 @@ from ..args import\
      add_fold_choice_args, validate_fold_choice_args,
      args_to_decoder, args_to_learners)
 from ..io import load_data_pack, save_model, Torpor
+from ..learning import learn
 from ..table import for_attachment, for_labelling
 
 
@@ -63,18 +64,11 @@ def main_for_harness(args, dpack):
     (see `select_data`)
     """
     decoder = args_to_decoder(args)
-    attach_learner, relate_learner = args_to_learners(decoder, args)
-    with Torpor("training attachment model"):
-        attach_pack = for_attachment(dpack)
-        clf = attach_learner.fit(attach_pack.data,
-                                 attach_pack.target)
-        save_model(args.attachment_model, clf)
-
-    with Torpor("training relations model"):
-        relate_pack = for_labelling(dpack.attached_only())
-        clf = relate_learner.fit(relate_pack.data,
-                                 relate_pack.target)
-        save_model(args.relation_model, clf)
+    learners = args_to_learners(decoder, args)
+    models = learn(learners, dpack, verbose=True)
+    with Torpor('writing models'):
+        save_model(args.attachment_model, models.attach)
+        save_model(args.relation_model, models.relate)
 
 
 @validate_fold_choice_args

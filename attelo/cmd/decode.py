@@ -12,8 +12,9 @@ from ..args import (add_common_args, add_decoder_args,
 from ..io import (load_data_pack, load_model,
                   start_predictions_output,
                   append_predictions_output)
-from ..decoding import (DecoderException, Models, decode, count_correct)
+from ..decoding import (DecoderException, decode, count_correct)
 from ..report import Count
+from ..util import Team
 
 
 # ---------------------------------------------------------------------
@@ -83,10 +84,10 @@ def load_models(args):
     '''
     Load model specified on the command line
 
-    :rtype :py:class:Models:
+    :rtype :py:class:Team:
     '''
-    return Models(attach=load_model(args.attachment_model),
-                  relate=load_model(args.relation_model))
+    return Team(attach=load_model(args.attachment_model),
+                relate=load_model(args.relation_model))
 
 
 def _decode_group(args, decoder, dpack, models):

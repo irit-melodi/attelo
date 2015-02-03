@@ -3,7 +3,6 @@ Central interface to the decoders
 """
 
 from __future__ import print_function
-from collections import namedtuple
 from enum import Enum
 import sys
 
@@ -23,14 +22,6 @@ class DecodingMode(Enum):
     '''
     joint = 1
     post_label = 2
-
-
-class Models(namedtuple("Models", "attach relate")):
-    """
-    Models used for attelo prediction
-    """
-    pass
-
 
 # ---------------------------------------------------------------------
 # helpers
@@ -135,6 +126,8 @@ def decode(mode, decoder, dpack, models):
     Decode every instance in the attachment table (predicting
     relations too if we have the data/model for it).
     Return the predictions made
+
+    :type models: Team(model)
     """
 
     if mode != DecodingMode.post_label:
