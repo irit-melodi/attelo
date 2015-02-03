@@ -202,7 +202,7 @@ class DataPack(namedtuple('DataPack',
         pack on completely unseen data)
         '''
         # pylint: disable=no-member
-        indices = numpy.where(self.target != 0)[0]
+        indices = numpy.where(self.target != -1)[0]
         # pylint: enable=no-member
         return self.selected(indices)
 
@@ -219,7 +219,7 @@ def for_attachment(pack):
     :rtype :py:class:DataPack:
     '''
     # pylint: disable=no-member
-    tweak = numpy.vectorize(lambda x: 1 if x else 0)
+    tweak = numpy.vectorize(lambda x: -1 if x == -1 else x)
     # pylint: enable=no-member
     return DataPack(edus=pack.edus,
                     pairings=pack.pairings,
