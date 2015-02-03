@@ -65,7 +65,11 @@ def _combine_probs(dpack, models):
 
     attach_probs = models.attach.predict_proba(attach_pack.data)
     relate_probs = models.relate.predict_proba(relate_pack.data)
-    relate_labels = models.relate.predict(relate_pack.data)
+    relate_idxes = models.relate.predict(relate_pack.data)
+    if relate_pack.classes_ is None:
+        relate_labels = relate_idxes
+    else:
+        relate_labels = [relate_pack.get_class_(i) for i in relate_idxes]
 
     # pylint: disable=star-args
     return [link(*x) for x in

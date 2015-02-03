@@ -40,13 +40,15 @@ class DataPackTest(unittest.TestCase):
     trivial = DataPack(edus=edus,
                        pairings=[(edus[0], edus[1])],
                        data=scipy.sparse.csr_matrix([[6, 8]]),
-                       target=numpy.array([1]))
+                       target=numpy.array([1]),
+                       classes_=['x'])
     trivial_bidi = DataPack(edus,
                             pairings=[(edus[0], edus[1]),
                                       (edus[1], edus[0])],
                             data=scipy.sparse.csr_matrix([[6, 8],
                                                           [7, 0]]),
-                            target=numpy.array([1, 0]))
+                            target=numpy.array([1, 0]),
+                            classes_=['x'])
 
     # pylint: disable=invalid-name
     def assertEqualishDatapack(self, pack1, pack2):
@@ -56,6 +58,7 @@ class DataPackTest(unittest.TestCase):
         '''
         self.assertEqual(pack1.edus, pack2.edus)
         self.assertEqual(pack1.pairings, pack2.pairings)
+        self.assertEqual(pack1.classes_, pack2.classes_)
         self.assertEqual(pack1.target.tolist(), pack2.target.tolist())
         self.assertEqual(pack1.data.shape, pack2.data.shape)
         self.assertEqual(squish(pack1.data), squish(pack2.data))
@@ -75,7 +78,8 @@ class DataPackTest(unittest.TestCase):
                           triv.edus,
                           triv.pairings,
                           triv.data,
-                          [1, 1])
+                          [1, 1],
+                          None)
 
         # check grouping of edus
         fake1 = EDU(self.edus[1].id,
@@ -87,16 +91,19 @@ class DataPackTest(unittest.TestCase):
                           [self.edus[0], fake1],
                           [(self.edus[0], fake1)],
                           triv.data,
-                          triv.target)
+                          triv.target,
+                          triv.classes_)
         # but root is ok
         self.assertTrue(DataPack.load([self.edus[0]],
                                       [(self.edus[0], FAKE_ROOT)],
                                       triv.data,
-                                      triv.target))
+                                      triv.target,
+                                      triv.classes_))
         dpack2 = DataPack.load(triv.edus,
                                triv.pairings,
                                triv.data,
-                               triv.target)
+                               triv.target,
+                               triv.classes_)
         self.assertEqualishDatapack(triv, dpack2)
 
     def test_select(self):
@@ -108,8 +115,39 @@ class DataPackTest(unittest.TestCase):
         other_di = DataPack(self.trivial.edus,
                             pairings=[(self.edus[1], self.edus[0])],
                             data=scipy.sparse.csr_matrix([[7, 0]]),
-                            target=numpy.array([0]))
+                            target=numpy.array([0]),
+                            classes_=[])
         self.assertEqualishDatapack(other_di, self.trivial_bidi.selected([1]))
+
+    def test_select_classes(self):
+        'test that classes are filtered correctly'
+        # pylint: disable=invalid-name
+        a1 = EDU('a1', 'hi', 0, 1, 'a')
+        a2 = EDU('a2', 'there', 3, 8, 'a')
+        b1 = EDU('b1', 'this', 0, 4, 'b')
+        b2 = EDU('b2', 'is', 6, 8, 'b')
+        # pylint: enable=invalid-name
+
+        orig_classes = ['there', 'are', 'three']
+        pack = DataPack.load(edus=[a1, a2,
+                                   b1, b2],
+                             pairings=[(a1, a2),
+                                       (b1, b2),
+                                       (b1, FAKE_ROOT)],
+                             data=scipy.sparse.csr_matrix([[6, 8],
+                                                           [7, 0],
+                                                           [3, 9]]),
+                             target=numpy.array([3, -1, 2]),
+                             classes_=orig_classes)
+
+        pack1 = pack.attached_only()
+        self.assertEqual(orig_classes, pack1.classes_)
+
+        pack2 = pack.selected([0, 1])
+        self.assertEqual(orig_classes, pack2.classes_)
+
+        pack3 = pack.selected([1, 2])
+        self.assertEqual(['there', 'are'], pack3.classes_)
 
     def test_folds(self):
         'test that fold selection does something sensible'
@@ -139,7 +177,8 @@ class DataPackTest(unittest.TestCase):
                                                            [3, 9],
                                                            [1, 1],
                                                            [0, 4]]),
-                             target=numpy.array([1, 0, 1, 1, 0]))
+                             target=numpy.array([1, 0, 1, 1, 0]),
+                             classes_=None)
         fold_dict = {'a': 0,
                      'b': 1,
                      'c': 0,

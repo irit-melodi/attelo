@@ -27,7 +27,7 @@ class DataPackException(Exception):
 
 
 class DataPack(namedtuple('DataPack',
-                          'edus pairings data target')):
+                          'edus pairings data target classes_')):
     '''
     EDUs and features associated with pairs thereof
 
@@ -41,12 +41,18 @@ class DataPack(namedtuple('DataPack',
                      row corresponding to a pairing
 
     :param target: array of predictions for each pairing
+
+    :param classes_: (optional) list of relation labels
+                   (length should be the same as largest value
+                   for target)
+    :type classes_ [string] or None
     '''
-    def __init__(self, edus, pairings, data, target):
-        super(DataPack, self).__init__(edus, pairings, data, target)
+    # pylint: disable=too-many-arguments
+    def __init__(self, edus, pairings, data, target, classes_):
+        super(DataPack, self).__init__(edus, pairings, data, target, classes_)
 
     @classmethod
-    def load(cls, edus, pairings, data, target):
+    def load(cls, edus, pairings, data, target, classes_):
         '''
         Build a data pack and run some sanity checks
         (see :py:method:sanity_check')
@@ -54,9 +60,10 @@ class DataPack(namedtuple('DataPack',
 
         :rtype :py:class:DataPack:
         '''
-        pack = cls(edus, pairings, data, target)
+        pack = cls(edus, pairings, data, target, classes_)
         pack.sanity_check()
         return pack
+    # pylint: enable=too-many-arguments
 
     def _check_edu_pairings(self):
         '''
@@ -68,11 +75,25 @@ class DataPack(namedtuple('DataPack',
             if edu2 not in known_edus:
                 naughty.append(edu2.id)
         if naughty:
-            naughty_list = _truncate(', '.join(naughty), 1000)
+            naughty_list = truncate(', '.join(naughty), 1000)
             oops = ('The EDU list mentions these EDUs as candidate parents, '
                     'but does not supply any information about them: '
                     '{naughty}')
             raise DataPackException(oops.format(naughty=naughty_list))
+
+    def _check_target(self):
+        '''
+        sanity check target properties
+        '''
+        oops = ('The number of labels given ({labels}) does not match '
+                'the number of possible target labels ({target}) in '
+                'the features file')
+        if self.classes_ is not None:
+            num_classes = len(self.classes_)
+            max_target = int(max(self.target))
+            if num_classes != max_target:
+                raise(DataPackException(oops.format(labels=num_classes,
+                                                    target=max_target)))
 
     def _check_table_shape(self):
         '''
@@ -130,6 +151,7 @@ class DataPack(namedtuple('DataPack',
         this datapack seems wrong, for example if the number of
         rows in one table is not the same as in another
         '''
+        self._check_target()
         self._check_edu_pairings()
         self._check_table_shape()
         self.groupings()
@@ -141,6 +163,12 @@ class DataPack(namedtuple('DataPack',
         # pylint: disable=no-member
         sel_targets = numpy.take(self.target, indices)
         # pylint: enable=no-member
+        if self.classes_ is None:
+            sel_classes_ = None
+        else:
+            # truncate our classes_ in case we happen to select
+            # those targets whose values are under the max
+            sel_classes_ = self.classes_[:int(max(sel_targets))]
         sel_pairings = [self.pairings[x] for x in indices]
         sel_edus_ = set()
         for edu1, edu2 in sel_pairings:
@@ -151,7 +179,8 @@ class DataPack(namedtuple('DataPack',
         return DataPack(edus=sel_edus,
                         pairings=sel_pairings,
                         data=sel_data,
-                        target=sel_targets)
+                        target=sel_targets,
+                        classes_=sel_classes_)
 
     def _select_fold(self, fold_dict, pred):
         '''
@@ -200,6 +229,17 @@ class DataPack(namedtuple('DataPack',
         # pylint: enable=no-member
         return self.selected(indices)
 
+    def get_class_(self, i):
+        '''
+        Return the class label for the given target value.
+
+        If `classes_` is None, return `None`
+        '''
+        if self.classes_ is None:
+            return None
+        else:
+            return self.classes_[int(i) - 1]
+
 
 def for_attachment(pack):
     '''
@@ -218,7 +258,8 @@ def for_attachment(pack):
     return DataPack(edus=pack.edus,
                     pairings=pack.pairings,
                     data=pack.data,
-                    target=tweak(pack.target))
+                    target=tweak(pack.target),
+                    classes_=None)
 
 
 def for_labelling(pack):

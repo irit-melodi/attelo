@@ -6,6 +6,7 @@ from __future__ import print_function
 from collections import defaultdict
 from itertools import chain
 from os import path as fp
+import codecs
 import csv
 import os
 import sys
@@ -146,18 +147,30 @@ def load_edus(edu_file):
         return [mk_pair(r) for r in reader if r]
 
 
-def load_data_pack(edu_file, feature_file, verbose=False):
+def load_labels(feature_file):
     """
-    Read EDUs and features for edu pairs.
+    Read the very top of a feature file and read the labels comment,
+    return the sequence of labels, else return None
 
-    Perform some basic sanity checks, raising
-    :py:class:IoException: if they should fail
-
-    :rtype :py:class:DataPack: or None
+    :rtype [string] or None
     """
-    with Torpor("Reading edus", quiet=not verbose):
-        edulinks = load_edus(edu_file)
+    with codecs.open(feature_file, 'r', 'utf-8') as stream:
+        line = stream.readline()
+        if line.startswith('#'):
+            seq = line[1:].split()
+            if seq[0] == 'labels:':
+                return seq[1:]
+    # fall-through case, no labels found
+    return None
 
+
+def _process_edu_links(edulinks):
+    """
+    Convert from the results of :py:method:load_edus: to sequence
+    of edus and pairings respectively
+
+    :rtype ([EDU], [(EDU,EDU)])
+    """
     edumap = {e.id: e for e, _ in edulinks}
     parents = list(chain.from_iterable(l for _, l in edulinks))
 
@@ -180,11 +193,29 @@ def load_data_pack(edu_file, feature_file, verbose=False):
     for edu, links in edulinks:
         edus.append(edu)
         pairings.extend((edumap[l], edu) for l in links)
+    return edus, pairings
+
+
+def load_data_pack(edu_file, feature_file, verbose=False):
+    """
+    Read EDUs and features for edu pairs.
+
+    Perform some basic sanity checks, raising
+    :py:class:IoException: if they should fail
+
+    :rtype :py:class:DataPack: or None
+    """
+    with Torpor("Reading edus", quiet=not verbose):
+        edulinks = load_edus(edu_file)
+        edus, pairings = _process_edu_links(edulinks)
 
     with Torpor("Reading features", quiet=not verbose):
+        labels = load_labels(feature_file)
+        # pylint: disable=unbalanced-tuple-unpacking
         data, targets = load_svmlight_file(feature_file)
+        # pylint: enable=unbalanced-tuple-unpacking
 
-    return DataPack.load(edus, pairings, data, targets)
+    return DataPack.load(edus, pairings, data, targets, labels)
 
 # ---------------------------------------------------------------------
 # saving
