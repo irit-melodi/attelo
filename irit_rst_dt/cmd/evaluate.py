@@ -28,7 +28,8 @@ from ..util import latest_tmp
 NAME = 'evaluate'
 _DEBUG = 0
 
-#pylint: disable=pointless-string-statement
+
+# pylint: disable=pointless-string-statement
 LoopConfig = namedtuple("LoopConfig",
                         ["eval_dir",
                          "scratch_dir",
@@ -40,7 +41,7 @@ LoopConfig = namedtuple("LoopConfig",
 DataConfig = namedtuple("DataConfig",
                         "pack folds")
 "data tables we have read"
-#pylint: enable=pointless-string-statement
+# pylint: enable=pointless-string-statement
 
 # ---------------------------------------------------------------------
 # user feedback
