@@ -9,6 +9,7 @@ import numpy.ma
 
 from .edu import FAKE_ROOT
 from .fold import fold_groupings
+from .util import truncate
 
 # pylint: disable=too-few-public-methods
 
@@ -16,13 +17,6 @@ from .fold import fold_groupings
 UNRELATED = "UNRELATED"
 "distinguished value for unrelateted relation labels"
 # pylint: enable=pointless-string-statement
-
-
-def _truncate(text, width):
-    """
-    Truncate a string and append an ellipsis if truncated
-    """
-    return text if len(text) < width else text[:width] + '...'
 
 
 class DataPackException(Exception):

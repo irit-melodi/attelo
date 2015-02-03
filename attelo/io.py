@@ -17,6 +17,7 @@ from sklearn.datasets import load_svmlight_file
 
 from .edu import (EDU, FAKE_ROOT_ID, FAKE_ROOT)
 from .table import DataPack, DataPackException
+from .util import truncate
 
 # pylint: disable=too-few-public-methods
 
@@ -27,13 +28,6 @@ class IoException(Exception):
     """
     def __init__(self, msg):
         super(IoException, self).__init__(msg)
-
-
-def _truncate(text, width):
-    """
-    Truncate a string and append an ellipsis if truncated
-    """
-    return text if len(text) < width else text[:width] + '...'
 
 # ---------------------------------------------------------------------
 # feedback
@@ -179,8 +173,8 @@ def load_data_pack(edu_file, feature_file, verbose=False):
     if naughty:
         oops = ('The EDU files mentions the following candidate parent ids, '
                 'but does not actually include EDUs to go with them: {}')
-        raise DataPackException(oops.format(_truncate(', '.join(naughty),
-                                                      1000)))
+        raise DataPackException(oops.format(truncate(', '.join(naughty),
+                                                     1000)))
 
     pairings = []
     for edu, links in edulinks:
