@@ -152,6 +152,51 @@ def load_edus(edu_file):
         return [mk_pair(r) for r in reader if r]
 
 
+def load_data_pack(edu_file, feature_file, verbose=False):
+    """
+    Read EDUs and features for edu pairs.
+
+    Perform some basic sanity checks, raising
+    :py:class:IoException: if they should fail
+
+    :rtype :py:class:DataPack: or None
+    """
+    with Torpor("Reading edus", quiet=not verbose):
+        edulinks = load_edus(edu_file)
+
+    edumap = {e.id: e for e, _ in edulinks}
+    parents = list(chain.from_iterable(l for _, l in edulinks))
+
+    if FAKE_ROOT_ID in parents:
+        edus = [FAKE_ROOT]
+        edumap[FAKE_ROOT_ID] = FAKE_ROOT
+    else:
+        edus = []
+
+    # this is not quite the same as the DataPack._check_edu_pairings()
+    # because here are working only with identifiers and not objects
+    naughty = [x for x in parents if x not in edumap]
+    if naughty:
+        oops = ('The EDU files mentions the following candidate parent ids, '
+                'but does not actually include EDUs to go with them: {}')
+        raise DataPackException(oops.format(_truncate(', '.join(naughty),
+                                                      1000)))
+
+    pairings = []
+    for edu, links in edulinks:
+        edus.append(edu)
+        pairings.extend((edumap[l], edu) for l in links)
+
+    with Torpor("Reading features", quiet=not verbose):
+        data, targets = load_svmlight_file(feature_file)
+
+    return DataPack.load(edus, pairings, data, targets)
+
+# ---------------------------------------------------------------------
+# saving
+# ---------------------------------------------------------------------
+
+
 def start_predictions_output(filename):
     """
     Initialise any output files that are to be appended to rather
@@ -195,48 +240,6 @@ def append_predictions_output(dpack, predicted, filename):
         writer = csv.writer(fout, dialect=csv.excel_tab)
         for edu in dpack.edus:
             writer.writerow(mk_row(edu))
-
-
-def load_data_pack(edu_file, feature_file, verbose=False):
-    """
-    Read EDUs and features for edu pairs.
-
-    Perform some basic sanity checks, raising
-    :py:class:IoException: if they should fail
-
-    :rtype :py:class:DataPack: or None
-    """
-    with Torpor("Reading edus", quiet=not verbose):
-        edulinks = load_edus(edu_file)
-
-    edumap = {e.id: e for e, _ in edulinks}
-    parents = list(chain.from_iterable(l for _, l in edulinks))
-
-    if FAKE_ROOT_ID in parents:
-        edus = [FAKE_ROOT]
-        edumap[FAKE_ROOT_ID] = FAKE_ROOT
-    else:
-        edus = []
-
-    # this is not quite the same as the DataPack._check_edu_pairings()
-    # because here are working only with identifiers and not objects
-    naughty = [x for x in parents if x not in edumap]
-    if naughty:
-        oops = ('The EDU files mentions the following candidate parent ids, '
-                'but does not actually include EDUs to go with them: {}')
-        raise DataPackException(oops.format(_truncate(', '.join(naughty),
-                                                      1000)))
-
-    pairings = []
-    for edu, links in edulinks:
-        edus.append(edu)
-        pairings.extend((edumap[l], edu) for l in links)
-
-    with Torpor("Reading features", quiet=not verbose):
-        data, targets = load_svmlight_file(feature_file)
-
-    return DataPack.load(edus, pairings, data, targets)
-
 
 # ---------------------------------------------------------------------
 # models
