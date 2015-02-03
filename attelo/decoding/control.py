@@ -4,7 +4,6 @@ Central interface to the decoders
 
 from __future__ import print_function
 from enum import Enum
-import sys
 
 from attelo.report import Count
 from attelo.table import (for_attachment, for_labelling)

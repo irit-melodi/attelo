@@ -16,6 +16,7 @@ There are two kinds of modules in this package:
 
 from __future__ import print_function
 from collections import namedtuple
+import sys
 
 # pylint: disable=wildcard-import
 # (just for re-export)
