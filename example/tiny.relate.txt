@@ -1,20 +1,19 @@
-# SET 0 UNRELATED elaboration narration continuation
-# SET 1 x y z
-1 1:0
+# labels: elaboration narration continuation
+1
 1 1:1 2:1 4:9
-0 1:2 3:1
-0 1:0
+-1 1:2 3:1
+-1
 3 1:1 2:1 4:8
-0 1:2
-0 1:0 7:9
-0 1:1
-0 1:0
-1 1:0
+-1 1:2
+-1 7:9
+-1 1:1
+-1
+1
 2 1:1 2:1
-0 1:2 3:1
-3 1:0
+-1 1:2 3:1
+3
 2 1:1 2:1 4:8
 2 1:2
-0 1:0 7:9
+-1 7:9
 1 1:1
-0 1:2
+-1 1:2
