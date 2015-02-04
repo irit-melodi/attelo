@@ -41,14 +41,14 @@ class DataPackTest(unittest.TestCase):
                        pairings=[(edus[0], edus[1])],
                        data=scipy.sparse.csr_matrix([[6, 8]]),
                        target=numpy.array([1]),
-                       labels=['x'])
+                       labels=['x', 'UNRELATED'])
     trivial_bidi = DataPack(edus,
                             pairings=[(edus[0], edus[1]),
                                       (edus[1], edus[0])],
                             data=scipy.sparse.csr_matrix([[6, 8],
                                                           [7, 0]]),
                             target=numpy.array([1, 0]),
-                            labels=['x'])
+                            labels=['x', 'UNRELATED'])
 
     # pylint: disable=invalid-name
     def assertEqualishDatapack(self, pack1, pack2):
@@ -79,7 +79,7 @@ class DataPackTest(unittest.TestCase):
                           triv.pairings,
                           triv.data,
                           [1, 1],
-                          None)
+                          ['UNRELATED', 'foo'])
 
         # check grouping of edus
         fake1 = EDU(self.edus[1].id,
@@ -117,7 +117,7 @@ class DataPackTest(unittest.TestCase):
                             pairings=[(self.edus[1], self.edus[0])],
                             data=scipy.sparse.csr_matrix([[7, 0]]),
                             target=numpy.array([0]),
-                            labels=['x'])
+                            labels=['x', 'UNRELATED'])
         self.assertEqualishDatapack(other_di, self.trivial_bidi.selected([1]))
 
     def test_select_classes(self):
@@ -129,7 +129,7 @@ class DataPackTest(unittest.TestCase):
         b2 = EDU('b2', 'is', 6, 8, 'b', 's2')
         # pylint: enable=invalid-name
 
-        orig_classes = ['there', 'are', 'four', 'lights']
+        orig_classes = ['UNRELATED', 'there', 'are', 'four', 'lights']
         pack = DataPack.load(edus=[a1, a2,
                                    b1, b2],
                              pairings=[(a1, a2),
@@ -179,7 +179,7 @@ class DataPackTest(unittest.TestCase):
                                                            [1, 1],
                                                            [0, 4]]),
                              target=numpy.array([1, 0, 1, 1, 0]),
-                             labels=None)
+                             labels=['x', 'y', 'UNRELATED'])
         fold_dict = {'a': 0,
                      'b': 1,
                      'c': 0,
