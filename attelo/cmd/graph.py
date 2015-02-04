@@ -10,8 +10,19 @@ import sys
 import pydot
 
 from ..edu import FAKE_ROOT_ID
-from ..io import load_predictions
+from ..io import load_edus, load_predictions
+from ..table import UNRELATED
 from attelo.harness.util import makedirs
+
+
+def select_links(edus, links):
+    """
+    Given a set of edus and of edu id pairs, return only the pairs
+    whose ids appear in the edu list
+    """
+    edu_ids = frozenset(edu.id for edu in edus)
+    return [(e1, e2, l) for e1, e2, l in links
+            if e1 in edu_ids or e2 in edu_ids]
 
 
 def mk_parent_dirs(filename):
@@ -39,42 +50,23 @@ def write_dot_graph(filename, dot_graph, run_graphviz=True):
 
 
 # pylint: disable=star-args
-def _build_core_graph(title, edulinks):
+def _build_core_graph(title, edus):
     """
     Return a graph containing just nodes
     """
     graph = pydot.Dot(title, graph_type='digraph')
     graph.add_node(pydot.Node(FAKE_ROOT_ID, label='.'))
-    for edu, _ in edulinks:
-        child = edu.id
-        if child == FAKE_ROOT_ID:
+    for edu in edus:
+        if edu.id == FAKE_ROOT_ID:
             continue
         attrs = {'shape': 'plaintext'}
         if edu.text:
             attrs['label'] = edu.text
-        graph.add_node(pydot.Node(child, **attrs))
+        graph.add_node(pydot.Node(edu.id, **attrs))
     return graph
 
 
-def input_to_graph(title, edulinks):
-    """
-    Convert attelo EDU input to a graph (input should be the
-    result of :py:method:load_edus)
-
-    :type edulinks: [(EDU, [string])
-    """
-    graph = _build_core_graph(title, edulinks)
-    for edu, links in edulinks:
-        child = edu.id
-        if child == FAKE_ROOT_ID:
-            continue
-        for parent in links:
-            attrs = {}
-            graph.add_edge(pydot.Edge(parent, child, **attrs))
-    return graph
-
-
-def output_to_graph(title, edulinks):
+def to_graph(title, edus, links, unrelated=False):
     """
     Convert attelo predictions to a graph.
 
@@ -83,15 +75,15 @@ def output_to_graph(title, edulinks):
 
     :type edulinks: [(EDU, [(string, string)])
     """
-    graph = _build_core_graph(title, edulinks)
-    for edu, links in edulinks:
-        child = edu.id
-        if child == FAKE_ROOT_ID:
-            continue
-        for parent, label in links:
-            attrs = {}
-            if label:
-                attrs['label'] = label
+    graph = _build_core_graph(title, edus)
+    for parent, child, label in links:
+        attrs = {}
+        if label != UNRELATED:
+            attrs['label'] = label
+            graph.add_edge(pydot.Edge(parent, child, **attrs))
+        elif unrelated:
+            attrs = {'style': 'dashed',
+                     'color': 'grey'}
             graph.add_edge(pydot.Edge(parent, child, **attrs))
     return graph
 # pylint: enable=star-args
@@ -100,10 +92,15 @@ def output_to_graph(title, edulinks):
 def config_argparser(psr):
     "add subcommand arguments to subparser"
 
-    psr.add_argument("graph", metavar="FILE",
-                     help="attelo output file")
+    psr.add_argument("edus", metavar="FILE",
+                     help="attelo edu input file")
+    psr.add_argument("predictions", metavar="FILE",
+                     help="attelo predictions file")
     psr.add_argument("output", metavar="DIR",
                      help="output directory for graphs")
+    psr.add_argument("--unrelated",
+                     action='store_true',
+                     help="include unrelated pairs")
     psr.set_defaults(func=main)
 
 
@@ -115,9 +112,12 @@ def main_for_harness(args):
     You have to supply (and filter) the data yourself
     (see `select_data`)
     """
-    edulinks = load_predictions(args.graph)
-    for group, sublinks in groupby(edulinks, lambda x: x[0].grouping):
-        graph = output_to_graph(group, list(sublinks))
+    edus = load_edus(args.edus)
+    links = load_predictions(args.predictions)
+    for group, subedus_ in groupby(edus, lambda x: x.grouping):
+        subedus = list(subedus_)
+        sublinks = select_links(subedus, links)
+        graph = to_graph(group, subedus, sublinks, unrelated=args.unrelated)
         ofilename = fp.join(args.output, group)
         write_dot_graph(ofilename, graph)
 

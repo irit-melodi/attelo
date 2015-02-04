@@ -57,6 +57,14 @@ def _combine_probs(dpack, models):
         edu1, edu2 = pair
         # TODO: log would be better, no?
         prob = pick_attach(a_probs) * pick_relate(r_probs)
+        import sys
+        from attelo.util import truncate
+        print('DECODE',
+              truncate(edu1.text, 100),
+              truncate(edu2.text, 100),
+              pick_attach(a_probs),
+              pick_relate(r_probs),
+              prob)
         return (edu1, edu2, prob, label)
 
     attach_pack = for_attachment(dpack)

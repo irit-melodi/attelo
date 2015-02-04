@@ -18,7 +18,7 @@ import joblib
 from sklearn.datasets import load_svmlight_file
 
 from .edu import (EDU, FAKE_ROOT_ID, FAKE_ROOT)
-from .table import DataPack, DataPackException
+from .table import (DataPack, DataPackException, UNRELATED)
 from .util import truncate
 
 # pylint: disable=too-few-public-methods
@@ -257,69 +257,46 @@ def append_predictions_output(dpack, predicted, filename):
 
     See also :py:method:start_predictions_file:
     """
-    incoming = defaultdict(list)
+    links = {}
     for edu1, edu2, label in predicted:
-        incoming[edu2].append((edu1, label))
-    max_indegree = max(len(x) for x in incoming.items()) if incoming else 1
+        links[(edu1, edu2)] = label
 
-    def mk_row(edu):
-        "csv row for the given edu"
-
-        parents = incoming.get(edu.id)
-        if parents:
-            linkstuff = list(chain.from_iterable(parents))
-        else:
-            linkstuff = [FAKE_ROOT_ID, "ROOT"]
-        pad_len = max_indegree * 2 - len(linkstuff)
-        padding = [''] * pad_len
-        return [edu.id,
-                edu.text.encode('utf-8'),
-                edu.grouping,
-                edu.start,
-                edu.end] + linkstuff + padding
+    def mk_row(edu1, edu2):
+        'return a list of columns'
+        edu1_id = edu1.id
+        edu2_id = edu2.id
+        return [edu1_id,
+                edu2_id,
+                links.get((edu1_id, edu2_id), UNRELATED)]
 
     with open(filename, 'a') as fout:
         writer = csv.writer(fout, dialect=csv.excel_tab)
         # by convention the zeroth edu is the root node
-        for edu in dpack.edus[1:]:
-            writer.writerow(mk_row(edu))
+        for edu1, edu2 in dpack.pairings:
+            writer.writerow(mk_row(edu1, edu2))
 
 
 def load_predictions(edu_file):
     """
     Read back predictions (see :ref:`output-format`), returning a list
-    of EDUs along with a list of parent names and relation labels
+    of triples: parent id, child id, relation label (or 'UNRELATED')
 
-    :rtype [(EDU, [(String, String)])]
+    :rtype [(string, string, string)]
 
-    .. _format: https://github.com/kowey/attelo/doc/inputs.rst
+    .. _format: https://github.com/kowey/attelo/doc/output.rst
     """
     def mk_pair(row):
         'interpret a single row'
-        expected_len = 5
+        expected_len = 3
         if len(row) < expected_len:
-            oops = ('This row in the EDU file {efile} has {num} '
+            oops = ('This row in the predictions file {efile} has {num} '
                     'elements instead of the expected {expected}: '
                     '{row}')
             raise IoException(oops.format(efile=edu_file,
                                           num=len(row),
                                           expected=expected_len,
                                           row=row))
-        [global_id, txt, grouping, start_str, end_str] = row[:expected_len]
-        start = int(start_str)
-        end = int(end_str)
-        edu = EDU(global_id,
-                  txt.decode('utf-8'),
-                  start,
-                  end,
-                  grouping)
-        links = []
-        for i in range(5, len(row), 2):
-            parent_id = row[i]
-            drel = row[i + 1]
-            if parent_id != '':
-                links.append((parent_id, drel))
-        return edu, links
+        return tuple(row)
 
     with open(edu_file, 'rb') as instream:
         reader = csv.reader(instream, dialect=csv.excel_tab)

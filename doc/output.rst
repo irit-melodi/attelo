@@ -3,33 +3,35 @@
 Output format
 =============
 
-The output format is the same as the EDU input format, except that
-instead of a "potential parents" column, we have an number of columns
-based on the maximum indegree of nodes in the graph.
-At the very least, these columns will be present
+The output format is similar to the EDU pairings format. It is a tab-delimited
+text file divided into rows and columns.  The columns are
 
-- id
-- text
-- start
-- end
-- grouping
-- parent1
-- label1
-
-If there are any nodes in the output graph with more than one parent
-node, there will also be columns for them (padded if no link is present)
-
--  parent2
--  labelN
--  ..
--  parentN
--  labelN
-
-If there is only one parent/label column, the result can be treated as
-forming a dependency tree
+* parent EDU id
+* child EDU id
+* relation label (or UNRELATED if no link between the two)
 
 ::
 
-    d1_492  anybody want sheep for wood?    dialogue_1  0   27  ROOT       ROOT    d1_493  Elaboration
-    d1_493  nope, not me    dialogue_1  28  40  d1_492 Narration        d1_494  Parallel
-    d1_494  not me either   dialogue_1  41  54  ROOT ROOT	d1_491	Alternation
+        ROOT	d1_492	ROOT
+        d1_493	d1_492	UNRELATED
+        d1_494	d1_492	UNRELATED
+        ROOT	d1_493	UNRELATED
+        d1_492	d1_493	elaboration
+        d1_494	d1_493	result
+        ROOT	d1_494	UNRELATED
+        d1_492	d1_494	narration
+        d1_493	d1_494	UNRELATED
+
+
+The output above corresponds to the graph below ::
+
+
+                ROOT
+                  |
+                  | ROOT
+                  V
+                d1_492 ------------------+
+                  |                      |
+                  | elaboration          | narration
+                  V                      V
+                d1_493 <---[result]-- d1_494
