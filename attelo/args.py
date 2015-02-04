@@ -18,6 +18,7 @@ from numpy import inf
 
 from .decoding import (DecodingMode, DecoderArgs, DECODERS)
 from .decoding.astar import (AstarArgs, RfcConstraint, Heuristic)
+from .decoding.mst import (MstRootStrategy)
 from .learning import (LearnerArgs, PerceptronArgs,
                        ATTACH_LEARNERS, RELATE_LEARNERS)
 from .util import Team
@@ -36,6 +37,8 @@ DEFAULT_PERCEPTRON_ARGS = PerceptronArgs(iterations=20,
                                          averaging=True,
                                          use_prob=True,
                                          aggressiveness=inf)
+
+DEFAULT_MST_ROOT = MstRootStrategy.fake_root
 
 # default values for A* decoder
 # (NB: not the same as in the default initialiser)
@@ -88,6 +91,7 @@ def args_to_decoder(args):
                            nbest=args.nbest)
 
     config = DecoderArgs(threshold=args.threshold,
+                         mst_root_strategy=args.mst_root_strategy,
                          astar=astar_args,
                          use_prob=args.use_prob)
 
@@ -269,6 +273,13 @@ def _add_decoder_args(psr):
                              help="decoders for attachment; " +
                              "default: %s " % DEFAULT_DECODER +
                              "(cf also heuristics for astar)")
+
+    mst_grp = psr.add_argument_group("MST/MSDAG decoder arguments")
+    mst_grp.add_argument("--mst-root-strategy",
+                         default=DEFAULT_MST_ROOT,
+                         type=MstRootStrategy.from_string,
+                         help="how the MST decoder should select its root "
+                         + MstRootStrategy.help_suffix(DEFAULT_MST_ROOT))
 
     astar_grp = psr.add_argument_group("A* decoder arguments")
     astar_grp.add_argument("--heuristics", "-e",

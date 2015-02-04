@@ -5,14 +5,17 @@ Created on Jun 27, 2012
 '''
 
 from __future__ import print_function
-
 from collections import defaultdict
+
+from depparse.graph import Digraph
 # pylint: disable=no-name-in-module
 from scipy.special import logit
 # pylint: enable=no-name-in-module
 
-from depparse.graph import Digraph
+from ..edu import FAKE_ROOT_ID
+from ..util import ArgparserEnum
 from .interface import Decoder
+from .util import DecoderException
 
 # pylint: disable=too-few-public-methods
 
@@ -35,7 +38,7 @@ def _cap_score(score):
     return min(MAX_SCORE, max(MIN_SCORE, score))
 
 
-def _get_root(edus):
+def _leftmost_edu(edus):
     """ Returns the default root node for MST/MSDAG algorithm
 
         Currently, the EDU in first position.
@@ -44,37 +47,6 @@ def _get_root(edus):
         root node (with no incoming edges). We ensure there is one.
     """
     return sorted(edus, key=lambda e: e.span)[0]
-
-
-def _graph(instances, use_prob=True):
-    """ Builds a directed graph for instances
-
-        instances are quadruplets of the form:
-            edu_source, edu_target, probability_of_attachment, relation
-
-        returns a Digraph
-    """
-
-    root_id = _get_root(set(e for s, t, _, _ in instances for e in (s, t))).id
-
-    targets = defaultdict(list)
-    labels = dict()
-    scores = dict()
-
-    for source, target, prob, rel in instances:
-        src, tgt = source.id, target.id
-
-        # Ignore all edges directed to the root
-        if tgt == root_id:
-            continue
-
-        scores[src, tgt] = _cap_score(logit(prob)) if use_prob else prob
-        labels[src, tgt] = rel
-        targets[src].append(tgt)
-
-    return Digraph(targets,
-                   lambda s, t: scores[s, t],
-                   lambda s, t: labels[s, t])
 
 
 def _msdag(graph):
@@ -109,29 +81,75 @@ def _msdag(graph):
                    lambda s, t: nlabels[s, t])
 
 
+class MstRootStrategy(ArgparserEnum):
+    '''
+    How we declare the MST root node
+    '''
+    fake_root = 1
+    leftmost = 2
+
+
 class MstDecoder(Decoder):
     """ Attach in such a way that the resulting subgraph is a
         maximum spanning tree of the original
     """
-    def __init__(self, use_prob=True):
+    def __init__(self, root_strategy, use_prob=True):
         self._use_prob = use_prob
+        self._root_strategy = root_strategy
+
+    def _graph(self, instances):
+        """ Builds a directed graph for instances
+
+            instances are quadruplets of the form:
+                edu_source, edu_target, probability_of_attachment, relation
+
+            :rtype Digraph
+        """
+
+        if self._root_strategy == MstRootStrategy.leftmost:
+            root_id = _leftmost_edu(set(e for s, t, _, _ in instances
+                                        for e in (s, t))).id
+        elif self._root_strategy == MstRootStrategy.fake_root:
+            root_id = FAKE_ROOT_ID
+        else:
+            raise DecoderException('Unknown root finding strategy: ' +
+                                   str(self._root_strategy))
+
+        targets = defaultdict(list)
+        labels = dict()
+        scores = dict()
+
+        for source, target, prob, rel in instances:
+            src, tgt = source.id, target.id
+
+            # Ignore all edges directed to the root
+            if tgt == root_id:
+                continue
+
+            if self._use_prob:
+                scores[src, tgt] = _cap_score(logit(prob))
+            else:
+                scores[src, tgt] = prob
+            labels[src, tgt] = rel
+            targets[src].append(tgt)
+
+        return Digraph(targets,
+                       lambda s, t: scores[s, t],
+                       lambda s, t: labels[s, t])
 
     def decode(self, instances):
-        graph = _graph(instances, self._use_prob)
+        graph = self._graph(instances)
         subgraph = graph.mst()
         predictions = [(src, tgt, subgraph.get_label(src, tgt))
                        for src, tgt in subgraph.iteredges()]
         return [predictions]
 
 
-class MsdagDecoder(Decoder):
+class MsdagDecoder(MstDecoder):
     """ Attach according to MSDAG (subgraph of original)"""
 
-    def __init__(self, use_prob=True):
-        self._use_prob = use_prob
-
     def decode(self, instances):
-        graph = _graph(instances, self._use_prob)
+        graph = self._graph(instances)
         subgraph = _msdag(graph)
         predictions = [(src, tgt, subgraph.get_label(src, tgt))
                        for src, tgt in subgraph.iteredges()]

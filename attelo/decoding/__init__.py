@@ -25,12 +25,13 @@ from .util import DecoderException
 
 from .astar import (AstarDecoder)
 from .baseline import LastBaseline, LocalBaseline
-from .mst import MsdagDecoder, MstDecoder
+from .mst import (MsdagDecoder, MstDecoder, MstRootStrategy)
 from .greedy import LocallyGreedy
 
 
 class DecoderArgs(namedtuple("DecoderAgs",
                              ["threshold",
+                              "mst_root_strategy",
                               "astar",
                               "use_prob"])):
     """
@@ -46,6 +47,10 @@ class DecoderArgs(namedtuple("DecoderAgs",
                      (to be untouched)
     :type use_prob: bool
 
+    :param mst_root_strategy: How the MST/MSDAG decoders should select
+                              their root node
+    :type mst_root_strategy: :py:class:MstRootStrategy:
+
     :param threshold: For some decoders, a probability floor that helps
                       the decoder decide whether or not to attach something
     :type threshold: float or None
@@ -56,10 +61,12 @@ class DecoderArgs(namedtuple("DecoderAgs",
     def __new__(cls,
                 threshold=None,
                 astar=None,
+                mst_root_strategy=MstRootStrategy.fake_root,
                 use_prob=True):
         sup = super(DecoderArgs, cls)
         return sup.__new__(cls,
                            threshold=threshold,
+                           mst_root_strategy=mst_root_strategy,
                            astar=astar,
                            use_prob=use_prob)
 
@@ -82,8 +89,8 @@ def _mk_local_decoder(config, default=0.5):
 DECODERS = {"last": lambda _: LastBaseline(),
             "local": _mk_local_decoder,
             "locallyGreedy": lambda _: LocallyGreedy(),
-            "msdag": lambda c: MsdagDecoder(c.use_prob),
-            "mst": lambda c: MstDecoder(c.use_prob),
+            "msdag": lambda c: MsdagDecoder(c.mst_root_strategy, c.use_prob),
+            "mst": lambda c: MstDecoder(c.mst_root_strategy, c.use_prob),
             "astar": lambda c: AstarDecoder(c.astar)}
 """
 Dictionary (`string -> DecoderAgs -> Decoder`) of decoder names (recognised by

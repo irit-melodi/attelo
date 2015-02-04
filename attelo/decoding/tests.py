@@ -85,7 +85,7 @@ class AstarTest(DecoderTest):
 
 class LocallyGreedyTest(DecoderTest):
     """ Tests for locally greedy decoder"""
-    
+
     def test_locally_greedy(self):
         'check that the locally greedy decoder works'
         decoder = greedy.LocallyGreedy()
@@ -95,15 +95,25 @@ class LocallyGreedyTest(DecoderTest):
         # predicted some attachments in that prediction
         self.assertTrue(predictions[0])
 
+
 class MstTest(DecoderTest):
     """ Tests for MST and MSDAG decoders """
-    
+
     def test_mst(self):
-        edges = mst.MstDecoder().decode(self.prob_distrib)[0]
+        'check plain MST decoder'
+        decoder1 = mst.MstDecoder(mst.MstRootStrategy.fake_root)
+        edges = decoder1.decode(self.prob_distrib)[0]
         # Is it a tree ? (One edge less than number of vertices)
-        self.assertEqual(len(edges), len(self.edus) -1)
+        self.assertEqual(len(edges), len(self.edus) - 1)
+
+        decoder2 = mst.MstDecoder(mst.MstRootStrategy.leftmost)
+        edges = decoder2.decode(self.prob_distrib)[0]
+        # Is it a tree ? (One edge less than number of vertices)
+        self.assertEqual(len(edges), len(self.edus) - 1)
 
     def test_msdag(self):
-        edges = mst.MsdagDecoder().decode(self.prob_distrib)[0]
+        'check MSDAG decoder'
+        decoder = mst.MsdagDecoder(mst.MstRootStrategy.fake_root)
+        edges = decoder.decode(self.prob_distrib)[0]
         # Are all links included ? (already given a MSDAG...)
         self.assertEqual(len(edges), len(self.prob_distrib))
