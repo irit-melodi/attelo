@@ -85,13 +85,13 @@ class DataPack(namedtuple('DataPack',
         '''
         sanity check target properties
         '''
-        oops = ('The number of labels given ({labels}) does not match '
+        oops = ('The number of labels given ({labels}) is less than '
                 'the number of possible target labels ({target}) in '
                 'the features file')
         if self.labels is not None:
             num_classes = len(self.labels)
             max_target = int(max(self.target))
-            if num_classes != max_target:
+            if num_classes < max_target:
                 raise(DataPackException(oops.format(labels=num_classes,
                                                     target=max_target)))
 
@@ -166,9 +166,7 @@ class DataPack(namedtuple('DataPack',
         if self.labels is None:
             sel_labels = None
         else:
-            # truncate our labels in case we happen to select
-            # those targets whose values are under the max
-            sel_labels = self.labels[:int(max(sel_targets))]
+            sel_labels = self.labels
         sel_pairings = [self.pairings[x] for x in indices]
         sel_edus_ = set()
         for edu1, edu2 in sel_pairings:

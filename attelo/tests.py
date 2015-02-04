@@ -116,7 +116,7 @@ class DataPackTest(unittest.TestCase):
                             pairings=[(self.edus[1], self.edus[0])],
                             data=scipy.sparse.csr_matrix([[7, 0]]),
                             target=numpy.array([0]),
-                            labels=[])
+                            labels=['x'])
         self.assertEqualishDatapack(other_di, self.trivial_bidi.selected([1]))
 
     def test_select_classes(self):
@@ -128,7 +128,7 @@ class DataPackTest(unittest.TestCase):
         b2 = EDU('b2', 'is', 6, 8, 'b')
         # pylint: enable=invalid-name
 
-        orig_classes = ['there', 'are', 'three']
+        orig_classes = ['there', 'are', 'four', 'lights']
         pack = DataPack.load(edus=[a1, a2,
                                    b1, b2],
                              pairings=[(a1, a2),
@@ -147,7 +147,7 @@ class DataPackTest(unittest.TestCase):
         self.assertEqual(orig_classes, pack2.labels)
 
         pack3 = pack.selected([1, 2])
-        self.assertEqual(['there', 'are'], pack3.labels)
+        self.assertEqual(orig_classes, pack3.labels)
 
     def test_folds(self):
         'test that fold selection does something sensible'
