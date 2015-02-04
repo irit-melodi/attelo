@@ -25,8 +25,9 @@ EDU inputs
   is no useful notion of subgrouping).  Some decoders may
   try to treat links between EDUs in the same subgrouping
   differently from the general case
-* span start: (int)
-* span end: (int)
+* span start: (int): used by decoders to order EDUs and
+  determine their adjacency
+* span end: (int): see span start
 
 ::
 
