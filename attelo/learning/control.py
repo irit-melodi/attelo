@@ -32,6 +32,5 @@ def learn(learners, dpack, verbose=False):
         relate_model = learners.relate.fit(relate_pack.data,
                                            relate_pack.target)
 
-    print(relate_model.classes_)
     return Team(attach=attach_model,
                 relate=relate_model)
