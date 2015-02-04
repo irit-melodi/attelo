@@ -2,8 +2,38 @@
 General-purpose classes and functions
 '''
 
+from argparse import ArgumentTypeError
 from collections import namedtuple
+import enum
 # pylint: disable=too-few-public-methods
+
+
+class ArgparserEnum(enum.Enum):
+    '''
+    An enumeration whose values we spit out as choices to argparser
+    '''
+    @classmethod
+    def choices_str(cls):
+        "available choices in this enumeration"
+        return ",".join(sorted(x.name for x in cls))
+
+    @classmethod
+    def help_suffix(cls, default):
+        "help text suffix showing choices and default"
+        template = "(choices: {{{choices}}}, default: {default})"
+        return template.format(choices=cls.choices_str(),
+                               default=default.name)
+
+    @classmethod
+    def from_string(cls, string):
+        "command line arg to MstRootStrategy"
+        names = {x.name: x for x in cls}
+        value = names.get(string)
+        if value is not None:
+            return value
+        else:
+            oops = "invalid choice: {}, choose from {}"
+            raise ArgumentTypeError(oops.format(string, cls.choices_str()))
 
 
 class Team(namedtuple("Team", "attach relate")):
