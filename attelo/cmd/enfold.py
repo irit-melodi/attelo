@@ -7,7 +7,7 @@ import sys
 
 from ..args import (add_common_args, args_to_rng, DEFAULT_NFOLD)
 from ..fold import make_n_fold
-from ..io import load_data_pack
+from .util import load_args_data_pack
 
 
 def config_argparser(psr):
@@ -44,7 +44,7 @@ def main_for_harness(args, dpack):
 def main(args):
     "subcommand main (called from mother script)"
 
-    dpack = load_data_pack(args.edus, args.features)
+    dpack = load_args_data_pack(args)
     main_for_harness(args, dpack)
     if args.output is None:
         print("")

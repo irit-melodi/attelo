@@ -8,8 +8,9 @@ from ..args import\
      add_learner_args, validate_learner_args,
      add_fold_choice_args, validate_fold_choice_args,
      args_to_decoder, args_to_learners)
-from ..io import load_data_pack, save_model, Torpor
+from ..io import save_model, Torpor
 from ..learning import learn
+from .util import load_args_data_pack
 
 
 _DEFAULT_MODEL_ATTACH = "attach.model"
@@ -24,8 +25,7 @@ def _load_and_select_data(args):
     """
     read data and filter on fold if relevant
     """
-    dpack = load_data_pack(args.edus, args.features,
-                           verbose=not args.quiet)
+    dpack = load_args_data_pack(args)
     if args.fold is None:
         return dpack
     else:

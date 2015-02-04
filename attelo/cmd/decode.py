@@ -2,19 +2,19 @@
 
 from __future__ import print_function
 from os import path as fp
-import argparse
 import json
 import sys
 
 from ..args import (add_common_args, add_decoder_args,
                     add_fold_choice_args, validate_fold_choice_args,
                     args_to_decoder, args_to_decoding_mode)
-from ..io import (load_data_pack, load_model,
+from ..io import (load_model,
                   start_predictions_output,
                   append_predictions_output)
 from ..decoding import (DecoderException, decode, count_correct)
 from ..report import Count
 from ..util import Team
+from .util import load_args_data_pack
 
 
 # ---------------------------------------------------------------------
@@ -26,8 +26,7 @@ def _load_and_select_data(args):
     """
     read data and filter on fold if relevant
     """
-    dpack = load_data_pack(args.edus, args.features,
-                           verbose=not args.quiet)
+    dpack = load_args_data_pack(args)
     if args.fold is None:
         return dpack
     else:

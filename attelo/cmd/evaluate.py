@@ -15,9 +15,9 @@ from ..args import\
 from ..decoding import (decode)
 from ..learning import (learn)
 from ..fold import make_n_fold
-from ..io import (load_data_pack)
 from ..report import Report
 from .decode import score_prediction
+from .util import load_args_data_pack
 
 
 def best_prediction(dpack, predictions):
@@ -92,8 +92,7 @@ def _decode_fold(mode, decoder, dpack, models):
 def main(args):
     'subcommand main'
 
-    dpack = load_data_pack(args.edus, args.features,
-                           verbose=not args.quiet)
+    dpack = load_args_data_pack(args)
     # print(args, file=sys.stderr)
     decoder = args_to_decoder(args)
     decoding_mode = args_to_decoding_mode(args)

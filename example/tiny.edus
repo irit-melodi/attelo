@@ -1,6 +1,6 @@
-d1_492	anybody want sheep for wood?	dialogue_1	0	27	ROOT d1_493 d1_494
-d1_493	nope, not me	dialogue_1	28	40	ROOT d1_492 d1_494
-d1_494	not me either	dialogue_1	41	54	ROOT d1_492 d1_493
-d2_692	anybody want sheep for wood?	dialogue_2	0	27	ROOT d2_693 d2_694
-d2_693	nope, not me	dialogue_2	28	40	ROOT d2_692 d2_694
-d2_694	not me either	dialogue_2	41	54	ROOT d2_692 d2_693
+d1_492	anybody want sheep for wood?	dialogue_1	0	27
+d1_493	nope, not me	dialogue_1	28	40
+d1_494	not me either	dialogue_1	41	54
+d2_692	anybody want sheep for wood?	dialogue_2	0	27
+d2_693	nope, not me	dialogue_2	28	40
+d2_694	not me either	dialogue_2	41	54

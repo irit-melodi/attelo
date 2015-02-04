@@ -188,7 +188,9 @@ def add_common_args(psr):
     "add usual attelo args to subcommand parser"
 
     psr.add_argument("edus", metavar="FILE",
-                     help="EDU input file (CONLL)")
+                     help="EDU input file (tab separated)")
+    psr.add_argument("pairings", metavar="FILE",
+                     help="EDU pairings file (tab separated)")
     psr.add_argument("features", metavar="FILE",
                      help="EDU pair features (libsvm)")
     psr.add_argument("--config", "-C", metavar="FILE",

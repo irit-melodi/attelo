@@ -239,6 +239,7 @@ class TestArgs(CliArgs):
     def argv(self):
         "command line args"
         return [self.eg_path('tiny.edus'),
+                self.eg_path('tiny.pairings'),
                 self.eg_path('tiny.relate.txt')]
 
     @classmethod

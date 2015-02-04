@@ -3,26 +3,11 @@
 Input format
 ============
 
-Input to attelo consists of two aligned files:
+Input to attelo consists of three files two of which are aligned:
 
 * an EDU input file with one line per discourse unit
-* a features file with one line per EDU *pair*
-
-The pairs are defined via a list of "potential parent edus" that
-each edu can be associated with.
-
-Suppose we have three EDUs (e1, e2, e3), and they respectively
-list their potential parents as [e2, ROOT], [e1, e3], and [ROOT, e1].
-In this case, the first two rows of the features file would
-correspond to the e1 pairings, followed by another two rows for
-the e2 pairings, and a final two rows for the e3 pairings:
-
-1. e2,   e1
-2. ROOT, e1
-3. e1,   e2
-4. e3,   e2
-5. ROOT, e3
-6. 1,    e3
+* a pairings file with one line per EDU *pair*
+* a features file also with one line per EDU *pair*
 
 EDU inputs
 ----------
@@ -34,14 +19,34 @@ EDU inputs
 * grouping: eg. file, dialogue
 * span start: (int)
 * span end: (int)
-* possible parents (single column, space delimited,
-  NB: ROOT as distinguished name for root)
 
 ::
 
-    d1_492  anybody want sheep for wood?    dialogue_1  0   27  ROOT d1_493 d1_494
-    d1_493  nope, not me    dialogue_1  28  40  ROOT d1_492 d1_494
-    d1_494  not me either   dialogue_1  41  54  ROOT d1_491 d1_492 d1_493
+    d1_492	sheep for wood?	dialogue_1	0	15
+    d1_493	nope, not me	dialogue_1	16	28
+    d1_494	not me either	dialogue_1	29	42
+
+Pairings
+--------
+The pairings file is a tab-delimited list of (parent, child) pairs,
+with each element being either an EDU global id (from the EDU inputs),
+or the distinguished label ROOT.  Each row in this file is corresponds with a
+row in the feature files ::
+
+
+    ROOT	d1_492
+    d1_493	d1_492
+    d1_494	d1_492
+    ROOT	d1_493
+    d1_492	d1_493
+    d1_494	d1_493
+    ROOT	d1_494
+    d1_492	d1_494
+    d1_493	d1_494
+
+
+Note that attelo can also accept pairings files with a third column (which
+it ignores)
 
 Features
 --------

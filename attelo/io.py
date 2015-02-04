@@ -7,6 +7,7 @@ from collections import defaultdict
 from itertools import chain
 from os import path as fp
 import codecs
+import copy
 import csv
 import os
 import sys
@@ -109,20 +110,15 @@ class Torpor(object):
 
 def load_edus(edu_file):
     """
-    Read EDUs (see :ref:`edu-input-format`), returning a list
-    of EDUs paired with ids for their possible parents.
+    Read EDUs (see :ref:`edu-input-format`)
 
-    Note that the order that the EDUs and parents are returned
-    in is significant as it is used to for indexing the feature
-    file
-
-    :rtype [(EDU, [String])]
+    :rtype [EDU]
 
     .. _format: https://github.com/kowey/attelo/doc/inputs.rst
     """
-    def mk_pair(row):
+    def read_edu(row):
         'interpret a single row'
-        expected_len = 6
+        expected_len = 5
         if len(row) != expected_len:
             oops = ('This row in the EDU file {efile} has {num} '
                     'elements instead of the expected {expected}: '
@@ -131,20 +127,42 @@ def load_edus(edu_file):
                                           num=len(row),
                                           expected=expected_len,
                                           row=row))
-        [global_id, txt, grouping, start_str, end_str, parents_str] = row
+        [global_id, txt, grouping, start_str, end_str] = row
         start = int(start_str)
         end = int(end_str)
-        edu = EDU(global_id,
-                  txt.decode('utf-8'),
-                  start,
-                  end,
-                  grouping)
-        parents = parents_str.split()
-        return edu, parents
+        return EDU(global_id,
+                   txt.decode('utf-8'),
+                   start,
+                   end,
+                   grouping)
 
     with open(edu_file, 'rb') as instream:
         reader = csv.reader(instream, dialect=csv.excel_tab)
-        return [mk_pair(r) for r in reader if r]
+        return [read_edu(r) for r in reader if r]
+
+
+def load_pairings(edu_file):
+    """
+    Read and return EDU pairings (see :ref:`edu-input-format`).
+    We assume the order is parent, child
+
+    :rtype [(string, string)]
+
+    .. _format: https://github.com/kowey/attelo/doc/inputs.rst
+    """
+    def read_pair(row):
+        'interpret a single row'
+        if len(row) < 2 or len(row) > 3:
+            oops = ('This row in the pairings file {efile} has '
+                    '{num} elements instead of the expected 2 or 3')
+            raise IoException(oops.format(efile=edu_file,
+                                          num=len(row),
+                                          row=row))
+        return tuple(row[:2])
+
+    with open(edu_file, 'rb') as instream:
+        reader = csv.reader(instream, dialect=csv.excel_tab)
+        return [read_pair(r) for r in reader if r]
 
 
 def load_labels(feature_file):
@@ -164,39 +182,37 @@ def load_labels(feature_file):
     return None
 
 
-def _process_edu_links(edulinks):
+def _process_edu_links(edus, pairings):
     """
-    Convert from the results of :py:method:load_edus: to sequence
-    of edus and pairings respectively
+    Convert from the results of :py:method:load_edus: and
+    :py:method:load_pairings: to a sequence of edus and pairings
+    respectively
 
     :rtype ([EDU], [(EDU,EDU)])
     """
-    edumap = {e.id: e for e, _ in edulinks}
-    parents = list(chain.from_iterable(l for _, l in edulinks))
+    edumap = {e.id: e for e in edus}
+    enames = frozenset(chain.from_iterable(pairings))
 
-    if FAKE_ROOT_ID in parents:
-        edus = [FAKE_ROOT]
+    if FAKE_ROOT_ID in enames:
+        edus2 = [FAKE_ROOT] + edus
         edumap[FAKE_ROOT_ID] = FAKE_ROOT
     else:
-        edus = []
+        edus2 = copy.copy(edus)
 
     # this is not quite the same as the DataPack._check_edu_pairings()
     # because here are working only with identifiers and not objects
-    naughty = [x for x in parents if x not in edumap]
+    naughty = [x for x in enames if x not in edumap]
     if naughty:
-        oops = ('The EDU files mentions the following candidate parent ids, '
-                'but does not actually include EDUs to go with them: {}')
+        oops = ('The pairings file mentions the following EDUs but the EDU '
+                'file does not actually include EDUs to go with them: {}')
         raise DataPackException(oops.format(truncate(', '.join(naughty),
                                                      1000)))
 
-    pairings = []
-    for edu, links in edulinks:
-        edus.append(edu)
-        pairings.extend((edumap[l], edu) for l in links)
-    return edus, pairings
+    pairings2 = [(edumap[e1], edumap[e2]) for e1, e2 in pairings]
+    return edus2, pairings2
 
 
-def load_data_pack(edu_file, feature_file, verbose=False):
+def load_data_pack(edu_file, pairings_file, feature_file, verbose=False):
     """
     Read EDUs and features for edu pairs.
 
@@ -205,9 +221,9 @@ def load_data_pack(edu_file, feature_file, verbose=False):
 
     :rtype :py:class:DataPack: or None
     """
-    with Torpor("Reading edus", quiet=not verbose):
-        edulinks = load_edus(edu_file)
-        edus, pairings = _process_edu_links(edulinks)
+    with Torpor("Reading edus and pairings", quiet=not verbose):
+        edus, pairings = _process_edu_links(load_edus(edu_file),
+                                            load_pairings(pairings_file))
 
     with Torpor("Reading features", quiet=not verbose):
         labels = load_labels(feature_file)
