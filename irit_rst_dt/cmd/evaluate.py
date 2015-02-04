@@ -222,12 +222,6 @@ class FakeDecodeArgs(FakeEvalArgs):
                      "--scores", _counts_file_path(lconf, econf, fold),
                      "--output", _decode_output_path(lconf, econf, fold)])
         return args
-
-    # pylint: disable=no-member
-    def __exit__(self, ctype, value, traceback):
-        "Tidy up any open file handles, etc"
-        self.scores.close()
-    # pylint: enable=no-member
 # pylint: enable=too-many-instance-attributes, too-few-public-methods
 
 
