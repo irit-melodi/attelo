@@ -70,7 +70,6 @@ def config_argparser(psr):
                      help="model needed for relations prediction")
     psr.add_argument("--scores",
                      metavar='FILE',
-                     type=argparse.FileType('w'),
                      help="score our decoding (test data must have "
                      "ref labels to score against) and save it here")
     psr.add_argument("--output", "-o",
@@ -132,7 +131,8 @@ def main_for_harness(args, decoder, dpack, models):
         scores[onedoc] = _decode_group(args, decoder, onepack, models)
 
     if args.scores is not None:
-        Count.write_csv(scores, args.scores)
+        with open(args.scores, 'w') as stream:
+            Count.write_csv(scores, stream)
 
 
 @validate_fold_choice_args
