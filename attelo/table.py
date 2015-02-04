@@ -85,6 +85,14 @@ class DataPack(namedtuple('DataPack',
         '''
         sanity check target properties
         '''
+        if self.labels is None:
+            raise DataPackException('You did not supply any labels in the '
+                                    'features file')
+
+        if UNRELATED not in self.labels:
+            raise DataPackException('The label "UNRELATED" is missing from '
+                                    'the labels list ' + str(self.labels))
+
         oops = ('The number of labels given ({labels}) is less than '
                 'the number of possible target labels ({target}) in '
                 'the features file')
@@ -223,7 +231,8 @@ class DataPack(namedtuple('DataPack',
         pack on completely unseen data)
         '''
         # pylint: disable=no-member
-        indices = numpy.where(self.target != -1)[0]
+        unrelated = self.labels.index(UNRELATED)
+        indices = numpy.where(self.target != unrelated)[0]
         # pylint: enable=no-member
         return self.selected(indices)
 
@@ -251,7 +260,8 @@ def for_attachment(pack):
     :rtype :py:class:DataPack:
     '''
     # pylint: disable=no-member
-    tweak = numpy.vectorize(lambda x: -1 if x == -1 else x)
+    unrelated = pack.labels.index(UNRELATED)
+    tweak = numpy.vectorize(lambda x: -1 if x == unrelated else x)
     # pylint: enable=no-member
     return DataPack(edus=pack.edus,
                     pairings=pack.pairings,

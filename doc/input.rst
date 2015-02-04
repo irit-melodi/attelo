@@ -69,13 +69,15 @@ which attelo can use to associate relation labels with string values ::
 
     # labels: <space delimited list of labels>
 
-As an example of what a features file might look like ::
+One of these labels must be the string 'UNRELATED' which is used for edu
+pairs which are not related/attached.  For exampl, in the below, the second
+and fourth EDU pairs are not considered to be related ::
 
-    # labels: elaboration narration continuation
+    # labels: elaboration narration continuation UNRELATED
     1 1:1 2:1
-    -1 1:2
+    4 1:2
     2 1:3 3:1
-    -1 1:1
+    4 1:1
     3 1:2
 
 If you do not supply this information, attelo will make do without it;
