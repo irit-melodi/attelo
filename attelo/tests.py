@@ -240,7 +240,7 @@ class TestArgs(CliArgs):
         "command line args"
         return [self.eg_path('tiny.edus'),
                 self.eg_path('tiny.pairings'),
-                self.eg_path('tiny.relate.txt')]
+                self.eg_path('tiny.features.sparse')]
 
     @classmethod
     def run(cls, *args, **kwargs):
