@@ -1,6 +1,7 @@
 "visualise attelo outputs"
 
 from __future__ import print_function
+from itertools import groupby
 from os import path as fp
 import codecs
 import os
@@ -38,16 +39,13 @@ def write_dot_graph(filename, dot_graph, run_graphviz=True):
 
 
 # pylint: disable=star-args
-def input_to_graph(title, edulinks):
+def _build_core_graph(title, edulinks):
     """
-    Convert attelo EDU input to a graph (input should be the
-    result of :py:method:load_edus)
-
-    :type edulinks: [(EDU, [string])
+    Return a graph containing just nodes
     """
     graph = pydot.Dot(title, graph_type='digraph')
     graph.add_node(pydot.Node(FAKE_ROOT_ID, label='.'))
-    for edu, links in edulinks:
+    for edu, _ in edulinks:
         child = edu.id
         if child == FAKE_ROOT_ID:
             continue
@@ -55,6 +53,21 @@ def input_to_graph(title, edulinks):
         if edu.text:
             attrs['label'] = edu.text
         graph.add_node(pydot.Node(child, **attrs))
+    return graph
+
+
+def input_to_graph(title, edulinks):
+    """
+    Convert attelo EDU input to a graph (input should be the
+    result of :py:method:load_edus)
+
+    :type edulinks: [(EDU, [string])
+    """
+    graph = _build_core_graph(title, edulinks)
+    for edu, links in edulinks:
+        child = edu.id
+        if child == FAKE_ROOT_ID:
+            continue
         for parent in links:
             attrs = {}
             graph.add_edge(pydot.Edge(parent, child, **attrs))
@@ -70,16 +83,11 @@ def output_to_graph(title, edulinks):
 
     :type edulinks: [(EDU, [(string, string)])
     """
-    graph = pydot.Dot(title, graph_type='digraph')
-    graph.add_node(pydot.Node(FAKE_ROOT_ID, label='.'))
+    graph = _build_core_graph(title, edulinks)
     for edu, links in edulinks:
         child = edu.id
         if child == FAKE_ROOT_ID:
             continue
-        attrs = {'shape': 'plaintext'}
-        if edu.text:
-            attrs['label'] = edu.text
-        graph.add_node(pydot.Node(child, **attrs))
         for parent, label in links:
             attrs = {}
             if label:
@@ -108,10 +116,10 @@ def main_for_harness(args):
     (see `select_data`)
     """
     edulinks = load_predictions(args.graph)
-    graph_name = fp.basename(args.graph)
-    graph = output_to_graph(graph_name, edulinks)
-    ofilename = fp.join(args.output, graph_name)
-    write_dot_graph(ofilename, graph)
+    for group, sublinks in groupby(edulinks, lambda x: x[0].grouping):
+        graph = output_to_graph(group, list(sublinks))
+        ofilename = fp.join(args.output, group)
+        write_dot_graph(ofilename, graph)
 
 
 def main(args):
