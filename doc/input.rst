@@ -15,16 +15,24 @@ EDU inputs
 * global id: used by your application, arbitrary string?
   (NB: `ROOT` is a special name: no EDU should be named that,
   but all EDUs can have ROOT as a potential parent)
-* text: good for debugging
-* grouping: eg. file, dialogue
+* text: essentially for debugging purposes, used by attelo
+  graph to provide a visualisation of parses
+* grouping (eg. file name, dialogue id): edus are only ever
+  connected with edus in the same group. Also, folds are
+  built on the basis of EDU groupings
+* subgrouping (eg. sentence id): any common subunit that
+  can hold multiple EDUs (use the EDU id itself if there
+  is no useful notion of subgrouping).  Some decoders may
+  try to treat links between EDUs in the same subgrouping
+  differently from the general case
 * span start: (int)
 * span end: (int)
 
 ::
 
-    d1_492	sheep for wood?	dialogue_1	0	15
-    d1_493	nope, not me	dialogue_1	16	28
-    d1_494	not me either	dialogue_1	29	42
+    d1_492	sheep for wood?	dialogue_1	sent1	0	15
+    d1_493	nope, not me	dialogue_1	sent2	16	28
+    d1_494	not me either	dialogue_1	sent2	29	42
 
 Pairings
 --------

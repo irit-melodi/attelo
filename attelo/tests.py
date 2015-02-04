@@ -35,8 +35,8 @@ class DataPackTest(unittest.TestCase):
     '''
     basic tests on data pack filtering operations
     '''
-    edus = [EDU('e1', 'hi', 0, 1, 'a'),
-            EDU('e2', 'there', 3, 8, 'a')]
+    edus = [EDU('e1', 'hi', 0, 1, 'a', 's1'),
+            EDU('e2', 'there', 3, 8, 'a', 's1')]
     trivial = DataPack(edus=edus,
                        pairings=[(edus[0], edus[1])],
                        data=scipy.sparse.csr_matrix([[6, 8]]),
@@ -86,7 +86,8 @@ class DataPackTest(unittest.TestCase):
                     self.edus[1].text,
                     self.edus[1].start,
                     self.edus[1].end,
-                    'b')
+                    'b',
+                    's2')
         self.assertRaises(DataPackException, DataPack.load,
                           [self.edus[0], fake1],
                           [(self.edus[0], fake1)],
@@ -122,10 +123,10 @@ class DataPackTest(unittest.TestCase):
     def test_select_classes(self):
         'test that classes are filtered correctly'
         # pylint: disable=invalid-name
-        a1 = EDU('a1', 'hi', 0, 1, 'a')
-        a2 = EDU('a2', 'there', 3, 8, 'a')
-        b1 = EDU('b1', 'this', 0, 4, 'b')
-        b2 = EDU('b2', 'is', 6, 8, 'b')
+        a1 = EDU('a1', 'hi', 0, 1, 'a', 's1')
+        a2 = EDU('a2', 'there', 3, 8, 'a', 's1')
+        b1 = EDU('b1', 'this', 0, 4, 'b', 's2')
+        b2 = EDU('b2', 'is', 6, 8, 'b', 's2')
         # pylint: enable=invalid-name
 
         orig_classes = ['there', 'are', 'four', 'lights']
@@ -153,14 +154,14 @@ class DataPackTest(unittest.TestCase):
         'test that fold selection does something sensible'
 
         # pylint: disable=invalid-name
-        a1 = EDU('a1', 'hi', 0, 1, 'a')
-        a2 = EDU('a2', 'there', 3, 8, 'a')
-        b1 = EDU('b1', 'this', 0, 4, 'b')
-        b2 = EDU('b2', 'is', 6, 8, 'b')
-        c1 = EDU('c1', 'rather', 0, 7, 'c')
-        c2 = EDU('c2', 'tedious', 9, 16, 'c')
-        d1 = EDU('d1', 'innit', 0, 5, 'd')
-        d2 = EDU('d2', '?', 6, 7, 'd')
+        a1 = EDU('a1', 'hi', 0, 1, 'a', 's1')
+        a2 = EDU('a2', 'there', 3, 8, 'a', 's1')
+        b1 = EDU('b1', 'this', 0, 4, 'b', 's2')
+        b2 = EDU('b2', 'is', 6, 8, 'b', 's2')
+        c1 = EDU('c1', 'rather', 0, 7, 'c', 's3')
+        c2 = EDU('c2', 'tedious', 9, 16, 'c', 's3')
+        d1 = EDU('d1', 'innit', 0, 5, 'd', 's4')
+        d2 = EDU('d2', '?', 6, 7, 'd', 's4')
         # pylint: enable=invalid-name
 
         pack = DataPack.load(edus=[a1, a2,

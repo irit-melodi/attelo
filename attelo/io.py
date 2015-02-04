@@ -118,7 +118,7 @@ def load_edus(edu_file):
     """
     def read_edu(row):
         'interpret a single row'
-        expected_len = 5
+        expected_len = 6
         if len(row) != expected_len:
             oops = ('This row in the EDU file {efile} has {num} '
                     'elements instead of the expected {expected}: '
@@ -127,14 +127,15 @@ def load_edus(edu_file):
                                           num=len(row),
                                           expected=expected_len,
                                           row=row))
-        [global_id, txt, grouping, start_str, end_str] = row
+        [global_id, txt, grouping, subgrouping, start_str, end_str] = row
         start = int(start_str)
         end = int(end_str)
         return EDU(global_id,
                    txt.decode('utf-8'),
                    start,
                    end,
-                   grouping)
+                   grouping,
+                   subgrouping)
 
     with open(edu_file, 'rb') as instream:
         reader = csv.reader(instream, dialect=csv.excel_tab)

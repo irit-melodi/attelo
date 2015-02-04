@@ -11,14 +11,14 @@ from . import astar, greedy, mst
 # pylint: disable=too-few-public-methods
 
 
-def mk_fake_edu(start, end=None, edu_file="x"):
+def mk_fake_edu(start, end=None, edu_file="x", sentence='s1'):
     """
     Return a blank EDU object going nowhere
     """
     if end is None:
         end = start
     edu_id = 'x{}'.format(start)
-    return EDU(edu_id, edu_id, start, end, edu_file)
+    return EDU(edu_id, edu_id, start, end, edu_file, sentence)
 
 
 class DecoderTest(unittest.TestCase):
