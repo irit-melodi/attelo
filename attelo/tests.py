@@ -41,14 +41,14 @@ class DataPackTest(unittest.TestCase):
                        pairings=[(edus[0], edus[1])],
                        data=scipy.sparse.csr_matrix([[6, 8]]),
                        target=numpy.array([1]),
-                       classes_=['x'])
+                       labels=['x'])
     trivial_bidi = DataPack(edus,
                             pairings=[(edus[0], edus[1]),
                                       (edus[1], edus[0])],
                             data=scipy.sparse.csr_matrix([[6, 8],
                                                           [7, 0]]),
                             target=numpy.array([1, 0]),
-                            classes_=['x'])
+                            labels=['x'])
 
     # pylint: disable=invalid-name
     def assertEqualishDatapack(self, pack1, pack2):
@@ -58,7 +58,7 @@ class DataPackTest(unittest.TestCase):
         '''
         self.assertEqual(pack1.edus, pack2.edus)
         self.assertEqual(pack1.pairings, pack2.pairings)
-        self.assertEqual(pack1.classes_, pack2.classes_)
+        self.assertEqual(pack1.labels, pack2.labels)
         self.assertEqual(pack1.target.tolist(), pack2.target.tolist())
         self.assertEqual(pack1.data.shape, pack2.data.shape)
         self.assertEqual(squish(pack1.data), squish(pack2.data))
@@ -92,18 +92,18 @@ class DataPackTest(unittest.TestCase):
                           [(self.edus[0], fake1)],
                           triv.data,
                           triv.target,
-                          triv.classes_)
+                          triv.labels)
         # but root is ok
         self.assertTrue(DataPack.load([self.edus[0]],
                                       [(self.edus[0], FAKE_ROOT)],
                                       triv.data,
                                       triv.target,
-                                      triv.classes_))
+                                      triv.labels))
         dpack2 = DataPack.load(triv.edus,
                                triv.pairings,
                                triv.data,
                                triv.target,
-                               triv.classes_)
+                               triv.labels)
         self.assertEqualishDatapack(triv, dpack2)
 
     def test_select(self):
@@ -116,7 +116,7 @@ class DataPackTest(unittest.TestCase):
                             pairings=[(self.edus[1], self.edus[0])],
                             data=scipy.sparse.csr_matrix([[7, 0]]),
                             target=numpy.array([0]),
-                            classes_=[])
+                            labels=[])
         self.assertEqualishDatapack(other_di, self.trivial_bidi.selected([1]))
 
     def test_select_classes(self):
@@ -138,16 +138,16 @@ class DataPackTest(unittest.TestCase):
                                                            [7, 0],
                                                            [3, 9]]),
                              target=numpy.array([3, -1, 2]),
-                             classes_=orig_classes)
+                             labels=orig_classes)
 
         pack1 = pack.attached_only()
-        self.assertEqual(orig_classes, pack1.classes_)
+        self.assertEqual(orig_classes, pack1.labels)
 
         pack2 = pack.selected([0, 1])
-        self.assertEqual(orig_classes, pack2.classes_)
+        self.assertEqual(orig_classes, pack2.labels)
 
         pack3 = pack.selected([1, 2])
-        self.assertEqual(['there', 'are'], pack3.classes_)
+        self.assertEqual(['there', 'are'], pack3.labels)
 
     def test_folds(self):
         'test that fold selection does something sensible'
@@ -178,7 +178,7 @@ class DataPackTest(unittest.TestCase):
                                                            [1, 1],
                                                            [0, 4]]),
                              target=numpy.array([1, 0, 1, 1, 0]),
-                             classes_=None)
+                             labels=None)
         fold_dict = {'a': 0,
                      'b': 1,
                      'c': 0,

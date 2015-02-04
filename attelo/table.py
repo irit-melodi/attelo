@@ -27,7 +27,7 @@ class DataPackException(Exception):
 
 
 class DataPack(namedtuple('DataPack',
-                          'edus pairings data target classes_')):
+                          'edus pairings data target labels')):
     '''
     EDUs and features associated with pairs thereof
 
@@ -42,17 +42,17 @@ class DataPack(namedtuple('DataPack',
 
     :param target: array of predictions for each pairing
 
-    :param classes_: (optional) list of relation labels
+    :param labels: (optional) list of relation labels
                    (length should be the same as largest value
                    for target)
-    :type classes_ [string] or None
+    :type labels [string] or None
     '''
     # pylint: disable=too-many-arguments
-    def __init__(self, edus, pairings, data, target, classes_):
-        super(DataPack, self).__init__(edus, pairings, data, target, classes_)
+    def __init__(self, edus, pairings, data, target, labels):
+        super(DataPack, self).__init__(edus, pairings, data, target, labels)
 
     @classmethod
-    def load(cls, edus, pairings, data, target, classes_):
+    def load(cls, edus, pairings, data, target, labels):
         '''
         Build a data pack and run some sanity checks
         (see :py:method:sanity_check')
@@ -60,7 +60,7 @@ class DataPack(namedtuple('DataPack',
 
         :rtype :py:class:DataPack:
         '''
-        pack = cls(edus, pairings, data, target, classes_)
+        pack = cls(edus, pairings, data, target, labels)
         pack.sanity_check()
         return pack
     # pylint: enable=too-many-arguments
@@ -88,8 +88,8 @@ class DataPack(namedtuple('DataPack',
         oops = ('The number of labels given ({labels}) does not match '
                 'the number of possible target labels ({target}) in '
                 'the features file')
-        if self.classes_ is not None:
-            num_classes = len(self.classes_)
+        if self.labels is not None:
+            num_classes = len(self.labels)
             max_target = int(max(self.target))
             if num_classes != max_target:
                 raise(DataPackException(oops.format(labels=num_classes,
@@ -163,12 +163,12 @@ class DataPack(namedtuple('DataPack',
         # pylint: disable=no-member
         sel_targets = numpy.take(self.target, indices)
         # pylint: enable=no-member
-        if self.classes_ is None:
-            sel_classes_ = None
+        if self.labels is None:
+            sel_labels = None
         else:
-            # truncate our classes_ in case we happen to select
+            # truncate our labels in case we happen to select
             # those targets whose values are under the max
-            sel_classes_ = self.classes_[:int(max(sel_targets))]
+            sel_labels = self.labels[:int(max(sel_targets))]
         sel_pairings = [self.pairings[x] for x in indices]
         sel_edus_ = set()
         for edu1, edu2 in sel_pairings:
@@ -180,7 +180,7 @@ class DataPack(namedtuple('DataPack',
                         pairings=sel_pairings,
                         data=sel_data,
                         target=sel_targets,
-                        classes_=sel_classes_)
+                        labels=sel_labels)
 
     def _select_fold(self, fold_dict, pred):
         '''
@@ -229,16 +229,16 @@ class DataPack(namedtuple('DataPack',
         # pylint: enable=no-member
         return self.selected(indices)
 
-    def get_class_(self, i):
+    def get_label(self, i):
         '''
         Return the class label for the given target value.
 
-        If `classes_` is None, return `None`
+        If `labels` is None, return `None`
         '''
-        if self.classes_ is None:
+        if self.labels is None:
             return None
         else:
-            return self.classes_[int(i) - 1]
+            return self.labels[int(i) - 1]
 
 
 def for_attachment(pack):
@@ -259,7 +259,7 @@ def for_attachment(pack):
                     pairings=pack.pairings,
                     data=pack.data,
                     target=tweak(pack.target),
-                    classes_=None)
+                    labels=None)
 
 
 def for_labelling(pack):
