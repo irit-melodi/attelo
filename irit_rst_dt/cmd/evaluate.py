@@ -124,6 +124,7 @@ class FakeEvalArgs(CliArgs):
         model_file_r = _eval_model_path(lconf, econf, fold, "relate")
 
         argv = [_edu_input_path(lconf),
+                _pairings_path(lconf),
                 _features_path(lconf),
                 "--config", ATTELO_CONFIG_FILE,
                 "--fold", str(fold),
@@ -163,6 +164,7 @@ class FakeEnfoldArgs(CliArgs):
         """
         lconf = self.lconf
         args = [_edu_input_path(lconf),
+                _pairings_path(lconf),
                 _features_path(lconf),
                 "--config", ATTELO_CONFIG_FILE,
                 "--output", lconf.fold_file]
@@ -266,6 +268,13 @@ def _edu_input_path(lconf):
     Path to the feature file in the evaluation dir
     """
     return _features_path(lconf) + '.edu_input'
+
+
+def _pairings_path(lconf):
+    """
+    Path to the pairings file in the evaluation dir
+    """
+    return _features_path(lconf) + '.pairings'
 
 
 def _fold_dir_path(lconf, fold):
@@ -417,11 +426,11 @@ def _do_corpus(lconf):
     print(_corpus_banner(lconf), file=sys.stderr)
 
     edus_file = _edu_input_path(lconf)
-    features_file = _features_path(lconf)
-
     if not os.path.exists(edus_file):
         _exit_ungathered()
-    dpack = load_data_pack(edus_file, features_file,
+    dpack = load_data_pack(edus_file,
+                           _pairings_path(lconf),
+                           _features_path(lconf),
                            verbose=True)
 
     _generate_fold_file(lconf, dpack)
