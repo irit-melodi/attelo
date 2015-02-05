@@ -9,5 +9,7 @@ us to write one over time.
    :maxdepth: 2
 
    troubleshooting
+   input
    output
+   learning
    report
