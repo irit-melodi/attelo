@@ -30,14 +30,6 @@ attelo.edu module
     :undoc-members:
     :show-inheritance:
 
-attelo.features module
-----------------------
-
-.. automodule:: attelo.features
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 attelo.fold module
 ------------------
 
@@ -66,6 +58,14 @@ attelo.table module
 -------------------
 
 .. automodule:: attelo.table
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+attelo.util module
+------------------
+
+.. automodule:: attelo.util
     :members:
     :undoc-members:
     :show-inheritance:

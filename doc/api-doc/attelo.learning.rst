@@ -4,10 +4,10 @@ attelo.learning package
 Submodules
 ----------
 
-attelo.learning.megam module
-----------------------------
+attelo.learning.control module
+------------------------------
 
-.. automodule:: attelo.learning.megam
+.. automodule:: attelo.learning.control
     :members:
     :undoc-members:
     :show-inheritance:
