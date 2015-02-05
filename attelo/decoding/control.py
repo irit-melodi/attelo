@@ -4,9 +4,11 @@ Central interface to the decoders
 
 from __future__ import print_function
 from enum import Enum
+import sys
 
 from attelo.report import Count
 from attelo.table import (for_attachment, for_labelling)
+from attelo.util import truncate
 # pylint: disable=too-few-public-methods
 
 
@@ -44,7 +46,7 @@ def _pick_attached_prob(model):
         return lambda _: 0.
 
 
-def _combine_probs(dpack, models):
+def _combine_probs(dpack, models, debug=False):
     """for all EDU pairs, retrieve probability of the best relation
     on that pair, given the probability of an attachment
 
@@ -57,6 +59,13 @@ def _combine_probs(dpack, models):
         edu1, edu2 = pair
         # TODO: log would be better, no?
         prob = pick_attach(a_probs) * pick_relate(r_probs)
+        if debug:
+            print('DECODE', edu1.id, edu2.id, file=sys.stderr)
+            print(' edu1: ', truncate(edu1.text, 50), file=sys.stderr)
+            print(' edu2: ', truncate(edu2.text, 50), file=sys.stderr)
+            print(' attach: ', a_probs, pick_attach(a_probs), file=sys.stderr)
+            print(' relate: ', r_probs, pick_relate(r_probs), file=sys.stderr)
+            print(' combined: ', prob, file=sys.stderr)
         return (edu1, edu2, prob, label)
 
     attach_pack = for_attachment(dpack)
