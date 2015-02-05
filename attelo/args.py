@@ -93,7 +93,7 @@ def args_to_decoder(args):
     config = DecoderArgs(threshold=args.threshold,
                          mst_root_strategy=args.mst_root_strategy,
                          astar=astar_args,
-                         use_prob=args.use_prob)
+                         use_prob=not args.non_prob_scores)
 
     if args.decoder in DECODERS:
         factory = DECODERS[args.decoder]
@@ -307,11 +307,10 @@ def _add_decoder_args(psr):
                            "default: 1-best = simple astar")
 
     perc_grp = psr.add_argument_group('perceptron arguments')
-    perc_grp.add_argument("--use_prob", "-P",
-                          default=DEFAULT_PERCEPTRON_ARGS.use_prob,
-                          action="store_false",
-                          help="convert perceptron scores "
-                          "into probabilities")
+    perc_grp.add_argument("--non-prob-scores",
+                          default=not DEFAULT_PERCEPTRON_ARGS.use_prob,
+                          action="store_true",
+                          help="do NOT treat scores as probabilities")
 
     # harness prefs (shared between eval)
     psr.add_argument("--post-label", "-p",
