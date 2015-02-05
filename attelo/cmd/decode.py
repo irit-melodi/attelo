@@ -1,7 +1,6 @@
 "build a discourse graph from edu pairs and a model"
 
 from __future__ import print_function
-from os import path as fp
 import json
 import sys
 
@@ -32,11 +31,6 @@ def _load_and_select_data(args):
     else:
         fold_dict = json.load(args.fold_file)
         return dpack.testing(fold_dict, args.fold)
-
-
-def _output_file(args):
-    'path to output file given command line args'
-    return fp.join(args.output, 'graph.conll')
 
 
 def score_prediction(dpack, predicted):
@@ -74,7 +68,7 @@ def config_argparser(psr):
     psr.add_argument("--output", "-o",
                      default=None,
                      required=True,
-                     metavar="DIR",
+                     metavar="FILE",
                      help="save predicted structures here")
     psr.set_defaults(func=main)
 
@@ -105,7 +99,7 @@ def _decode_group(args, decoder, dpack, models):
     # we trust the decoder to select what it thinks is its best prediction
     first_prediction = predictions[0]
     append_predictions_output(dpack, first_prediction,
-                              _output_file(args))
+                              args.output)
     if args.scores:
         return score_prediction(dpack, first_prediction)
     else:
@@ -119,7 +113,7 @@ def main_for_harness(args, decoder, dpack, models):
     You have to supply DataModel args for attachment/relation
     yourself
     """
-    start_predictions_output(_output_file(args))
+    start_predictions_output(args.output)
     groupings = dpack.groupings()
 
     scores = {}
