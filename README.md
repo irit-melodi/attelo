@@ -62,14 +62,9 @@ command
    ln -s $HOME/CORPORA/PTBIII/parsed/mrg/wsj ptb3
    ```
 
-4. Install megam (for attelo).
-   This might be tricky if you're on a Mac.
-   Ask Eric.
-
 ## Preflight checklist
 
 * Have you linked the corpora in? (see Installation)
-* Did you manage to install megam? (needed for training/eval)
 
 ## Usage
 
