@@ -148,6 +148,8 @@ def main_for_harness(args):
     for group, subedus_ in groupby(edus, lambda x: x.grouping):
         subedus = list(subedus_)
         sublinks = select_links(subedus, links)
+        if not sublinks:  # not in fold
+            continue
         graph = to_graph(group, subedus, sublinks, unrelated=args.unrelated)
         ofilename = fp.join(output_dir, group)
         write_dot_graph(ofilename, graph)
