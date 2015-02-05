@@ -70,7 +70,7 @@ which attelo can use to associate relation labels with string values ::
     # labels: <space delimited list of labels>
 
 One of these labels must be the string 'UNRELATED' which is used for edu
-pairs which are not related/attached.  For exampl, in the below, the second
+pairs which are not related/attached.  For example, in the below, the second
 and fourth EDU pairs are not considered to be related ::
 
     # labels: elaboration narration continuation UNRELATED
@@ -80,9 +80,7 @@ and fourth EDU pairs are not considered to be related ::
     4 1:1
     3 1:2
 
-If you do not supply this information, attelo will make do without it;
-but some decoders may suffer as they use the relation labels in their
-decision making process.
+Note that labels are assumed to start from 1.
 
 Categorical features
 ~~~~~~~~~~~~~~~~~~~~
