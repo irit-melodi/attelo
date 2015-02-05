@@ -345,7 +345,7 @@ class DecodeArgs(LearnDecodeArgs):
 
     def argv(self):
         args = super(DecodeArgs, self).argv()
-        args.extend(['--output', self._tmpdir,
+        args.extend(['--output', fp.join(self._tmpdir, 'output'),
                      '--scores', self.counts_file()])
         return args
 
