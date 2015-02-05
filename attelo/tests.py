@@ -36,7 +36,8 @@ class DataPackTest(unittest.TestCase):
     basic tests on data pack filtering operations
     '''
     edus = [EDU('e1', 'hi', 0, 1, 'a', 's1'),
-            EDU('e2', 'there', 3, 8, 'a', 's1')]
+            EDU('e2', 'there', 3, 8, 'a', 's1'),
+            EDU('e3', 'you', 9, 12, 'a', 's2')]
     trivial = DataPack(edus=edus,
                        pairings=[(edus[0], edus[1])],
                        data=scipy.sparse.csr_matrix([[6, 8]]),
@@ -107,18 +108,18 @@ class DataPackTest(unittest.TestCase):
                                triv.labels)
         self.assertEqualishDatapack(triv, dpack2)
 
-    def test_select(self):
-        'can build a full data pack from the trivial one'
-        self.assertEqualishDatapack(self.trivial,
-                                    self.trivial.selected([0]))
-        self.assertEqualishDatapack(self.trivial,
-                                    self.trivial_bidi.selected([0]))
-        other_di = DataPack(self.trivial.edus,
-                            pairings=[(self.edus[1], self.edus[0])],
-                            data=scipy.sparse.csr_matrix([[7, 0]]),
-                            target=numpy.array([0]),
-                            labels=['x', 'UNRELATED'])
-        self.assertEqualishDatapack(other_di, self.trivial_bidi.selected([1]))
+    def test_get_label(self):
+        'correctly picks out labels and unrelated'
+        pack = DataPack(self.edus,
+                        pairings=[(self.edus[0], self.edus[1]),
+                                  (self.edus[1], self.edus[0]),
+                                  (self.edus[0], self.edus[2]),
+                                  (self.edus[2], self.edus[0])],
+                        data=scipy.sparse.csr_matrix([[6], [7], [1], [5]]),
+                        target=numpy.array([2, 1, 1, 3]),
+                        labels=['x', 'y', 'UNRELATED'])
+        labels = [pack.get_label(t) for t in pack.target]
+        self.assertEqual(['y', 'x', 'x', 'UNRELATED'], labels)
 
     def test_select_classes(self):
         'test that classes are filtered correctly'
@@ -129,7 +130,7 @@ class DataPackTest(unittest.TestCase):
         b2 = EDU('b2', 'is', 6, 8, 'b', 's2')
         # pylint: enable=invalid-name
 
-        orig_classes = ['UNRELATED', 'there', 'are', 'four', 'lights']
+        orig_classes = ['there', 'are', 'four', 'UNRELATED', 'lights']
         pack = DataPack.load(edus=[a1, a2,
                                    b1, b2],
                              pairings=[(a1, a2),
@@ -138,11 +139,12 @@ class DataPackTest(unittest.TestCase):
                              data=scipy.sparse.csr_matrix([[6, 8],
                                                            [7, 0],
                                                            [3, 9]]),
-                             target=numpy.array([3, -1, 2]),
+                             target=numpy.array([3, 4, 2]),
                              labels=orig_classes)
 
         pack1 = pack.attached_only()
         self.assertEqual(orig_classes, pack1.labels)
+        self.assertEqual(list(pack1.target), [3, 2])
 
         pack2 = pack.selected([0, 1])
         self.assertEqual(orig_classes, pack2.labels)

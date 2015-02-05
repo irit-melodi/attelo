@@ -231,7 +231,7 @@ class DataPack(namedtuple('DataPack',
         pack on completely unseen data)
         '''
         # pylint: disable=no-member
-        unrelated = self.labels.index(UNRELATED)
+        unrelated = self.label_number(UNRELATED)
         indices = numpy.where(self.target != unrelated)[0]
         # pylint: enable=no-member
         return self.selected(indices)
@@ -247,6 +247,15 @@ class DataPack(namedtuple('DataPack',
         else:
             return self.labels[int(i) - 1]
 
+    def label_number(self, label):
+        '''
+        Return the numerical label that corresponnds to the given
+        string label
+
+        :rtype float
+        '''
+        return self.labels.index(label) + 1
+
 
 def for_attachment(pack):
     '''
@@ -260,7 +269,7 @@ def for_attachment(pack):
     :rtype :py:class:DataPack:
     '''
     # pylint: disable=no-member
-    unrelated = pack.labels.index(UNRELATED)
+    unrelated = pack.label_number(UNRELATED)
     tweak = numpy.vectorize(lambda x: -1 if x == unrelated else x)
     # pylint: enable=no-member
     return DataPack(edus=pack.edus,
