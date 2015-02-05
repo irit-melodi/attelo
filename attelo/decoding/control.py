@@ -170,7 +170,7 @@ def count_correct(dpack, predicted):
         pred_label = dict_predicted.get((edu1.id, edu2.id))
         if pred_label is not None:
             score_attach += 1
-            if pred_label == ref_label:
+            if dpack.label_number(pred_label) == ref_label:
                 score_label += 1
 
     return Count(correct_attach=score_attach,
