@@ -270,7 +270,7 @@ def for_attachment(pack):
     '''
     # pylint: disable=no-member
     unrelated = pack.label_number(UNRELATED)
-    tweak = numpy.vectorize(lambda x: -1 if x == unrelated else x)
+    tweak = numpy.vectorize(lambda x: -1 if x == unrelated else 1)
     # pylint: enable=no-member
     return DataPack(edus=pack.edus,
                     pairings=pack.pairings,
