@@ -1,5 +1,7 @@
-attelo report
--------------
+.. _report:
+
+Understanding results
+=====================
 
 The ``attelo report`` synthesises individual counts into a single
 report. As input, it requires a CSV formatted index file with the

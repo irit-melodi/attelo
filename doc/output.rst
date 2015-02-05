@@ -37,4 +37,5 @@ The output above corresponds to the graph below ::
                 d1_493 <---[result]-- d1_494
 
 
-You can visualise the output with the `attelo graph` command
+You can visualise the results with the `attelo report` (see :doc:`report`) and
+attelo graph commands
