@@ -32,7 +32,7 @@ class DataPack(namedtuple('DataPack',
     EDUs and features associated with pairs thereof
 
     :param edus: effectively a set of edus
-    :type edus: [:py:class:EDU:]
+    :type edus: [:py:class:`EDU`]
 
     :param pairings: list of edu id pairs
     :type pairings: [(EDU, EDU)]
@@ -58,7 +58,7 @@ class DataPack(namedtuple('DataPack',
         (see :py:method:sanity_check')
                (recommended if reading from disk)
 
-        :rtype :py:class:DataPack:
+        :rtype: :py:class:`DataPack`
         '''
         pack = cls(edus, pairings, data, target, labels)
         pack.sanity_check()
@@ -131,7 +131,7 @@ class DataPack(namedtuple('DataPack',
         (raises DataPackException if we have pairings that traverse
         group boundaries, which is a no-no in the attelo model)
 
-        :rtype dict(string, [int])
+        :rtype: dict(string, [int])
         '''
         res = defaultdict(list)
         for i, (edu1, edu2) in enumerate(self.pairings):
@@ -155,7 +155,7 @@ class DataPack(namedtuple('DataPack',
 
     def sanity_check(self):
         '''
-        Raising :py:class:DataPackException: if anything about
+        Raising :py:class:`DataPackException` if anything about
         this datapack seems wrong, for example if the number of
         rows in one table is not the same as in another
         '''
@@ -194,7 +194,7 @@ class DataPack(namedtuple('DataPack',
         return only the items for which the fold predicate is
         True
 
-        :rtype :py:class:DataPack:
+        :rtype: :py:class:`DataPack`
         '''
         group_indices = self.groupings()
         indices = []
@@ -209,7 +209,7 @@ class DataPack(namedtuple('DataPack',
         Given a division into folds and a fold number,
         return only the training items for that fold
 
-        :rtype :py:class:DataPack:
+        :rtype: :py:class:`DataPack`
         '''
         fold_groupings(fold_dict, fold)  # sanity check
         return self._select_fold(fold_dict, lambda x: x != fold)
@@ -219,7 +219,7 @@ class DataPack(namedtuple('DataPack',
         Given a division into folds and a fold number,
         return only the test items for that fold
 
-        :rtype :py:class:DataPack:
+        :rtype: :py:class:`DataPack`
         '''
         fold_groupings(fold_dict, fold)  # sanity check
         return self._select_fold(fold_dict, lambda x: x == fold)
@@ -252,7 +252,7 @@ class DataPack(namedtuple('DataPack',
         Return the numerical label that corresponnds to the given
         string label
 
-        :rtype float
+        :rtype: float
         '''
         return self.labels.index(label) + 1
 
@@ -266,7 +266,7 @@ def for_attachment(pack):
         * modifying the features/labels in some way
           (we binarise them to 0 vs not-0)
 
-    :rtype :py:class:DataPack:
+    :rtype: :py:class:`DataPack`
     '''
     # pylint: disable=no-member
     unrelated = pack.label_number(UNRELATED)
@@ -289,6 +289,6 @@ def for_labelling(pack):
         * modifying the features/labels in some way (in practice
           no change)
 
-    :rtype :py:class:DataPack:
+    :rtype: :py:class:`DataPack`
     '''
     return pack
