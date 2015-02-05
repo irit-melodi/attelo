@@ -6,6 +6,7 @@ from os import path as fp
 import codecs
 import os
 import sys
+import tempfile
 
 import pydot
 
@@ -89,6 +90,35 @@ def to_graph(title, edus, links, unrelated=False):
 # pylint: enable=star-args
 
 
+def get_output_dir(args):
+    """
+    Return the output directory specified on (or inferred from) the command
+    line arguments, *creating it if necessary*.
+
+    We try the following in order:
+
+    1. If `--output` is given explicitly, we'll just use/create that
+    2. Otherwise, just make a temporary directory. Later on, you'll probably
+    want to call `announce_output_dir`.
+    """
+    if args.output:
+        if os.path.isfile(args.output):
+            oops = "Sorry, {} already exists and is not a directory"
+            sys.exit(oops.format(args.output))
+        elif not fp.isdir(args.output):
+            os.makedirs(args.output)
+        return args.output
+    else:
+        return tempfile.mkdtemp()
+
+
+def announce_output_dir(output_dir):
+    """
+    Tell the user where we saved the output
+    """
+    print("Output files written to", output_dir, file=sys.stderr)
+
+
 def config_argparser(psr):
     "add subcommand arguments to subparser"
 
@@ -96,7 +126,7 @@ def config_argparser(psr):
                      help="attelo edu input file")
     psr.add_argument("predictions", metavar="FILE",
                      help="attelo predictions file")
-    psr.add_argument("output", metavar="DIR",
+    psr.add_argument("--output", metavar="DIR",
                      help="output directory for graphs")
     psr.add_argument("--unrelated",
                      action='store_true',
@@ -112,14 +142,16 @@ def main_for_harness(args):
     You have to supply (and filter) the data yourself
     (see `select_data`)
     """
+    output_dir = get_output_dir(args)
     edus = load_edus(args.edus)
     links = load_predictions(args.predictions)
     for group, subedus_ in groupby(edus, lambda x: x.grouping):
         subedus = list(subedus_)
         sublinks = select_links(subedus, links)
         graph = to_graph(group, subedus, sublinks, unrelated=args.unrelated)
-        ofilename = fp.join(args.output, group)
+        ofilename = fp.join(output_dir, group)
         write_dot_graph(ofilename, graph)
+    announce_output_dir(output_dir)
 
 
 def main(args):
