@@ -110,9 +110,9 @@ class Torpor(object):
 
 def load_edus(edu_file):
     """
-    Read EDUs (see :ref:`edu-input-format`)
+    Read EDUs (see :doc:`../input`)
 
-    :rtype [EDU]
+    :rtype: [EDU]
 
     .. _format: https://github.com/kowey/attelo/doc/inputs.rst
     """
@@ -144,10 +144,10 @@ def load_edus(edu_file):
 
 def load_pairings(edu_file):
     """
-    Read and return EDU pairings (see :ref:`edu-input-format`).
+    Read and return EDU pairings (see :doc:`../input`).
     We assume the order is parent, child
 
-    :rtype [(string, string)]
+    :rtype: [(string, string)]
 
     .. _format: https://github.com/kowey/attelo/doc/inputs.rst
     """
@@ -171,7 +171,7 @@ def load_labels(feature_file):
     Read the very top of a feature file and read the labels comment,
     return the sequence of labels, else return None
 
-    :rtype [string] or None
+    :rtype: [string] or None
     """
     with codecs.open(feature_file, 'r', 'utf-8') as stream:
         line = stream.readline()
@@ -189,7 +189,7 @@ def _process_edu_links(edus, pairings):
     :py:method:load_pairings: to a sequence of edus and pairings
     respectively
 
-    :rtype ([EDU], [(EDU,EDU)])
+    :rtype: ([EDU], [(EDU,EDU)])
     """
     edumap = {e.id: e for e in edus}
     enames = frozenset(chain.from_iterable(pairings))
@@ -218,9 +218,9 @@ def load_data_pack(edu_file, pairings_file, feature_file, verbose=False):
     Read EDUs and features for edu pairs.
 
     Perform some basic sanity checks, raising
-    :py:class:IoException: if they should fail
+    :py:class:`IoException` if they should fail
 
-    :rtype :py:class:DataPack: or None
+    :rtype: :py:class:`DataPack` or None
     """
     with Torpor("Reading edus and pairings", quiet=not verbose):
         edus, pairings = _process_edu_links(load_edus(edu_file),
@@ -253,9 +253,9 @@ def start_predictions_output(filename):
 def append_predictions_output(dpack, predicted, filename):
     """
     Append the predictions to a CONLL like output file documented in
-    :ref:output-format:
+    :doc:`../output`
 
-    See also :py:method:start_predictions_file:
+    See also :py:func:`start_predictions_output`
     """
     links = {}
     for edu1, edu2, label in predicted:
@@ -278,12 +278,10 @@ def append_predictions_output(dpack, predicted, filename):
 
 def load_predictions(edu_file):
     """
-    Read back predictions (see :ref:`output-format`), returning a list
+    Read back predictions (see :doc:`../output`), returning a list
     of triples: parent id, child id, relation label (or 'UNRELATED')
 
-    :rtype [(string, string, string)]
-
-    .. _format: https://github.com/kowey/attelo/doc/output.rst
+    :rtype: [(string, string, string)]
     """
     def mk_pair(row):
         'interpret a single row'
