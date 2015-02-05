@@ -18,12 +18,16 @@ import os
 
 # for readthedocs
 MOCK_MODULES = ['climate',
-                'Orange',
-                'Orange.classification',
                 'scipy',
                 'scipy.sparse',
                 'scipy.special',
-                'scipy.stats']
+                'scipy.stats',
+                'sklearn',
+                'sklearn.datasets',
+                'sklearn.dummy',
+                'sklearn.linear_model',
+                'sklearn.naive_bayes',
+                'sklearn.svm']
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
 
