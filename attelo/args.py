@@ -174,7 +174,7 @@ def args_to_learners(decoder, args):
 
     perc_args = PerceptronArgs(iterations=args.nit,
                                averaging=args.averaging,
-                               use_prob=args.use_prob,
+                               use_prob=not args.non_prob_scores,
                                aggressiveness=args.aggressiveness)
     learner_args = LearnerArgs(decoder=decoder,
                                perc_args=perc_args)
