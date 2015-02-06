@@ -6,10 +6,10 @@ from os import path as fp
 import codecs
 import os
 import sys
-import tempfile
 
 import pydot
 
+from .util import (get_output_dir, announce_output_dir)
 from ..edu import FAKE_ROOT_ID
 from ..io import load_edus, load_predictions
 from ..table import UNRELATED
@@ -88,35 +88,6 @@ def to_graph(title, edus, links, unrelated=False):
             graph.add_edge(pydot.Edge(parent, child, **attrs))
     return graph
 # pylint: enable=star-args
-
-
-def get_output_dir(args):
-    """
-    Return the output directory specified on (or inferred from) the command
-    line arguments, *creating it if necessary*.
-
-    We try the following in order:
-
-    1. If `--output` is given explicitly, we'll just use/create that
-    2. Otherwise, just make a temporary directory. Later on, you'll probably
-    want to call `announce_output_dir`.
-    """
-    if args.output:
-        if os.path.isfile(args.output):
-            oops = "Sorry, {} already exists and is not a directory"
-            sys.exit(oops.format(args.output))
-        elif not fp.isdir(args.output):
-            os.makedirs(args.output)
-        return args.output
-    else:
-        return tempfile.mkdtemp()
-
-
-def announce_output_dir(output_dir):
-    """
-    Tell the user where we saved the output
-    """
-    print("Output files written to", output_dir, file=sys.stderr)
 
 
 def config_argparser(psr):
