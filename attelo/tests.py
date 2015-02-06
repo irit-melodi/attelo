@@ -373,18 +373,11 @@ def fake_harness(*args, **kwargs):
     '''sequence of attelo commands that fit together like they
     might in a harness'''
     EnfoldArgs.run(*args, **kwargs)
-    tmpdir = kwargs['tmpdir']
-    idx_filename = fp.join(tmpdir, 'index.csv')
 
-    with open(idx_filename, 'w') as idxraw:
-        idx = csv.writer(idxraw)
-        idx.writerow(['config', 'fold', 'counts_file'])
-        for i in range(0, MAX_FOLDS):
-            LearnArgs.run(*args, fold=i, **kwargs)
-            DecodeArgs.run(*args, fold=i, **kwargs)
-            scores_file = fp.join(tmpdir, 'scores-{}'.format(i))
-            idx.writerow(['nose', str(i), scores_file])
-    ReportArgs.run(idx_path=idx_filename, *args, **kwargs)
+    for i in range(0, MAX_FOLDS):
+        LearnArgs.run(*args, fold=i, **kwargs)
+        DecodeArgs.run(*args, fold=i, **kwargs)
+    #ReportArgs.run(idx_path=idx_filename, *args, **kwargs)
 
 
 class CliTest(unittest.TestCase):
