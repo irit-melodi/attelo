@@ -8,6 +8,11 @@ Configuring the harness
 import argparse
 from collections import namedtuple
 
+# pylint: disable=unused-import
+# (rexported)
+from attelo.util import Team
+# pylint: enable=unused-import
+
 # pylint: disable=too-few-public-methods
 
 
@@ -123,3 +128,13 @@ class EvaluationConfig(namedtuple("EvaluationConfig",
         res['decoder'] = self.decoder.key
         res['predictions'] = predictions
         return res
+
+    @classmethod
+    def simple_key(cls, learner, decoder):
+        """
+        generate a short unique name for a learner/decoder combo
+        """
+        lkey = learner.attach.key
+        if learner.relate is not None:
+            lkey += "_" + learner.relate.key
+        return "%s-%s" % (lkey, decoder.key)
