@@ -9,10 +9,10 @@ In the future we may move this to a proper configuration file.
 
 import itertools
 
-from attelo.harness.config import\
-    LearnerConfig,\
-    DecoderConfig,\
-    EvaluationConfig
+from attelo.harness.config import (EvaluationConfig,
+                                   LearnerConfig,
+                                   Variant,
+                                   Team)
 
 LOCAL_TMP = 'TMP'
 """Things we may want to hold on to (eg. for weeks), but could
@@ -40,32 +40,42 @@ Where to read the Penn Treebank from (should be dir corresponding to
 parsed/mrg/wsj)
 """
 
-LEARNERS = [LearnerConfig.simple("bayes"),
-            LearnerConfig.simple("maxent"),
-            LearnerConfig("perc-maxent", "perc", "maxent"),
-            LearnerConfig("pa-maxent", "pa", "maxent"),
-            LearnerConfig("struc_perc-maxent", "struc_perc", "maxent"),
-            LearnerConfig("struc_pa-maxent", "struc_pa", "maxent")]
-"""Attelo learner algorithms to try
-If the second element is None, we use the same learner for attachment
-and relations; otherwise we use the first for attachment and the second
-for relations
+LEARNERS = [LearnerConfig(attach=Variant(key="bayes", name="bayes", flags=[]),
+                          relate=None),
+            LearnerConfig(attach=Variant(key="maxent", name="maxent", flags=[]),
+                          relate=None)]
+"""Attelo learner algorithms to try.  In the general case, you can
+leave the relate learner as `None` (in which case we just use the.
+
+It's up to you to choose values for the key field that can distinguish
+between different configurations of your learners.  For example,
+you might have something like
+
+::
+
+    Variant(key="perceptron-very-frob",
+            name="perceptron",
+            flags=["--frobnication", "0.9"]),
+
+    Variant(key="perceptron-not-so-frob",
+            name="perceptron",
+            flags=["--frobnication", "0.4"])
+
 """
 
-DECODERS = [DecoderConfig.simple(x) for x in
+DECODERS = [Variant(key=x, name=x, flags=[]) for x in
             ["last", "local", "locallyGreedy", "mst"]]
 """Attelo decoders to try in experiment"""
 
+Don't forget that you can parameterise the decoders ::
 
-# TODO: make this more elaborate as the configs get more complicated
-def _mk_econf_name(learner, decoder):
-    """
-    generate a short unique name for a learner/decoder combo
-    """
+    Variant(key="astar-3-best",
+            name="astar",
+            flags=["--nbest", "3"])
+"""
 
-    return "%s-%s" % (learner.name, decoder.name)
 
-EVALUATIONS = [EvaluationConfig(name=_mk_econf_name(l, d),
+EVALUATIONS = [EvaluationConfig(key=EvaluationConfig.simple_key(l, d),
                                 learner=l,
                                 decoder=d) for l, d in
                itertools.product(LEARNERS, DECODERS)]
