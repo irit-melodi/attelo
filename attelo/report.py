@@ -5,6 +5,7 @@ Experiment results
 from __future__ import print_function
 from collections import namedtuple
 import csv
+import itertools
 import os
 import sys
 import cPickle
@@ -401,7 +402,7 @@ class CombinedReport(object):
         2D tabular output
         """
         keys = sorted(self.reports.keys())
-        return tabulate([[k] + self.reports[k].table_row() for k in keys],
+        return tabulate([list(k) + self.reports[k].table_row() for k in keys],
                         headers=Report.table_header(),
                         floatfmt=".3f")
 
@@ -411,3 +412,34 @@ class CombinedReport(object):
         May contain more information than the raw table
         """
         return {k: v.for_json() for k, v in self.reports.items()}
+
+
+def _mk_confusion_row(ignore, row):
+    '''
+    Given a list of numbers, replace the zeros by '.'.
+    Put angle brackets around the column we should ignore
+    '''
+    res = []
+    for i, col in enumerate(row):
+        cell = col or '.'
+        cell = '<{}>'.format(cell) if i == ignore else cell
+        res.append(cell)
+    return res
+
+
+def show_confusion_matrix(labels, matrix):
+    '''
+    Return a string representing a confusion matrix in 2D
+    '''
+    longest_label = max(labels, key=len)
+    len_longest = len(longest_label)
+    rlabels = [x.rjust(len_longest, ' ') + '-' for x in labels]
+    # pylint: disable=star-args
+    # fake vertical headers by making them rows
+    headers = [[''] + list(row)
+               for row in itertools.izip_longest(*rlabels, fillvalue='')]
+    # pylint: enable=star-args
+    body = []
+    for rnum, (label, row) in enumerate(zip(labels, matrix.tolist())):
+        body.append([label] + _mk_confusion_row(rnum, row))
+    return tabulate(headers + body)
