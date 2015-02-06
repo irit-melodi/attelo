@@ -11,6 +11,7 @@ from . import\
      enfold,
      evaluate,
      graph,
+     rewrite,
      learn,
      report)
 
@@ -19,4 +20,5 @@ SUBCOMMANDS = [learn,
                enfold,
                evaluate,
                graph,
+               rewrite,
                report]
