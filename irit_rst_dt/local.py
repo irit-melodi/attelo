@@ -65,7 +65,7 @@ you might have something like
 
 DECODERS = [Variant(key=x, name=x, flags=[]) for x in
             ["last", "local", "locallyGreedy", "mst"]]
-"""Attelo decoders to try in experiment"""
+"""Attelo decoders to try in experiment
 
 Don't forget that you can parameterise the decoders ::
 
