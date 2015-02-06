@@ -95,7 +95,7 @@ class Variant(namedtuple("Variant", "key name flags")):
         Simple variant where the key is just the name of component
         itself
         """
-        return cls(name, name)
+        return cls(name, name, [])
 
 
 EvaluationConfig = namedtuple("EvaluationConfig", "name learner decoder")
