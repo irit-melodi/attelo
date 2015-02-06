@@ -96,12 +96,11 @@ class DataPack(namedtuple('DataPack',
         oops = ('The number of labels given ({labels}) is less than '
                 'the number of possible target labels ({target}) in '
                 'the features file')
-        if self.labels is not None:
-            num_classes = len(self.labels)
-            max_target = int(max(self.target))
-            if num_classes < max_target:
-                raise(DataPackException(oops.format(labels=num_classes,
-                                                    target=max_target)))
+        num_classes = len(self.labels)
+        max_target = int(max(self.target))
+        if num_classes < max_target:
+            raise(DataPackException(oops.format(labels=num_classes,
+                                                target=max_target)))
 
     def _check_table_shape(self):
         '''
