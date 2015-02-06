@@ -8,10 +8,7 @@ Configuring the harness
 import argparse
 from collections import namedtuple
 
-# pylint: disable=unused-import
-# (rexported)
 from attelo.util import Team
-# pylint: enable=unused-import
 
 # pylint: disable=too-few-public-methods
 
@@ -103,13 +100,30 @@ class Variant(namedtuple("Variant", "key name flags")):
         return cls(name, name, [])
 
 
+class LearnerConfig(Team):
+    """
+    Combination of an attachment and a relation learner variant
+
+    :type attach: Variant
+    :type relate: Variant
+    """
+    def __init__(self, attach, relate):
+        """
+        generate a short unique name for this learner combo
+        """
+        super(LearnerConfig, self).__init__(attach, relate)
+        self.key = self.attach.key
+        if self.relate is not None:
+            self.key += "_" + self.relate.key
+
+
 class EvaluationConfig(namedtuple("EvaluationConfig",
                                   "key learner decoder")):
     """
     Combination of learners and decoders for an attelo
     evaluation
 
-    :type learner: Team(Variant)
+    :type learner: LearnerConfig
     :type decoder: Variant
     """
     def for_json(self, predictions):
@@ -134,7 +148,4 @@ class EvaluationConfig(namedtuple("EvaluationConfig",
         """
         generate a short unique name for a learner/decoder combo
         """
-        lkey = learner.attach.key
-        if learner.relate is not None:
-            lkey += "_" + learner.relate.key
-        return "%s-%s" % (lkey, decoder.key)
+        return "%s-%s" % (learner.key, decoder.key)
