@@ -19,6 +19,7 @@ contribs: phil
 
 import random
 
+from .edu import FAKE_ROOT_ID
 
 def make_n_fold(dpack, folds, rng):
     """Given a data pack and a desired number of folds, return a fold selection
@@ -35,7 +36,8 @@ def make_n_fold(dpack, folds, rng):
     """
     if rng is None:
         rng = random
-    groupings = list(set(x.grouping for x in dpack.edus))
+    groupings = list(set(x.grouping for x in dpack.edus
+                         if x.id != FAKE_ROOT_ID))
 
     if folds < 2:
         raise ValueError("Must have more than 1 fold")
