@@ -10,6 +10,7 @@ from collections import namedtuple
 
 # pylint: disable=too-few-public-methods
 
+
 # pylint: disable=abstract-class-not-used
 class CliArgs(argparse.Namespace):
     """
@@ -46,7 +47,6 @@ class CliArgs(argparse.Namespace):
         with some commands' `config_argparser` methods
         """
         raise NotImplementedError()
-
 
     def argv(self):
         """
