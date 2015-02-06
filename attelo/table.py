@@ -65,22 +65,6 @@ class DataPack(namedtuple('DataPack',
         return pack
     # pylint: enable=too-many-arguments
 
-    def _check_edu_pairings(self):
-        '''
-        sanity check edu pairings wrt edu list (raises DataPackException)
-        '''
-        known_edus = self.edus + [FAKE_ROOT]
-        naughty = []
-        for (_, edu2) in self.pairings:
-            if edu2 not in known_edus:
-                naughty.append(edu2.id)
-        if naughty:
-            naughty_list = truncate(', '.join(naughty), 1000)
-            oops = ('The EDU list mentions these EDUs as candidate parents, '
-                    'but does not supply any information about them: '
-                    '{naughty}')
-            raise DataPackException(oops.format(naughty=naughty_list))
-
     def _check_target(self):
         '''
         sanity check target properties
@@ -159,7 +143,6 @@ class DataPack(namedtuple('DataPack',
         rows in one table is not the same as in another
         '''
         self._check_target()
-        self._check_edu_pairings()
         self._check_table_shape()
         self.groupings()
 

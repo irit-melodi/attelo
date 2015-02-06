@@ -200,8 +200,6 @@ def _process_edu_links(edus, pairings):
     else:
         edus2 = copy.copy(edus)
 
-    # this is not quite the same as the DataPack._check_edu_pairings()
-    # because here are working only with identifiers and not objects
     naughty = [x for x in enames if x not in edumap]
     if naughty:
         oops = ('The pairings file mentions the following EDUs but the EDU '
