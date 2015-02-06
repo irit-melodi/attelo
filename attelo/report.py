@@ -167,13 +167,13 @@ class Score(object):
 
     def table_row(self):
         "Scores as a row of floats (meant to be included in a table)"
-        row = [100 * self.precision,
-               100 * self.recall,
-               100 * self.f1]
+        row = [self.precision,
+               self.recall,
+               self.f1]
 
         if self.f1_corr:
-            row += [100 * self.recall_corr,
-                    100 * self.f1_corr]
+            row += [self.recall_corr,
+                    self.f1_corr]
 
         return row
 
@@ -403,7 +403,7 @@ class CombinedReport(object):
         keys = sorted(self.reports.keys())
         return tabulate([[k] + self.reports[k].table_row() for k in keys],
                         headers=Report.table_header(),
-                        floatfmt=".1f")
+                        floatfmt=".3f")
 
     def for_json(self):
         """
