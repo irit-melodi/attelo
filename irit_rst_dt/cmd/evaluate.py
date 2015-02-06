@@ -11,12 +11,13 @@ from collections import namedtuple
 import argparse
 import json
 import os
+import shutil
 import sys
 
 from attelo.args import args_to_decoder
 from attelo.io import load_data_pack
 from attelo.harness.config import CliArgs
-from attelo.harness.report import CountIndex
+from attelo.harness.report import (CountIndex, mk_index)
 from attelo.harness.util import\
     timestamp, call, force_symlink
 import attelo.cmd as att
@@ -60,12 +61,10 @@ def _eval_banner(econf, lconf, fold):
     """
     Which combo of eval parameters are we running now?
     """
-    rname = econf.learner.relate
-    learner_str = econf.learner.attach + (":" + rname if rname else "")
     return "\n".join(["----------" * 3,
                       "fold %d [%s]" % (fold, lconf.dataset),
-                      "learner(s): %s" % learner_str,
-                      "decoder: %s" % econf.decoder.decoder,
+                      "learner(s): %s" % econf.learner.key,
+                      "decoder: %s" % econf.decoder.key,
                       "----------" * 3])
 
 
@@ -193,11 +192,16 @@ class FakeLearnArgs(FakeEvalArgs):
     def argv(self):
         econf = self.econf
         args = super(FakeLearnArgs, self).argv()
-        args.extend(["--learner", econf.learner.attach])
+        args.extend(["--learner", econf.learner.attach.name])
+        args.extend(econf.learner.attach.flags)
         if econf.learner.relate is not None:
-            args.extend(["--relation-learner", econf.learner.relate])
+            args.extend(["--relation-learner", econf.learner.relate.name])
+            # yuck: we assume that learner and relation learner flags
+            # are compatible
+            args.extend(econf.learner.relate.flags)
         if econf.decoder is not None:
-            args.extend(["--decoder", econf.decoder.decoder])
+            args.extend(["--decoder", econf.decoder.name])
+            args.extend(econf.decoder.flags)
         return args
 
 
@@ -218,10 +222,56 @@ class FakeDecodeArgs(FakeEvalArgs):
         econf = self.econf
         fold = self.fold
         args = super(FakeDecodeArgs, self).argv()
-        args.extend(["--decoder", econf.decoder.decoder,
+        args.extend(["--decoder", econf.decoder.name,
                      "--scores", _counts_file_path(lconf, econf, fold),
                      "--output", _decode_output_path(lconf, econf, fold)])
+        args.extend(econf.decoder.flags)
         return args
+
+
+class FakeReportArgs(CliArgs):
+    "args for attelo report"
+    def __init__(self, lconf, fold):
+        self.lconf = lconf
+        self.fold = fold
+        super(FakeReportArgs, self).__init__()
+
+    def parser(self):
+        """
+        The argparser that would be called on context manager
+        entry
+        """
+        psr = argparse.ArgumentParser()
+        att.report.config_argparser(psr)
+        return psr
+
+    def argv(self):
+        """
+        Command line arguments that would correspond to this
+        configuration
+
+        :rtype: `[String]`
+        """
+        lconf = self.lconf
+        if self.fold is None:
+            parent_dir = lconf.scratch_dir
+        else:
+            parent_dir = _fold_dir_path(lconf, self.fold)
+        argv = [_edu_input_path(lconf),
+                _pairings_path(lconf),
+                _features_path(lconf),
+                fp.join(parent_dir, 'index.json'),
+                "--config", ATTELO_CONFIG_FILE,
+                "--fold-file", lconf.fold_file,
+                "--output", _report_dir(parent_dir, lconf)]
+        return argv
+
+    # pylint: disable=no-member
+    def __exit__(self, ctype, value, traceback):
+        "Tidy up any open file handles, etc"
+        self.fold_file.close()
+        super(FakeReportArgs, self).__exit__(ctype, value, traceback)
+    # pylint: enable=no-member
 # pylint: enable=too-many-instance-attributes, too-few-public-methods
 
 
@@ -271,14 +321,18 @@ def _pairings_path(lconf):
     return _features_path(lconf) + '.pairings'
 
 
+def _fold_dir_basename(fold):
+    "Relative directory for working within a given fold"
+    return "fold-%d" % fold
+
 def _fold_dir_path(lconf, fold):
     "Scratch directory for working within a given fold"
-    return os.path.join(lconf.scratch_dir, "fold-%d" % fold)
-
+    return os.path.join(lconf.scratch_dir,
+                        _fold_dir_basename(fold))
 
 def _eval_model_path(lconf, econf, fold, mtype):
     "Model for a given loop/eval config and fold"
-    lname = econf.learner.name
+    lname = econf.learner.key
     fold_dir = _fold_dir_path(lconf, fold)
     return os.path.join(fold_dir,
                         "%s.%s.%s.model" % (lconf.dataset, lname, mtype))
@@ -288,14 +342,18 @@ def _counts_file_path(lconf, econf, fold):
     "Scores collected for a given loop and eval configuration"
     fold_dir = _fold_dir_path(lconf, fold)
     return os.path.join(fold_dir,
-                        ".".join(["counts", econf.name, "csv"]))
+                        ".".join(["counts", econf.key, "csv"]))
+
+
+def _decode_output_basename(econf):
+    "Model for a given loop/eval config and fold"
+    return ".".join(["output", econf.key])
 
 
 def _decode_output_path(lconf, econf, fold):
     "Model for a given loop/eval config and fold"
     fold_dir = _fold_dir_path(lconf, fold)
-    return os.path.join(fold_dir,
-                        ".".join(["output", econf.name]))
+    return os.path.join(fold_dir, _decode_output_basename(econf))
 
 
 def _index_file_path(parent_dir, lconf):
@@ -307,12 +365,12 @@ def _index_file_path(parent_dir, lconf):
                         "count-index-%s.csv" % lconf.dataset)
 
 
-def _score_file_path_prefix(parent_dir, lconf):
+def _report_dir(parent_dir, lconf):
     """
     Path to a score file given a parent dir.
     You'll need to tack an extension onto this
     """
-    return fp.join(parent_dir, "scores-%s" % lconf.dataset)
+    return fp.join(parent_dir, "reports-%s" % lconf.dataset)
 
 
 def _maybe_learn(lconf, dconf, econf, fold):
@@ -326,7 +384,7 @@ def _maybe_learn(lconf, dconf, econf, fold):
     with FakeLearnArgs(lconf, econf, fold) as args:
         subpack = dconf.pack.training(dconf.folds, fold)
         if fp.exists(args.attachment_model) and fp.exists(args.relation_model):
-            print("reusing %s model (already built)" % econf.learner.name,
+            print("reusing %s model (already built)" % econf.learner.key,
                   file=sys.stderr)
             return
         att.learn.main_for_harness(args, subpack)
@@ -337,8 +395,8 @@ def _decode(lconf, dconf, econf, fold):
     Run the decoder for this given fold
     """
     if fp.exists(_counts_file_path(lconf, econf, fold)):
-        print("skipping %s/%s (already done)" % (econf.learner.name,
-                                                 econf.decoder.name),
+        print("skipping %s/%s (already done)" % (econf.learner.key,
+                                                 econf.decoder.key),
               file=sys.stderr)
         return
 
@@ -361,20 +419,35 @@ def _generate_fold_file(lconf, dpack):
         att.enfold.main_for_harness(args, dpack)
 
 
-def _mk_report(parent_dir, lconf, idx_file):
+def _mk_report(args, index, dconf):
+    "helper for report generation"
+    with open(args.index_file, 'w') as ostream:
+        json.dump(index, ostream)
+    att.report.main_for_harness(args, dconf.pack)
+
+def _mk_fold_report(lconf, dconf, fold):
     "Generate reports for scores"
-    score_prefix = _score_file_path_prefix(parent_dir, lconf)
-    json_file = score_prefix + ".json"
-    pretty_file = score_prefix + ".txt"
+    configurations = [(econf, _decode_output_basename(econf))
+                      for econf in EVALUATIONS]
+    index = mk_index([(fold, '.')], configurations)
+    with FakeReportArgs(lconf, fold) as args:
+        _mk_report(args, index, dconf)
 
-    with open(pretty_file, "w") as pretty_stream:
-        call(["attelo", "report",
-              idx_file,
-              "--json", json_file],
-             stdout=pretty_stream)
 
-    print("Scores summarised in %s" % pretty_file,
-          file=sys.stderr)
+def _mk_global_report(lconf, dconf):
+    "Generate reports for all folds"
+    folds = [(f, _fold_dir_basename(f))
+             for f in frozenset(dconf.folds.values())]
+    configurations = [(econf, _decode_output_basename(econf))
+                      for econf in EVALUATIONS]
+    index = mk_index(folds, configurations)
+    with FakeReportArgs(lconf, None) as args:
+        _mk_report(args, index, dconf)
+        final_report_dir = fp.join(lconf.eval_dir,
+                                   fp.basename(args.output))
+        shutil.copytree(args.output, final_report_dir)
+        print('Report saved in ', final_report_dir,
+              file=sys.stderr)
 
 
 def _do_tuple(lconf, dconf, econf, fold):
@@ -385,7 +458,7 @@ def _do_tuple(lconf, dconf, econf, fold):
     cfile = _counts_file_path(lconf, econf, fold)
     _maybe_learn(lconf, dconf, econf, fold)
     _decode(lconf, dconf, econf, fold)
-    return {"config": econf.name,
+    return {"config": econf.key,
             "fold": fold,
             "counts_file": cfile}
 
@@ -395,8 +468,7 @@ def _do_fold(lconf, dconf, fold, idx):
     Run all learner/decoder combos within this fold
     """
     fold_dir = _fold_dir_path(lconf, fold)
-    score_prefix = _score_file_path_prefix(fold_dir, lconf)
-    if fp.exists(score_prefix + ".txt"):
+    if fp.exists(_report_dir(fold_dir, lconf)):
         print("Skipping fold %d (already run)" % fold,
               file=sys.stderr)
         return
@@ -412,7 +484,7 @@ def _do_fold(lconf, dconf, fold, idx):
             idx.writerow(idx_entry)
             fold_idx.writerow(idx_entry)
     fold_dir = _fold_dir_path(lconf, fold)
-    _mk_report(fold_dir, lconf, fold_idx_file)
+    _mk_fold_report(lconf, dconf, fold)
 
 
 def _do_corpus(lconf):
@@ -437,7 +509,8 @@ def _do_corpus(lconf):
     with CountIndex(idx_file) as idx:
         for fold in frozenset(dconf.folds.values()):
             _do_fold(lconf, dconf, fold, idx)
-    _mk_report(lconf.eval_dir, lconf, idx_file)
+
+    _mk_global_report(lconf, dconf)
 
 # ---------------------------------------------------------------------
 # main
