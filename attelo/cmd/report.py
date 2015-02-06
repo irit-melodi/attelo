@@ -51,8 +51,9 @@ def config_argparser(psr):
     add_report_args(psr)
     psr.add_argument("index_file", metavar="FILE",
                      help="json index file (see doc)")
-    psr.add_argument("fold_file", metavar="FILE",
+    psr.add_argument("--fold-file", metavar="FILE",
                      type=argparse.FileType('r'),
+                     required=True,
                      help="read folds from this file")
     psr.add_argument("--output", metavar="DIR",
                      help="save report to this file")
@@ -144,13 +145,11 @@ def _key_filename(output_dir, prefix, key):
     return fp.join(output_dir, bname)
 
 
-def main(args):
-    "subcommand main (invoked from outer script)"
-
+def main_for_harness(args, dpack):
+    "main for direct calls via test harness"
     output_dir = get_output_dir(args)
-    index = read_index(args.index_file)
-    dpack = load_args_data_pack(args)
     fold_dict = json.load(args.fold_file)
+    index = read_index(args.index_file)
     reports, confusion = score_outputs(dpack, fold_dict, index)
     if not fp.exists(output_dir):
         os.makedirs(output_dir)
@@ -162,4 +161,11 @@ def main(args):
         with open(ofilename, 'w') as ostream:
             print(show_confusion_matrix(dpack.labels, matrix),
                   file=ostream)
+
+
+def main(args):
+    "subcommand main (invoked from outer script)"
+    output_dir = get_output_dir(args)
+    dpack = load_args_data_pack(args)
+    main_for_harness(args, dpack)
     announce_output_dir(output_dir)
