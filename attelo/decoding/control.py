@@ -7,7 +7,7 @@ from enum import Enum
 import sys
 
 from attelo.report import Count
-from attelo.table import (for_attachment, for_labelling)
+from attelo.table import (for_attachment, for_labelling, UNRELATED)
 from attelo.util import truncate
 # pylint: disable=too-few-public-methods
 
@@ -164,7 +164,8 @@ def count_correct(dpack, predicted):
     """
     score_attach = 0
     score_label = 0
-    dict_predicted = {(arg1, arg2): rel for arg1, arg2, rel in predicted}
+    dict_predicted = {(arg1, arg2): rel for arg1, arg2, rel in predicted
+                      if rel != UNRELATED}
     pack = dpack.attached_only()
     for edu_pair, ref_label in zip(pack.pairings, pack.target):
         edu1, edu2 = edu_pair
@@ -176,5 +177,5 @@ def count_correct(dpack, predicted):
 
     return Count(correct_attach=score_attach,
                  correct_label=score_label,
-                 total_predicted=len(predicted),
+                 total_predicted=len(dict_predicted.keys()),
                  total_reference=len(pack.pairings))
