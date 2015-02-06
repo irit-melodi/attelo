@@ -98,4 +98,28 @@ class Variant(namedtuple("Variant", "key name flags")):
         return cls(name, name, [])
 
 
-EvaluationConfig = namedtuple("EvaluationConfig", "name learner decoder")
+class EvaluationConfig(namedtuple("EvaluationConfig",
+                                  "key learner decoder")):
+    """
+    Combination of learners and decoders for an attelo
+    evaluation
+
+    :type learner: Team(Variant)
+    :type decoder: Variant
+    """
+    def for_json(self, predictions):
+        """
+        (see the documentation on index files mentioned in
+        :doc:`report`)
+
+        :param predictions: relative filename for predictions
+                            that would be generated for this
+                            configuration
+        """
+        res = {}
+        res['attach-learner'] = self.learner.attach.key
+        if self.learner.relate is not None:
+            res['relate-learner'] = self.learner.relate.key
+        res['decoder'] = self.decoder.key
+        res['predictions'] = predictions
+        return res
