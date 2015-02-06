@@ -230,7 +230,10 @@ def load_data_pack(edu_file, pairings_file, feature_file, verbose=False):
         data, targets = load_svmlight_file(feature_file)
         # pylint: enable=unbalanced-tuple-unpacking
 
-    return DataPack.load(edus, pairings, data, targets, labels)
+    with Torpor("Sanity checking data pack", quiet=not verbose):
+        dpack = DataPack.load(edus, pairings, data, targets, labels)
+
+    return dpack
 
 # ---------------------------------------------------------------------
 # predictions
