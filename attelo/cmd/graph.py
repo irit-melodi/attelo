@@ -62,7 +62,9 @@ def _build_core_graph(title, edus):
             continue
         attrs = {'shape': 'plaintext'}
         if edu.text:
-            attrs['label'] = edu.text
+            # we add a space to force pydot to quote this
+            # (its need-to-quote detector isn't always reliable)
+            attrs['label'] = edu.text + ' '
         graph.add_node(pydot.Node(edu.id, **attrs))
     return graph
 
