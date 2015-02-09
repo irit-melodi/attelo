@@ -34,7 +34,9 @@ _DEBUG = 0
 LoopConfig = namedtuple("LoopConfig",
                         ["eval_dir",
                          "scratch_dir",
+                         "folds",
                          "fold_file",
+                         "report_only",
                          "dataset"])
 "that which is common to outerish loops"
 
@@ -505,12 +507,17 @@ def _do_corpus(lconf):
         dconf = DataConfig(pack=dpack,
                            folds=json.load(f_in))
 
-    idx_file = _index_file_path(lconf.scratch_dir, lconf)
-    with CountIndex(idx_file) as idx:
-        for fold in frozenset(dconf.folds.values()):
-            _do_fold(lconf, dconf, fold, idx)
+    if not lconf.report_only:
+        idx_file = _index_file_path(lconf.scratch_dir, lconf)
+        with CountIndex(idx_file) as idx:
+            foldset = lconf.folds if lconf.folds is not None\
+                      else frozenset(dconf.folds.values())
+            for fold in foldset:
+                _do_fold(lconf, dconf, fold, idx)
 
-    _mk_global_report(lconf, dconf)
+    # only generate report if we're not in the middle of cluster mode
+    if lconf.folds is None:
+        _mk_global_report(lconf, dconf)
 
 # ---------------------------------------------------------------------
 # main
@@ -525,6 +532,15 @@ def config_argparser(psr):
     are to be added.
     """
     psr.set_defaults(func=main)
+    psr.add_argument("--start", action='store_true',
+                     default=False,
+                     help="initialise an evaluation but don't run it "
+                     "(cluster mode)")
+    psr.add_argument("--folds", metavar='N', type=int, nargs='+',
+                     help="run only these folds (cluster mode)")
+    psr.add_argument("--end", action='store_true',
+                     default=False,
+                     help="generate report only (cluster mode)")
     psr.add_argument("--resume",
                      default=False, action="store_true",
                      help="resume previous interrupted evaluation")
@@ -538,7 +554,7 @@ def _create_eval_dirs(args, data_dir):
     eval_current = fp.join(data_dir, "eval-current")
     scratch_current = fp.join(data_dir, "scratch-current")
 
-    if args.resume:
+    if args.resume or args.folds is not None:
         if not fp.exists(eval_current) or not fp.exists(scratch_current):
             sys.exit("No currently running evaluation to resume!")
         else:
@@ -576,12 +592,19 @@ def main(args):
     with open(os.path.join(eval_dir, "versions.txt"), "w") as stream:
         call(["pip", "freeze"], stdout=stream)
 
+    if args.start:
+        # all done! just wanted to create the directory
+        return
+
     for corpus in TRAINING_CORPORA:
         dataset = os.path.basename(corpus)
         fold_file = os.path.join(eval_dir,
                                  "folds-%s.json" % dataset)
+
         lconf = LoopConfig(eval_dir=eval_dir,
                            scratch_dir=scratch_dir,
+                           folds=args.folds,
                            fold_file=fold_file,
+                           report_only=bool(args.end),
                            dataset=dataset)
         _do_corpus(lconf)
