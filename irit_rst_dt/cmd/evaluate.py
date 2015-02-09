@@ -554,7 +554,7 @@ def _create_eval_dirs(args, data_dir):
     eval_current = fp.join(data_dir, "eval-current")
     scratch_current = fp.join(data_dir, "scratch-current")
 
-    if args.resume or args.folds is not None:
+    if args.resume or args.end or args.folds is not None:
         if not fp.exists(eval_current) or not fp.exists(scratch_current):
             sys.exit("No currently running evaluation to resume!")
         else:
