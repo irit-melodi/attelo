@@ -36,7 +36,12 @@ particularly conda (Anaconda on Mac, Miniconda on Linux)
 
    ```
    pip install -r requirements.txt
+   pip install -e .
    ```
+
+   (N.B. By rights the second step `pip install -e` is redundant with
+   the first; however, for some mysterious reason, the irit-rst-dt
+   script is sometimes not installed if you only run the first)
 
 3. Link your copy of the RST DT corpus in, along with the
    Penn Treebank, for example:
