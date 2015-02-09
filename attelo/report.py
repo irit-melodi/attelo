@@ -6,9 +6,7 @@ from __future__ import print_function
 from collections import namedtuple
 import csv
 import itertools
-import os
 import sys
-import cPickle
 
 from tabulate import tabulate
 
@@ -330,14 +328,6 @@ class Report(object):
         self.label = Multiscore.create(lambda x: x.score_label(correction),
                                        totals, evals)
         self.params = params if params is not None else {}
-
-    def save(self, name):
-        "Dump the scores a file of the given name in some binary format"
-        dname = os.path.dirname(name)
-        if not os.path.exists(dname):
-            os.makedirs(dname)
-        with open(name, "wb") as reportfile:
-            cPickle.dump(self, reportfile)
 
     def for_json(self):
         """
