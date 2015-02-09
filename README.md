@@ -12,43 +12,27 @@ Melodi team in IRIT on the RST Discourse Treebank corpus.
 ## Sandboxing
 
 If you are attempting to use the development version of this code
-(ie. from SVN), I highly recommend using a sandbox environment.
-We have two versions below, one for Anaconda users (on Mac),
-and one for standard Python users via virtualenv.
-
-### For Anaconda users
-
-Anaconda users get slightly different instructions because virtualenv
-doesn't yet seem to work well with it (at least with the versions we've
-tried). Instead of using virtualenv, you could try something like this
-
-    conda create -n irit-rst-dt --clone $HOME/anaconda
-
-If that doesn't work, make sure your anaconda version is up to date,
-and try `/anaconda` instead of `$HOME/anaconda`.
-
-Note that whenever you want to use this harness, you would need to run
-this command
-
-    source activate irit-rst-dt
-
-### For standard Python users
-
-The virtualenv equivalent works a bit more like the follow:
-
-    mkdir $HOME/.virtualenvs
-    virtualenv $HOME/.virtualenvs/irit-rst-dt --no-site-packages
-
-Whenever you want to use this harness, you would need to run this
-command
-
-    source $HOME/.virtualenvs/irit-rst-dt/bin/activate
+(ie. from SVN), I highly recommend using a sandbox environment,
+particularly conda (Anaconda on Mac, Miniconda on Linux)
 
 ## Installation (development mode)
 
-1. Activate your virtual environment (see above)
+1. Create your virtual environment
 
-2. Install this package and its dependencies
+   ```
+   conda create -n irit-rst-dt --python=3 scipy
+   ```
+
+   (We recommend but do not require Python 3)
+
+2. Activate the virtual environment (note that you'll need to do
+   this whenever you want to run the harness)
+
+   ```
+   source activate irit-rst-dt
+   ```
+
+3. Install this package and its dependencies
 
    ```
    pip install -r requirements.txt
