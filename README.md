@@ -20,10 +20,8 @@ particularly conda (Anaconda on Mac, Miniconda on Linux)
 1. Create your virtual environment
 
    ```
-   conda create -n irit-rst-dt --python=3 scipy
+   conda create -n irit-rst-dt scipy
    ```
-
-   (We recommend but do not require Python 3)
 
 2. Activate the virtual environment (note that you'll need to do
    this whenever you want to run the harness)
