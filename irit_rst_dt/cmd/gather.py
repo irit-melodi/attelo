@@ -38,8 +38,6 @@ def main(_):
     tdir = current_tmp()
     for corpus in TRAINING_CORPORA:
         call(["rst-dt-learning", "extract", corpus, PTB_DIR, tdir])
-    with open(os.path.join(tdir, "features.txt"), "w") as stream:
-        call(["rst-dt-learning", "features"], stdout=stream)
     with open(os.path.join(tdir, "versions.txt"), "w") as stream:
         call(["pip", "freeze"], stdout=stream)
     latest_dir = latest_tmp()
