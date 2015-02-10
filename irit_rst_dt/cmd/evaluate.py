@@ -25,8 +25,7 @@ from attelo.harness.util import\
     timestamp, call, force_symlink
 import attelo.cmd as att
 
-from ..local import (CORES,
-                     EVALUATIONS,
+from ..local import (EVALUATIONS,
                      TRAINING_CORPORA,
                      ATTELO_CONFIG_FILE)
 from ..util import latest_tmp
@@ -471,8 +470,8 @@ def _do_fold(lconf, dconf, fold):
                                        key=lambda x: x.learner):
         econfs = list(econfs)
         _maybe_learn(lconf, dconf, econfs[0], fold)
-        Parallel(n_jobs=CORES)(delayed(_do_tuple)(lconf, dconf, econf, fold)
-                               for econf in econfs)
+        Parallel(n_jobs=-1)(delayed(_do_tuple)(lconf, dconf, econf, fold)
+                            for econf in econfs)
     fold_dir = _fold_dir_path(lconf, fold)
     _mk_fold_report(lconf, dconf, fold)
 
