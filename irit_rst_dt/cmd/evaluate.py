@@ -466,12 +466,15 @@ def _do_fold(lconf, dconf, fold):
     print(_fold_banner(lconf, fold), file=sys.stderr)
     if not os.path.exists(fold_dir):
         os.makedirs(fold_dir)
-    for _, econfs in itertools.groupby(EVALUATIONS,
-                                       key=lambda x: x.learner):
-        econfs = list(econfs)
-        _maybe_learn(lconf, dconf, econfs[0], fold)
-        Parallel(n_jobs=-1)(delayed(_do_tuple)(lconf, dconf, econf, fold)
-                            for econf in econfs)
+
+    # learn all models in parallel
+    learner_confs = [list(g)[0] for _, g in
+                     itertools.groupby(EVALUATIONS, key=lambda x: x.learner)]
+    Parallel(n_jobs=-1)(delayed(_maybe_learn)(lconf, dconf, econf, fold)
+                        for econf in learner_confs)
+    # run all model/decoder pairs in parallel
+    Parallel(n_jobs=-1)(delayed(_do_tuple)(lconf, dconf, econf, fold)
+                        for econf in EVALUATIONS)
     fold_dir = _fold_dir_path(lconf, fold)
     _mk_fold_report(lconf, dconf, fold)
 
