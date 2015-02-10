@@ -4,23 +4,25 @@
 #SBATCH --mail-user=YOUR_EMAIL_ADDRESS_HERE <== EDIT THIS
 IRIT_RST_DT=$HOME/irit-rst-dt
 cd "$IRIT_RST_DT"
+EVALUATE_FLAGS=()
+#EVALUATE_FLAGS=(--resume)
 
 set -e
 source "$IRIT_RST_DT/cluster/env"
 # create the evaluation folder
-irit-rst-dt evaluate --start
+irit-rst-dt evaluate --start "${EVALUATE_FLAGS[@]}"
 # launch ten folds independently, hopefully creating
 # separate cluster nodes for each along the way
-srun irit-rst-dt evaluate --folds 0 &
-srun irit-rst-dt evaluate --folds 1 &
-srun irit-rst-dt evaluate --folds 2 &
-srun irit-rst-dt evaluate --folds 3 &
-srun irit-rst-dt evaluate --folds 4 &
-srun irit-rst-dt evaluate --folds 5 &
-srun irit-rst-dt evaluate --folds 6 &
-srun irit-rst-dt evaluate --folds 7 &
-srun irit-rst-dt evaluate --folds 8 &
-srun irit-rst-dt evaluate --folds 9 &
+srun irit-rst-dt evaluate --folds 0 "${EVALUATE_FLAGS[@]}" &
+srun irit-rst-dt evaluate --folds 1 "${EVALUATE_FLAGS[@]}" &
+srun irit-rst-dt evaluate --folds 2 "${EVALUATE_FLAGS[@]}" &
+srun irit-rst-dt evaluate --folds 3 "${EVALUATE_FLAGS[@]}" &
+srun irit-rst-dt evaluate --folds 4 "${EVALUATE_FLAGS[@]}" &
+srun irit-rst-dt evaluate --folds 5 "${EVALUATE_FLAGS[@]}" &
+srun irit-rst-dt evaluate --folds 6 "${EVALUATE_FLAGS[@]}" &
+srun irit-rst-dt evaluate --folds 7 "${EVALUATE_FLAGS[@]}" &
+srun irit-rst-dt evaluate --folds 8 "${EVALUATE_FLAGS[@]}" &
+srun irit-rst-dt evaluate --folds 9 "${EVALUATE_FLAGS[@]}" &
 # wait for all folds to complete
 wait
 # generate the report
