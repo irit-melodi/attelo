@@ -13,6 +13,26 @@ from attelo.util import Team
 # ---------------------------------------------------------------------
 
 
+def learn_attach(learners, dpack, verbose=False):
+    """
+    Train attachment learner
+    """
+    with Torpor("training attachment model", quiet=not verbose):
+        attach_pack = for_attachment(dpack)
+        return learners.attach.fit(attach_pack.data,
+                                   attach_pack.target)
+
+
+def learn_relate(learners, dpack, verbose=False):
+    """
+    Train relation learner
+    """
+    with Torpor("training relations model", quiet=not verbose):
+        relate_pack = for_labelling(dpack.attached_only())
+        return learners.relate.fit(relate_pack.data,
+                                   relate_pack.target)
+
+
 def learn(learners, dpack, verbose=False):
     """
     Train learners for each attelo task. Return the resulting
@@ -22,15 +42,5 @@ def learn(learners, dpack, verbose=False):
 
     :rtype Team(model)
     """
-    with Torpor("training attachment model", quiet=not verbose):
-        attach_pack = for_attachment(dpack)
-        attach_model = learners.attach.fit(attach_pack.data,
-                                           attach_pack.target)
-
-    with Torpor("training relations model", quiet=not verbose):
-        relate_pack = for_labelling(dpack.attached_only())
-        relate_model = learners.relate.fit(relate_pack.data,
-                                           relate_pack.target)
-
-    return Team(attach=attach_model,
-                relate=relate_model)
+    return Team(attach=learn_attach(learners, dpack, verbose),
+                relate=learn_relate(learners, dpack, verbose))

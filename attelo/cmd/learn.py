@@ -1,7 +1,11 @@
 "learn and save models"
 
 from __future__ import print_function
+from os import path as fp
 import json
+import os
+
+from joblib import (Parallel, delayed)
 
 from ..args import\
     (add_common_args,
@@ -9,7 +13,7 @@ from ..args import\
      add_fold_choice_args, validate_fold_choice_args,
      args_to_decoder, args_to_learners)
 from ..io import save_model, Torpor
-from ..learning import learn
+from ..learning import (learn_attach, learn_relate)
 from .util import load_args_data_pack
 
 
@@ -62,12 +66,41 @@ def main_for_harness(args, dpack):
     You have to supply (and filter) the data yourself
     (see `select_data`)
     """
+    Parallel(n_jobs=-1)(delayed_main_for_harness(args, dpack))
+
+
+def _learn_and_save_attach(args, learners, dpack):
+    'learn and write the attachment model'
+    model = learn_attach(learners, dpack, verbose=True)
+    mdir = fp.dirname(args.attachment_model)
+    if not fp.exists(mdir):
+        os.makedirs(mdir)
+    with Torpor('writing attachment model'):
+        save_model(args.attachment_model, model)
+
+
+def _learn_and_save_relate(args, learners, dpack):
+    'learn and write the relation model'
+    model = learn_relate(learners, dpack, verbose=True)
+    mdir = fp.dirname(args.relation_model)
+    if not fp.exists(mdir):
+        os.makedirs(mdir)
+    with Torpor('writing relation model'):
+        save_model(args.relation_model, model)
+
+
+def delayed_main_for_harness(args, dpack):
+    """
+    Advanced variant of the main function which returns a list
+    of model-learning futures that will have to be executed later.
+    The idea is that you should be able to build up a large list
+    of parallel model-learning tasks to execute simultaneously
+    and just go for it
+    """
     decoder = args_to_decoder(args)
     learners = args_to_learners(decoder, args)
-    models = learn(learners, dpack, verbose=True)
-    with Torpor('writing models'):
-        save_model(args.attachment_model, models.attach)
-        save_model(args.relation_model, models.relate)
+    return [delayed(_learn_and_save_attach)(args, learners, dpack),
+            delayed(_learn_and_save_relate)(args, learners, dpack)]
 
 
 @validate_fold_choice_args
