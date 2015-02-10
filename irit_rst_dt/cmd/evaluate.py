@@ -17,7 +17,7 @@ import sys
 from attelo.args import args_to_decoder
 from attelo.io import load_data_pack
 from attelo.harness.config import CliArgs
-from attelo.harness.report import (CountIndex, mk_index)
+from attelo.harness.report import (mk_index)
 from attelo.harness.util import\
     timestamp, call, force_symlink
 import attelo.cmd as att
@@ -358,15 +358,6 @@ def _decode_output_path(lconf, econf, fold):
     return os.path.join(fold_dir, _decode_output_basename(econf))
 
 
-def _index_file_path(parent_dir, lconf):
-    """
-    Create a blank count index file in the given directory,
-    see `CountIndex` for how this is to be used
-    """
-    return os.path.join(parent_dir,
-                        "count-index-%s.csv" % lconf.dataset)
-
-
 def _report_dir(parent_dir, lconf):
     """
     Path to a score file given a parent dir.
@@ -465,7 +456,7 @@ def _do_tuple(lconf, dconf, econf, fold):
             "counts_file": cfile}
 
 
-def _do_fold(lconf, dconf, fold, idx):
+def _do_fold(lconf, dconf, fold):
     """
     Run all learner/decoder combos within this fold
     """
@@ -478,13 +469,9 @@ def _do_fold(lconf, dconf, fold, idx):
     print(_fold_banner(lconf, fold), file=sys.stderr)
     if not os.path.exists(fold_dir):
         os.makedirs(fold_dir)
-    fold_idx_file = _index_file_path(fold_dir, lconf)
-    with CountIndex(fold_idx_file) as fold_idx:
-        for econf in EVALUATIONS:
-            print(_eval_banner(econf, lconf, fold), file=sys.stderr)
-            idx_entry = _do_tuple(lconf, dconf, econf, fold)
-            idx.writerow(idx_entry)
-            fold_idx.writerow(idx_entry)
+    for econf in EVALUATIONS:
+        print(_eval_banner(econf, lconf, fold), file=sys.stderr)
+        _do_tuple(lconf, dconf, econf, fold)
     fold_dir = _fold_dir_path(lconf, fold)
     _mk_fold_report(lconf, dconf, fold)
 
@@ -508,12 +495,10 @@ def _do_corpus(lconf):
                            folds=json.load(f_in))
 
     if not lconf.report_only:
-        idx_file = _index_file_path(lconf.scratch_dir, lconf)
-        with CountIndex(idx_file) as idx:
-            foldset = lconf.folds if lconf.folds is not None\
-                      else frozenset(dconf.folds.values())
-            for fold in foldset:
-                _do_fold(lconf, dconf, fold, idx)
+        foldset = lconf.folds if lconf.folds is not None\
+            else frozenset(dconf.folds.values())
+        for fold in foldset:
+            _do_fold(lconf, dconf, fold)
 
     # only generate report if we're not in the middle of cluster mode
     if lconf.folds is None:
