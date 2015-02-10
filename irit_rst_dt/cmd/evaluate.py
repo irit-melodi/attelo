@@ -8,6 +8,7 @@ run an experiment
 from __future__ import print_function
 from os import path as fp
 from collections import namedtuple
+from itertools import chain
 import argparse
 import itertools
 import json
@@ -471,8 +472,8 @@ def _do_fold(lconf, dconf, fold):
     # learn all models in parallel
     learner_confs = [list(g)[0] for _, g in
                      itertools.groupby(EVALUATIONS, key=lambda x: x.learner)]
-    learner_jobs = itertools.chain(_delayed_learn(lconf, dconf, econf, fold)
-                                   for econf in learner_confs)
+    learner_jobs = chain.from_iterable(_delayed_learn(lconf, dconf, econf, fold)
+                                       for econf in learner_confs)
     Parallel(n_jobs=-1)(learner_jobs)
     # run all model/decoder pairs in parallel
     Parallel(n_jobs=-1)(delayed(_do_tuple)(lconf, dconf, econf, fold)
