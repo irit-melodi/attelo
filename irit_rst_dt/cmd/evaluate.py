@@ -372,21 +372,22 @@ def _report_dir(parent_dir, lconf):
     return fp.join(parent_dir, "reports-%s" % lconf.dataset)
 
 
-def _maybe_learn(lconf, dconf, econf, fold):
+def _delayed_learn(lconf, dconf, econf, fold):
     """
-    Run the learner unless the model files already exist
+    Return possible futures for learning models for this
+    fold
     """
     fold_dir = _fold_dir_path(lconf, fold)
     if not os.path.exists(fold_dir):
         os.makedirs(fold_dir)
 
     with FakeLearnArgs(lconf, econf, fold) as args:
-        subpack = dconf.pack.training(dconf.folds, fold)
         if fp.exists(args.attachment_model) and fp.exists(args.relation_model):
             print("reusing %s model (already built)" % econf.learner.key,
                   file=sys.stderr)
-            return
-        att.learn.main_for_harness(args, subpack)
+            return []
+        subpack = dconf.pack.training(dconf.folds, fold)
+        return att.learn.delayed_main_for_harness(args, subpack)
 
 
 def _decode(lconf, dconf, econf, fold):
@@ -470,8 +471,9 @@ def _do_fold(lconf, dconf, fold):
     # learn all models in parallel
     learner_confs = [list(g)[0] for _, g in
                      itertools.groupby(EVALUATIONS, key=lambda x: x.learner)]
-    Parallel(n_jobs=-1)(delayed(_maybe_learn)(lconf, dconf, econf, fold)
-                        for econf in learner_confs)
+    learner_jobs = itertools.chain(_delayed_learn(lconf, dconf, econf, fold)
+                                   for econf in learner_confs)
+    Parallel(n_jobs=-1)(learner_jobs)
     # run all model/decoder pairs in parallel
     Parallel(n_jobs=-1)(delayed(_do_tuple)(lconf, dconf, econf, fold)
                         for econf in EVALUATIONS)
