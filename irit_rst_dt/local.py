@@ -11,8 +11,11 @@ import itertools
 
 from attelo.harness.config import (EvaluationConfig,
                                    LearnerConfig,
-                                   Variant,
-                                   Team)
+                                   Variant)
+
+
+CORES = 4
+"""Number of CPUs to try to use simultaneously"""
 
 LOCAL_TMP = 'TMP'
 """Things we may want to hold on to (eg. for weeks), but could

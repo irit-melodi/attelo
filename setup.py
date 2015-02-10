@@ -15,4 +15,4 @@ setup(name='irit-rst-dt',
       author_email='eric@erickow.com',
       packages=find_packages(),
       scripts=[f for f in glob.glob('scripts/*') if not os.path.isdir(f)],
-      install_requires=['educe', 'attelo'])
+      install_requires=['educe', 'attelo', 'joblib'])

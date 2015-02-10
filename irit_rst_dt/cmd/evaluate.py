@@ -9,10 +9,13 @@ from __future__ import print_function
 from os import path as fp
 from collections import namedtuple
 import argparse
+import itertools
 import json
 import os
 import shutil
 import sys
+
+from joblib import Parallel, delayed
 
 from attelo.args import args_to_decoder
 from attelo.io import load_data_pack
@@ -22,8 +25,10 @@ from attelo.harness.util import\
     timestamp, call, force_symlink
 import attelo.cmd as att
 
-from ..local import\
-    TRAINING_CORPORA, EVALUATIONS, ATTELO_CONFIG_FILE
+from ..local import (CORES,
+                     EVALUATIONS,
+                     TRAINING_CORPORA,
+                     ATTELO_CONFIG_FILE)
 from ..util import latest_tmp
 
 NAME = 'evaluate'
@@ -449,14 +454,9 @@ def _mk_global_report(lconf, dconf):
 def _do_tuple(lconf, dconf, econf, fold):
     """
     Run a single combination of parameters (innermost block)
-    Return a counts index entry
     """
-    cfile = _counts_file_path(lconf, econf, fold)
-    _maybe_learn(lconf, dconf, econf, fold)
+    print(_eval_banner(econf, lconf, fold), file=sys.stderr)
     _decode(lconf, dconf, econf, fold)
-    return {"config": econf.key,
-            "fold": fold,
-            "counts_file": cfile}
 
 
 def _do_fold(lconf, dconf, fold):
@@ -467,9 +467,12 @@ def _do_fold(lconf, dconf, fold):
     print(_fold_banner(lconf, fold), file=sys.stderr)
     if not os.path.exists(fold_dir):
         os.makedirs(fold_dir)
-    for econf in EVALUATIONS:
-        print(_eval_banner(econf, lconf, fold), file=sys.stderr)
-        _do_tuple(lconf, dconf, econf, fold)
+    for _, econfs in itertools.groupby(EVALUATIONS,
+                                       key=lambda x: x.learner):
+        econfs = list(econfs)
+        _maybe_learn(lconf, dconf, econfs[0], fold)
+        Parallel(n_jobs=CORES)(delayed(_do_tuple)(lconf, dconf, econf, fold)
+                               for econf in econfs)
     fold_dir = _fold_dir_path(lconf, fold)
     _mk_fold_report(lconf, dconf, fold)
 
