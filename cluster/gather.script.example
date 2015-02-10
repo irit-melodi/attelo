@@ -1,0 +1,7 @@
+#!/bin/bash
+#SBATCH --job-name=irit-rst-dt-gather
+#SBATCH --mail-type=END
+#SBATCH --mail-user=YOUR_EMAIL_ADDRESS_HERE <=== EDIT THIS
+IRIT_RST_DT=/absolute/path/to/irit-rst-dt
+source $IRIT_RST_DT/cluster/env
+time irit-rst-dt gather

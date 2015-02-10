@@ -2,6 +2,9 @@
 TMP
 corpus
 ptb3
+cluster/evaluate.script
+cluster/gather.script
+cluster/env
 
 # Sphinx
 _build

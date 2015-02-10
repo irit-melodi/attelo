@@ -1,0 +1,27 @@
+#!/bin/bash
+#SBATCH --job-name=irit-rst-dt-evaluate
+#SBATCH --mail-type=END
+#SBATCH --mail-user=YOUR_EMAIL_ADDRESS_HERE <== EDIT THIS
+IRIT_RST_DT=/absolute/path/to/irit-rst-dt
+cd $IRIT_RST_DT
+
+set -e
+source $IRIT_RST_DT/cluster/env
+# create the evaluation folder
+irit-rst-dt evaluate --start
+# launch ten folds independently, hopefully creating
+# separate cluster nodes for each along the way
+srun irit-rst-dt evaluate --folds 0 &
+srun irit-rst-dt evaluate --folds 1 &
+srun irit-rst-dt evaluate --folds 2 &
+srun irit-rst-dt evaluate --folds 3 &
+srun irit-rst-dt evaluate --folds 4 &
+srun irit-rst-dt evaluate --folds 5 &
+srun irit-rst-dt evaluate --folds 6 &
+srun irit-rst-dt evaluate --folds 7 &
+srun irit-rst-dt evaluate --folds 8 &
+srun irit-rst-dt evaluate --folds 9 &
+# wait for all folds to complete
+wait
+# generate the report
+irit-rst-dt evaluate --end

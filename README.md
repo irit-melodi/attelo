@@ -49,6 +49,12 @@ particularly conda (Anaconda on Mac, Miniconda on Linux)
    ln -s $HOME/CORPORA/PTBIII/parsed/mrg/wsj ptb3
    ```
 
+## Cluster
+
+Do you have access to a fancy compute cluster? You can use it to speed
+things up (mostly by taking advantage of parallelism).  If it's using
+SLURM, check cluster/README.md
+
 ## Preflight checklist
 
 * Have you linked the corpora in? (see Installation)
