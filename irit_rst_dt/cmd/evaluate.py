@@ -575,6 +575,7 @@ def main(args):
     You shouldn't need to call this yourself if you're using
     `config_argparser`
     """
+    sys.setrecursionlimit(10000)
     data_dir = latest_tmp()
     if not os.path.exists(data_dir):
         _exit_ungathered()
