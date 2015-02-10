@@ -18,7 +18,7 @@ on different aspects of the system in a shared space. One of the users
    ```
    MINICONDA_DIR=EDIT_THIS   # <== get from mother
    PROJECT_DIR=EDIT_THIS # <== get from mother
-   export PATH=$CONDA_DIR/bin:$PATH
+   export PATH=$MINICONDA_DIR/bin:$PATH
    ```
 
    (PROJECT_DIR is not strictly speaking needed; it's just a handy
@@ -35,7 +35,8 @@ on different aspects of the system in a shared space. One of the users
       source activate irit-rst-dt-$USER
       ```
 
-4. Fetch irit-rst-dt into the shared space
+4. Fetch irit-rst-dt into the shared space and link it into your
+   home directory
 
     ```
     cd $PROJECT_DIR # or just type path in yourself

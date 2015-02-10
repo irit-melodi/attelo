@@ -2,11 +2,11 @@
 #SBATCH --job-name=irit-rst-dt-evaluate
 #SBATCH --mail-type=END
 #SBATCH --mail-user=YOUR_EMAIL_ADDRESS_HERE <== EDIT THIS
-IRIT_RST_DT=/absolute/path/to/irit-rst-dt
-cd $IRIT_RST_DT
+IRIT_RST_DT=$HOME/irit-rst-dt
+cd "$IRIT_RST_DT"
 
 set -e
-source $IRIT_RST_DT/cluster/env
+source "$IRIT_RST_DT/cluster/env"
 # create the evaluation folder
 irit-rst-dt evaluate --start
 # launch ten folds independently, hopefully creating
