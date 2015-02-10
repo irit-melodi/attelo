@@ -16,12 +16,6 @@ class EDU(namedtuple("EDU", "id text start end grouping subgrouping")):
                      "from {grouping} [{subgrouping}]"
                      "\t{text}")
 
-    def __deepcopy__(self, _):
-        # edu.deepcopy here returns the EDU itself
-        # this is (presumably) safe to do if we make all of the
-        # members read-only
-        return self
-
     def __unicode__(self):
         return self._str_template.format(id=self.id,
                                          start=int(self.start),
