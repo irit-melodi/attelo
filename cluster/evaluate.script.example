@@ -2,6 +2,7 @@
 #SBATCH --job-name=irit-rst-dt-evaluate
 #SBATCH --mail-type=END
 #SBATCH --mail-user=YOUR_EMAIL_ADDRESS_HERE <== EDIT THIS
+#SBATCH --cpus-per-task=64
 IRIT_RST_DT=$HOME/irit-rst-dt
 cd "$IRIT_RST_DT"
 EVALUATE_FLAGS=()
