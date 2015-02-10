@@ -107,14 +107,12 @@ class LearnerConfig(Team):
     :type attach: Variant
     :type relate: Variant
     """
-    def __init__(self, attach, relate):
-        """
-        generate a short unique name for this learner combo
-        """
-        super(LearnerConfig, self).__init__(attach, relate)
-        self.key = self.attach.key
-        if self.relate is not None:
-            self.key += "_" + self.relate.key
+    def __new__(cls, attach, relate):
+        team = super(LearnerConfig, cls).__new__(cls, attach, relate)
+        team.key = team.attach.key
+        if team.relate is not None:
+            team.key += "_" + team.relate.key
+        return team
 
 
 class EvaluationConfig(namedtuple("EvaluationConfig",
