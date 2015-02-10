@@ -327,10 +327,12 @@ def _fold_dir_basename(fold):
     "Relative directory for working within a given fold"
     return "fold-%d" % fold
 
+
 def _fold_dir_path(lconf, fold):
     "Scratch directory for working within a given fold"
     return os.path.join(lconf.scratch_dir,
                         _fold_dir_basename(fold))
+
 
 def _eval_model_path(lconf, econf, fold, mtype):
     "Model for a given loop/eval config and fold"
@@ -417,6 +419,7 @@ def _mk_report(args, index, dconf):
     with open(args.index_file, 'w') as ostream:
         json.dump(index, ostream)
     att.report.main_for_harness(args, dconf.pack)
+
 
 def _mk_fold_report(lconf, dconf, fold):
     "Generate reports for scores"
