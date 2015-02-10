@@ -14,9 +14,6 @@ from attelo.harness.config import (EvaluationConfig,
                                    Variant)
 
 
-CORES = 4
-"""Number of CPUs to try to use simultaneously"""
-
 LOCAL_TMP = 'TMP'
 """Things we may want to hold on to (eg. for weeks), but could
 live with throwing away as needed"""
