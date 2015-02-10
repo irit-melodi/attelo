@@ -461,11 +461,6 @@ def _do_fold(lconf, dconf, fold):
     Run all learner/decoder combos within this fold
     """
     fold_dir = _fold_dir_path(lconf, fold)
-    if fp.exists(_report_dir(fold_dir, lconf)):
-        print("Skipping fold %d (already run)" % fold,
-              file=sys.stderr)
-        return
-
     print(_fold_banner(lconf, fold), file=sys.stderr)
     if not os.path.exists(fold_dir):
         os.makedirs(fold_dir)
