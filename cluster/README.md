@@ -40,6 +40,7 @@ on different aspects of the system in a shared space. One of the users
     ```
     cd $PROJECT_DIR # or just type path in yourself
     git clone https://github.com/kowey/irit-rst-dt.git irit-rst-dt-$USER
+    ln -s $PROJECT_DIR/irit-rst-dt-$USER $HOME/irit-rst-dt
     ```
 
 5. (optional) modify the requirements.txt to point to your personal educe
@@ -61,7 +62,7 @@ on different aspects of the system in a shared space. One of the users
 
    ```
    for i in env gather.script evaluate.script; do\
-        cp cluster/$i.example cluster $i; done
+        cp cluster/$i.example cluster/$i; done
    vim cluster/env
    vim cluster/gather.script
    vim cluster/evaluate.script
@@ -73,7 +74,7 @@ on different aspects of the system in a shared space. One of the users
 
 ```
 bash
-cd $PROJECT_DIR/irit-rst-dt-$USER
+cd irit-rst-dt
 sbatch cluster/gather.script
 ```
 
@@ -86,6 +87,6 @@ sbatch cluster/gather.script
 
 ```
 bash
-cd $PROJECT_DIR/irit-rst-dt-$USER
+cd irit-rst-dt
 sbatch cluster/evaluate.script
 ```
