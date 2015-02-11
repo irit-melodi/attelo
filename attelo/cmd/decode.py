@@ -1,7 +1,6 @@
 "build a discourse graph from edu pairs and a model"
 
 from __future__ import print_function
-import fileinput
 import json
 import os
 import sys
@@ -113,9 +112,10 @@ def concatenate_outputs(args, dpack):
     """
     groupings = dpack.groupings()
     tmpfiles = [args.output + '.' + d for d in groupings]
-    with open(args.output, 'w') as fout:
-        for line in fileinput.input(tmpfiles):
-            fout.write(line)
+    with open(args.output, 'wb') as file_out:
+        for tfile in tmpfiles:
+            with open(tfile, 'rb') as file_in:
+                file_out.write(file_in.read())
     for tmpfile in tmpfiles:
         os.remove(tmpfile)
 
