@@ -1,8 +1,11 @@
 "build a discourse graph from edu pairs and a model"
 
 from __future__ import print_function
+import fileinput
 import json
 import sys
+
+from joblib import (Parallel, delayed)
 
 from ..args import (add_common_args, add_decoder_args,
                     add_fold_choice_args, validate_fold_choice_args,
@@ -61,10 +64,6 @@ def config_argparser(psr):
     psr.add_argument("--relation-model", "-R", default=None,
                      required=True,
                      help="model needed for relations prediction")
-    psr.add_argument("--scores",
-                     metavar='FILE',
-                     help="score our decoding (test data must have "
-                     "ref labels to score against) and save it here")
     psr.add_argument("--output", "-o",
                      default=None,
                      required=True,
@@ -83,7 +82,7 @@ def load_models(args):
                 relate=load_model(args.relation_model))
 
 
-def _decode_group(args, decoder, dpack, models):
+def _decode_group(mode, output, decoder, dpack, models):
     '''
     decode a single group and write its output
 
@@ -91,19 +90,50 @@ def _decode_group(args, decoder, dpack, models):
 
     :rtype Count or None
     '''
-    mode = args_to_decoding_mode(args)
     predictions = decode(mode, decoder, dpack, models)
     if not predictions:
         raise DecoderException('decoder must make at least one prediction')
 
     # we trust the decoder to select what it thinks is its best prediction
     first_prediction = predictions[0]
-    append_predictions_output(dpack, first_prediction,
-                              args.output)
-    if args.scores:
-        return score_prediction(dpack, first_prediction)
-    else:
-        return None
+    append_predictions_output(dpack, first_prediction, output)
+
+
+def concatenate_outputs(args, dpack):
+    """
+    (For use after :py:func:`delayed_main_for_harness`)
+
+    Concatenate temporary per-group outputs into a single
+    combined output
+    """
+    groupings = dpack.groupings()
+    with open(args.output, 'w') as fout:
+        for onedoc in groupings:
+            tmpfile = args.output + '.' + onedoc
+            for line in fileinput.input(tmpfile):
+                fout.write(line)
+
+
+def delayed_main_for_harness(args, decoder, dpack, models):
+    """
+    Advanced variant of the main function which returns a list
+    of decoding futures, each corresponding to the decoding
+    task for a single group.
+
+    Unlike the normal main function, this writes to a separate
+    file for each grouping. It's up to you to concatenate the
+    results after the fact
+    """
+    start_predictions_output(args.output)
+    groupings = dpack.groupings()
+    mode = args_to_decoding_mode(args)
+    jobs = []
+    for onedoc, indices in groupings.items():
+        onepack = dpack.selected(indices)
+        output = args.output + '.' + onedoc
+        jobs.append(delayed(_decode_group)(mode, output,
+                                           decoder, onepack, models))
+    return jobs
 
 
 def main_for_harness(args, decoder, dpack, models):
@@ -113,19 +143,8 @@ def main_for_harness(args, decoder, dpack, models):
     You have to supply DataModel args for attachment/relation
     yourself
     """
-    start_predictions_output(args.output)
-    groupings = dpack.groupings()
-
-    scores = {}
-    for onedoc, indices in groupings.items():
-        if not args.quiet:
-            print("decoding on file : ", onedoc, file=sys.stderr)
-        onepack = dpack.selected(indices)
-        scores[onedoc] = _decode_group(args, decoder, onepack, models)
-
-    if args.scores is not None:
-        with open(args.scores, 'w') as stream:
-            Count.write_csv(scores, stream)
+    Parallel(n_jobs=-1, verbose=5)(delayed_main_for_harness(args, decoder, dpack, models))
+    concatenate_outputs(args, dpack)
 
 
 @validate_fold_choice_args
