@@ -14,16 +14,9 @@ source "$IRIT_RST_DT/cluster/env"
 irit-rst-dt evaluate --start "${EVALUATE_FLAGS[@]}"
 # launch ten folds independently, hopefully creating
 # separate cluster nodes for each along the way
-srun irit-rst-dt evaluate --folds 0 "${EVALUATE_FLAGS[@]}" &
-srun irit-rst-dt evaluate --folds 1 "${EVALUATE_FLAGS[@]}" &
-srun irit-rst-dt evaluate --folds 2 "${EVALUATE_FLAGS[@]}" &
-srun irit-rst-dt evaluate --folds 3 "${EVALUATE_FLAGS[@]}" &
-srun irit-rst-dt evaluate --folds 4 "${EVALUATE_FLAGS[@]}" &
-srun irit-rst-dt evaluate --folds 5 "${EVALUATE_FLAGS[@]}" &
-srun irit-rst-dt evaluate --folds 6 "${EVALUATE_FLAGS[@]}" &
-srun irit-rst-dt evaluate --folds 7 "${EVALUATE_FLAGS[@]}" &
-srun irit-rst-dt evaluate --folds 8 "${EVALUATE_FLAGS[@]}" &
-srun irit-rst-dt evaluate --folds 9 "${EVALUATE_FLAGS[@]}" &
+for f in $(seq 0 9); do
+    srun irit-rst-dt evaluate --folds "$f" "${EVALUATE_FLAGS[@]}" &
+done
 # wait for all folds to complete
 wait
 # generate the report
