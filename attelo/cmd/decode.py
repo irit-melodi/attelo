@@ -1,6 +1,7 @@
 "build a discourse graph from edu pairs and a model"
 
 from __future__ import print_function
+from os import path as fp
 import json
 import os
 import sys
@@ -10,9 +11,7 @@ from joblib import (Parallel, delayed)
 from ..args import (add_common_args, add_decoder_args,
                     add_fold_choice_args, validate_fold_choice_args,
                     args_to_decoder, args_to_decoding_mode)
-from ..io import (load_model,
-                  start_predictions_output,
-                  append_predictions_output)
+from ..io import (load_model, append_predictions_output)
 from ..decoding import (DecoderException, decode, count_correct)
 from ..report import Count
 from ..util import Team
@@ -103,6 +102,14 @@ def _decode_group(mode, output, decoder, dpack, models):
     append_predictions_output(dpack, first_prediction, output)
 
 
+def tmp_output_filename(path, suffix):
+    """
+    Temporary filename for output file segment
+    """
+    return fp.join(fp.dirname(path),
+                   '_' + fp.basename(path) + '.' + suffix)
+
+
 def concatenate_outputs(args, dpack):
     """
     (For use after :py:func:`delayed_main_for_harness`)
@@ -111,7 +118,8 @@ def concatenate_outputs(args, dpack):
     combined output
     """
     groupings = dpack.groupings()
-    tmpfiles = [args.output + '.' + d for d in groupings]
+    tmpfiles = [tmp_output_filename(args.output, d)
+                for d in groupings]
     with open(args.output, 'wb') as file_out:
         for tfile in tmpfiles:
             with open(tfile, 'rb') as file_in:
@@ -136,7 +144,7 @@ def delayed_main_for_harness(args, decoder, dpack, models):
     jobs = []
     for onedoc, indices in groupings.items():
         onepack = dpack.selected(indices)
-        output = args.output + '.' + onedoc
+        output = tmp_output_filename(args.output, onedoc)
         jobs.append(delayed(_decode_group)(mode, output,
                                            decoder, onepack, models))
     return jobs
