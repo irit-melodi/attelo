@@ -3,6 +3,7 @@
 from __future__ import print_function
 import fileinput
 import json
+import os
 import sys
 
 from joblib import (Parallel, delayed)
@@ -115,6 +116,8 @@ def concatenate_outputs(args, dpack):
     with open(args.output, 'w') as fout:
         for line in fileinput.input(tmpfiles):
             fout.write(line)
+    for tmpfile in tmpfiles:
+        os.remove(tmpfile)
 
 
 def delayed_main_for_harness(args, decoder, dpack, models):
