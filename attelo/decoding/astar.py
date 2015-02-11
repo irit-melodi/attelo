@@ -504,15 +504,7 @@ class AstarArgs(namedtuple('AstarArgs',
     :param rfc: what sort of right frontier constraint to apply
     :type rfc: RfcConstraint
     """
-    def __new__(cls,
-                heuristics=Heuristic.zero,
-                beam=None,
-                rfc=RfcConstraint.simple,
-                use_prob=True,
-                nbest=1):
-        return super(AstarArgs, cls).__new__(cls,
-                                             heuristics, rfc,
-                                             beam, nbest, use_prob)
+    pass
 # pylint: enable=too-many-arguments
 
 

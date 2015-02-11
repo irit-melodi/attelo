@@ -42,10 +42,11 @@ DEFAULT_MST_ROOT = MstRootStrategy.fake_root
 
 # default values for A* decoder
 # (NB: not the same as in the default initialiser)
-DEFAULT_ASTAR_ARGS = AstarArgs(rfc=RfcConstraint.full,
-                               heuristics=Heuristic.average,
+DEFAULT_ASTAR_ARGS = AstarArgs(heuristics=Heuristic.average,
+                               rfc=RfcConstraint.full,
                                beam=None,
-                               nbest=1)
+                               nbest=1,
+                               use_prob=True)
 DEFAULT_HEURISTIC = DEFAULT_ASTAR_ARGS.heuristics
 DEFAULT_BEAMSIZE = DEFAULT_ASTAR_ARGS.beam
 DEFAULT_NBEST = DEFAULT_ASTAR_ARGS.nbest
@@ -88,7 +89,8 @@ def args_to_decoder(args):
     astar_args = AstarArgs(rfc=args.rfc,
                            heuristics=args.heuristics,
                            beam=args.beamsize,
-                           nbest=args.nbest)
+                           nbest=args.nbest,
+                           use_prob=not args.non_prob_scores)
 
     config = DecoderArgs(threshold=args.threshold,
                          mst_root_strategy=args.mst_root_strategy,
