@@ -470,9 +470,10 @@ def _do_fold(lconf, dconf, fold):
     # learn all models in parallel
     learner_confs = [list(g)[0] for _, g in
                      itertools.groupby(EVALUATIONS, key=lambda x: x.learner)]
-    learner_jobs = chain.from_iterable(_delayed_learn(lconf, dconf, econf, fold)
+    learner_jobs = chain.from_iterable(_delayed_learn(lconf, dconf, econf,
+                                                      fold)
                                        for econf in learner_confs)
-    Parallel(n_jobs=-1)(learner_jobs)
+    Parallel(n_jobs=-1, verbose=5)(learner_jobs)
     # run all model/decoder joblets in parallel
     decoder_jobs = chain.from_iterable(_delayed_decode(lconf, dconf, econf,
                                                        fold)
