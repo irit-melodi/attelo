@@ -49,12 +49,6 @@ particularly conda (Anaconda on Mac, Miniconda on Linux)
    ln -s $HOME/CORPORA/PTBIII/parsed/mrg/wsj ptb3
    ```
 
-## Cluster
-
-Do you have access to a fancy compute cluster? You can use it to speed
-things up (mostly by taking advantage of parallelism).  If it's using
-SLURM, check cluster/README.md
-
 ## Preflight checklist
 
 * Have you linked the corpora in? (see Installation)
@@ -159,3 +153,20 @@ feature directories, these are named by timestamp (with
   manually copy the eval directory to SNAPSHOTS, maybe with a
   small README explaining what it is, or at least a vaguely
   memorable name. This directory should be fairly self-contained.
+
+## Suggestions
+
+### Corpus subsets
+
+If you are switching back and forth between a small test corpus
+and a larger “real” corpus; try having separate symlinks in the TMP
+directory, like test-LATEST and full-LATEST. Then you can replace the
+LATEST symlink to point to the TMP directory of your choosing
+
+### Cluster
+
+Do you have access to a fancy compute cluster? You can use it to speed
+things up (mostly by taking advantage of parallelism).  If it's using
+SLURM, check cluster/README.md
+
+
