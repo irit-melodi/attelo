@@ -138,7 +138,6 @@ def delayed_main_for_harness(args, decoder, dpack, models):
     file for each grouping. It's up to you to concatenate the
     results after the fact
     """
-    start_predictions_output(args.output)
     groupings = dpack.groupings()
     mode = args_to_decoding_mode(args)
     jobs = []
