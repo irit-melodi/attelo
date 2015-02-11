@@ -16,7 +16,7 @@ import os
 import shutil
 import sys
 
-from joblib import Parallel, delayed
+from joblib import Parallel
 
 from attelo.args import args_to_decoder
 from attelo.io import load_data_pack
@@ -230,7 +230,6 @@ class FakeDecodeArgs(FakeEvalArgs):
         fold = self.fold
         args = super(FakeDecodeArgs, self).argv()
         args.extend(["--decoder", econf.decoder.name,
-                     "--scores", _counts_file_path(lconf, econf, fold),
                      "--output", _decode_output_path(lconf, econf, fold)])
         args.extend(econf.decoder.flags)
         return args
@@ -347,13 +346,6 @@ def _eval_model_path(lconf, econf, fold, mtype):
                         "%s.%s.%s.model" % (lconf.dataset, lname, mtype))
 
 
-def _counts_file_path(lconf, econf, fold):
-    "Scores collected for a given loop and eval configuration"
-    fold_dir = _fold_dir_path(lconf, fold)
-    return os.path.join(fold_dir,
-                        ".".join(["counts", econf.key, "csv"]))
-
-
 def _decode_output_basename(econf):
     "Model for a given loop/eval config and fold"
     return ".".join(["output", econf.key])
@@ -391,25 +383,36 @@ def _delayed_learn(lconf, dconf, econf, fold):
         return att.learn.delayed_main_for_harness(args, subpack)
 
 
-def _decode(lconf, dconf, econf, fold):
+def _delayed_decode(lconf, dconf, econf, fold):
     """
-    Run the decoder for this given fold
+    Return possible futures for decoding groups within
+    this model/decoder combo for the given fold
     """
-    if fp.exists(_counts_file_path(lconf, econf, fold)):
+    if fp.exists(_decode_output_path(lconf, econf, fold)):
         print("skipping %s/%s (already done)" % (econf.learner.key,
                                                  econf.decoder.key),
               file=sys.stderr)
-        return
+        return []
 
     fold_dir = _fold_dir_path(lconf, fold)
     if not os.path.exists(fold_dir):
         os.makedirs(fold_dir)
     with FakeDecodeArgs(lconf, econf, fold) as args:
         decoder = args_to_decoder(args)
-
         subpack = dconf.pack.testing(dconf.folds, fold)
         models = att.decode.load_models(args)
-        att.decode.main_for_harness(args, decoder, subpack, models)
+        return att.decode.delayed_main_for_harness(args, decoder,
+                                                   subpack, models)
+
+
+def _post_decode(lconf, dconf, econf, fold):
+    """
+    Join together output files from this model/decoder combo
+    """
+    print(_eval_banner(econf, lconf, fold), file=sys.stderr)
+    with FakeDecodeArgs(lconf, econf, fold) as args:
+        subpack = dconf.pack.testing(dconf.folds, fold)
+        return att.decode.concatenate_outputs(args, subpack)
 
 
 def _generate_fold_file(lconf, dpack):
@@ -452,14 +455,6 @@ def _mk_global_report(lconf, dconf):
               file=sys.stderr)
 
 
-def _do_tuple(lconf, dconf, econf, fold):
-    """
-    Run a single combination of parameters (innermost block)
-    """
-    print(_eval_banner(econf, lconf, fold), file=sys.stderr)
-    _decode(lconf, dconf, econf, fold)
-
-
 def _do_fold(lconf, dconf, fold):
     """
     Run all learner/decoder combos within this fold
@@ -475,9 +470,13 @@ def _do_fold(lconf, dconf, fold):
     learner_jobs = chain.from_iterable(_delayed_learn(lconf, dconf, econf, fold)
                                        for econf in learner_confs)
     Parallel(n_jobs=-1)(learner_jobs)
-    # run all model/decoder pairs in parallel
-    Parallel(n_jobs=-1)(delayed(_do_tuple)(lconf, dconf, econf, fold)
-                        for econf in EVALUATIONS)
+    # run all model/decoder joblets in parallel
+    decoder_jobs = chain.from_iterable(_delayed_decode(lconf, dconf, econf,
+                                                       fold)
+                                       for econf in EVALUATIONS)
+    Parallel(n_jobs=-1, verbose=5)(decoder_jobs)
+    for econf in EVALUATIONS:
+        _post_decode(lconf, dconf, econf, fold)
     fold_dir = _fold_dir_path(lconf, fold)
     _mk_fold_report(lconf, dconf, fold)
 
