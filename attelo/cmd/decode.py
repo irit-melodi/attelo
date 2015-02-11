@@ -111,11 +111,10 @@ def concatenate_outputs(args, dpack):
     combined output
     """
     groupings = dpack.groupings()
+    tmpfiles = [args.output + '.' + d for d in groupings]
     with open(args.output, 'w') as fout:
-        for onedoc in groupings:
-            tmpfile = args.output + '.' + onedoc
-            for line in fileinput.input(tmpfile):
-                fout.write(line)
+        for line in fileinput.input(tmpfiles):
+            fout.write(line)
 
 
 def delayed_main_for_harness(args, decoder, dpack, models):
