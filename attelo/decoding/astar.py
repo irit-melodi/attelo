@@ -541,7 +541,7 @@ class AstarDecoder(Decoder):
     returns a structure, or nbest structures
     """
     def __init__(self, astar_args):
-        self._heuristic = HEURISTICS[astar_args.heuristics]
+        self._heuristic = astar_args.heuristics
         self._args = astar_args
 
     def decode(self, prob_distrib):
@@ -549,16 +549,17 @@ class AstarDecoder(Decoder):
         edus = [x.id for x in get_sorted_edus(prob_distrib)]
         print("\t %s nodes to attach"%(len(edus)-1), file=sys.stderr)
 
+        heuristic = HEURISTICS[self._heuristic]
         search_shared = {"probs": probs,
                          "use_prob": self._args.use_prob,
                          "heuristics": preprocess_heuristics(prob_distrib),
                          "RFC": self._args.rfc}
         if self._args.beam:
-            astar = DiscourseBeamSearch(heuristic=self._heuristic,
+            astar = DiscourseBeamSearch(heuristic=heuristic,
                                         shared=search_shared,
                                         queue_size=self._args.beam)
         else:
-            astar = DiscourseSearch(heuristic=self._heuristic,
+            astar = DiscourseSearch(heuristic=heuristic,
                                     shared=search_shared)
             genall = astar.launch(DiscData(accessible=[edus[0]], tolink=edus[1:]),
                                   norepeat=True, verbose=False)
