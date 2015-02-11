@@ -28,11 +28,15 @@ def _load_and_select_data(args):
     """
     read data and filter on fold if relevant
     """
-    dpack = load_args_data_pack(args)
     if args.fold is None:
-        return dpack
+        dpack = load_args_data_pack(args)
+        return load_args_data_pack(args)
     else:
+        # load fold dictionary before data pack
+        # this way, if it fails we find out sooner
+        # instead of waiting for the data pack
         fold_dict = json.load(args.fold_file)
+        dpack = load_args_data_pack(args)
         return dpack.testing(fold_dict, args.fold)
 
 

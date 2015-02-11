@@ -29,11 +29,13 @@ def _load_and_select_data(args):
     """
     read data and filter on fold if relevant
     """
-    dpack = load_args_data_pack(args)
     if args.fold is None:
+        dpack = load_args_data_pack(args)
         return dpack
     else:
+        # load data pack *AFTER* fold dict (fail faster)
         fold_dict = json.load(args.fold_file)
+        dpack = load_args_data_pack(args)
         return dpack.training(fold_dict, args.fold)
 
 # ---------------------------------------------------------------------
