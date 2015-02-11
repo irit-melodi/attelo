@@ -1,0 +1,29 @@
+#!/bin/bash
+
+IRIT_RST_DT=$HOME/irit-rst-dt
+cd "$IRIT_RST_DT"
+EVALUATE_FLAGS=()
+#EVALUATE_FLAGS=(--resume)
+cd "$IRIT_RST_DT"
+if [ ! -e "$IRIT_RST_DT"/cluster/env ]; then
+    echo >&2 "Please set up your cluster/env script"
+    echo >&2 "(copy from example and edit)"
+    exit 1
+fi
+
+
+set -e
+source "$IRIT_RST_DT/cluster/env"
+# create the evaluation folder
+irit-rst-dt evaluate --start "${EVALUATE_FLAGS[@]}"
+
+# request a job for each fold
+for f in $(seq 0 9); do
+   jobs+=($(sbatch "$IRIT_RST_DT"/cluster/evaluate-fold.script "${EVALUATE_FLAGS[@]}" "$f" |\
+            sed -e 's/Submitted batch job //'))
+done
+for job in "${jobs[@]}"; do
+   job_str="${job_str+$job_str,}afterok:$job"
+done
+# generate the report when all folds are done
+sbatch --dependency="$job_str" "$IRIT_RST_DT"/cluster/report.script

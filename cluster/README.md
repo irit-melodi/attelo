@@ -62,11 +62,8 @@ on different aspects of the system in a shared space. One of the users
    absolute paths appropriate to your cluster
 
    ```
-   for i in env gather.script evaluate.script; do\
-        cp cluster/$i.example cluster/$i; done
+   cp cluster/$i.example cluster/$i
    vim cluster/env
-   vim cluster/gather.script
-   vim cluster/evaluate.script
    ```
 
 ## Using the cluster scripts
@@ -89,5 +86,6 @@ sbatch cluster/gather.script
 ```
 bash
 cd irit-rst-dt
-sbatch cluster/evaluate.script
+chmod u+x cluster/go
+cluster/go
 ```
