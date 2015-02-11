@@ -336,17 +336,9 @@ class DecodeArgs(LearnDecodeArgs):
         super(DecodeArgs, self).__init__(*args, **kwargs)
     # pylint: enable=unused-argument
 
-    def counts_file(self):
-        'file where scores will be stored'
-        bname = 'scores'
-        if self._fold is not None:
-            bname += '-{}'.format(self._fold)
-        return self.tmp_path(bname)
-
     def argv(self):
         args = super(DecodeArgs, self).argv()
-        args.extend(['--output', fp.join(self._tmpdir, 'output'),
-                     '--scores', self.counts_file()])
+        args.extend(['--output', fp.join(self._tmpdir, 'output')])
         return args
 
     @classmethod
