@@ -306,11 +306,14 @@ def _eval_data_path(lconf, ext):
                         "%s.%s" % (lconf.dataset, ext))
 
 
-def _features_path(lconf):
+def _features_path(lconf, stripped=False):
     """
     Path to the feature file in the evaluation dir
     """
-    return _eval_data_path(lconf, 'relations.sparse')
+    ext = 'relations.sparse'
+    if stripped:
+        ext += '.stripped'
+    return _eval_data_path(lconf, ext)
 
 
 def _edu_input_path(lconf):
@@ -488,9 +491,12 @@ def _do_corpus(lconf):
     edus_file = _edu_input_path(lconf)
     if not os.path.exists(edus_file):
         _exit_ungathered()
+
+    has_stripped = (lconf.report_only
+                    and fp.exists(_features_path(lconf, stripped=True)))
     dpack = load_data_pack(edus_file,
                            _pairings_path(lconf),
-                           _features_path(lconf),
+                           _features_path(lconf, stripped=has_stripped),
                            verbose=True)
 
     _generate_fold_file(lconf, dpack)
