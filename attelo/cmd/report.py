@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 from collections import defaultdict, namedtuple
+from functools import wraps
 from os import path as fp
 import argparse
 import csv
@@ -49,15 +50,54 @@ def config_argparser(psr):
 
     add_common_args(psr)
     add_report_args(psr)
-    psr.add_argument("index_file", metavar="FILE",
-                     help="json index file (see doc)")
+    input_grp = psr.add_mutually_exclusive_group(required=True)
+    input_grp.add_argument("--index", metavar="FILE",
+                           help="json index file (see doc)")
+    input_grp.add_argument("--predictions", metavar="FILE",
+                           help="single predictions")
     psr.add_argument("--fold-file", metavar="FILE",
                      type=argparse.FileType('r'),
-                     required=True,
                      help="read folds from this file")
+    psr.add_argument("--fold", metavar="INT",
+                     type=int,
+                     help="only report on this fold")
     psr.add_argument("--output", metavar="DIR",
                      help="save report to this file")
     psr.set_defaults(func=main)
+
+
+def _validate_report_args(wrapped):
+    """
+    Given a function that accepts an argparsed object, check
+    the fold arguments before carrying on.
+
+    The idea here is that --fold and --fold-file are meant to
+    be used together (xnor)
+
+    This is meant to be used as a decorator, eg.::
+
+        @_validate_report_args
+        def main(args):
+            blah
+    """
+    @wraps(wrapped)
+    def inner(args):
+        "die if report args are incomplete"
+        if args.index is not None and args.fold_file is None:
+            # I'd prefer to use something like ArgumentParser.error
+            # here, but I can't think of a convenient way of passing
+            # the parser object in or otherwise obtaining it
+            sys.exit("arg error: --fold-file is required when "
+                     "--index is present")
+        if args.fold is not None and args.fold_file is None:
+            # I'd prefer to use something like ArgumentParser.error
+            # here, but I can't think of a convenient way of passing
+            # the parser object in or otherwise obtaining it
+            sys.exit("arg error: --fold-file is required when "
+                     "--fold is present")
+        wrapped(args)
+    return inner
+
 
 # TODO: we need to revist the question of params in the reporting code
 NullParams = namedtuple("NullParams", "dummy")
@@ -92,6 +132,17 @@ def read_index(master_index):
         for fold in index['folds']:
             fold['path'] = _make_relative_wrt(master_index, fold['path'])
     return index
+
+
+def fake_index(predictions_file, fold):
+    """return a fake index dictionary for a
+    single prediction file
+    """
+    return {'folds': [{'number': fold,
+                       'path': fp.dirname(predictions_file)}],
+            'configurations': [{'attach-learner': 'x',
+                                'decoder': 'x',
+                                'predictions': fp.basename(predictions_file)}]}
 
 
 def build_confusion_matrix(dpack, predictions):
@@ -147,8 +198,15 @@ def _key_filename(output_dir, prefix, key):
 
 def main_for_harness(args, dpack, output_dir):
     "main for direct calls via test harness"
-    fold_dict = json.load(args.fold_file)
-    index = read_index(args.index_file)
+    if args.index is not None:
+        index = read_index(args.index)
+        fold_dict = json.load(args.fold_file)
+    elif args.fold is not None:
+        index = fake_index(args.predictions, args.fold)
+        fold_dict = json.load(args.fold_file)
+    else:
+        index = fake_index(args.predictions, 0)
+        fold_dict = {k: 0 for k in dpack.groupings()}
     reports, confusion = score_outputs(dpack, fold_dict, index)
     if not fp.exists(output_dir):
         os.makedirs(output_dir)
