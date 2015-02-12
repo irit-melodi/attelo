@@ -266,7 +266,7 @@ class FakeReportArgs(CliArgs):
         argv = [_edu_input_path(lconf),
                 _pairings_path(lconf),
                 _features_path(lconf),
-                fp.join(parent_dir, 'index.json'),
+                "--index", fp.join(parent_dir, 'index.json'),
                 "--config", ATTELO_CONFIG_FILE,
                 "--fold-file", lconf.fold_file,
                 "--output", _report_dir(parent_dir, lconf)]
@@ -428,9 +428,9 @@ def _generate_fold_file(lconf, dpack):
 
 def _mk_report(args, index, dconf):
     "helper for report generation"
-    with open(args.index_file, 'w') as ostream:
+    with open(args.index, 'w') as ostream:
         json.dump(index, ostream)
-    att.report.main_for_harness(args, dconf.pack)
+    att.report.main_for_harness(args, dconf.pack, args.output)
 
 
 def _mk_fold_report(lconf, dconf, fold):
