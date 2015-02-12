@@ -82,7 +82,7 @@ def _combine_probs(dpack, models, debug=False):
     # pylint: disable=star-args
 
 
-def _add_labels(models, predictions, dpack):
+def _add_labels(dpack, models, predictions):
     """given a list of predictions, predict labels for a given set of edges
     (=post-labelling an unlabelled decoding)
 
@@ -147,7 +147,7 @@ def decode(mode, decoder, dpack, models):
     predictions = decoder.decode(prob_distrib)
 
     if mode == DecodingMode.post_label:
-        return _add_labels(models, dpack, predictions)
+        return _add_labels(dpack, models, predictions)
     else:
         return predictions
 
