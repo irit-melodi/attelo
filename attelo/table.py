@@ -221,13 +221,8 @@ class DataPack(namedtuple('DataPack',
     def get_label(self, i):
         '''
         Return the class label for the given target value.
-
-        If `labels` is None, return `None`
         '''
-        if self.labels is None:
-            return None
-        else:
-            return self.labels[int(i) - 1]
+        return self.labels[int(i) - 1]
 
     def label_number(self, label):
         '''
