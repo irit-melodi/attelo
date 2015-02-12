@@ -61,6 +61,7 @@ def _build_core_graph(title, edus):
     subgraphs = {}
     for grp in groups:
         attrs = {'color': 'lightgrey',
+                 'label': grp,
                  'style': 'dashed'}
         subgraphs[grp] = pydot.Subgraph('cluster_' + grp, **attrs)
         graph.add_subgraph(subgraphs[grp])
