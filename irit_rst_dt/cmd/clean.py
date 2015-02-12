@@ -47,6 +47,6 @@ def main(_):
             elif bname.startswith("scratch-"):
                 shutil.rmtree(subdir)
             elif bname.startswith("eval-"):
-                if not any(f.startswith("scores-") for
+                if not any(f.startswith("reports-") for
                            f in os.listdir(subdir)):
                     shutil.rmtree(subdir)
