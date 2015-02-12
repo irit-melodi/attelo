@@ -98,11 +98,12 @@ def _add_labels(dpack, models, predictions):
         edu1, edu2, _ = link
         return (edu1, edu2, label)
 
-    pack = for_labelling(dpack)
-    labels = models.relate.predict(pack.data)
+    relate_pack = for_labelling(dpack)
+    relate_idxes = models.relate.predict(relate_pack.data)
+    relate_labels = [relate_pack.get_label(i) for i in relate_idxes]
     res = []
     for pred in predictions:
-        updated = [update(lnk, lbl) for lnk, lbl in zip(pred, labels)]
+        updated = [update(lnk, lbl) for lnk, lbl in zip(pred, relate_labels)]
         res.append(updated)
     return res
 
