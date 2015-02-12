@@ -1,4 +1,5 @@
 # pylint: disable=W0105
+# pylint: disable=star-args
 """
 Paths and settings used for this experimental harness
 In the future we may move this to a proper configuration file.
@@ -40,9 +41,11 @@ Where to read the Penn Treebank from (should be dir corresponding to
 parsed/mrg/wsj)
 """
 
-LEARNERS = [LearnerConfig(attach=Variant(key="bayes", name="bayes", flags=[]),
+LEARNERS = [LearnerConfig(attach=Variant(key="bayes", name="bayes",
+                                         flags=[]),
                           relate=None),
-            LearnerConfig(attach=Variant(key="maxent", name="maxent", flags=[]),
+            LearnerConfig(attach=Variant(key="maxent", name="maxent",
+                                         flags=[]),
                           relate=None)]
 """Attelo learner algorithms to try.  In the general case, you can
 leave the relate learner as `None` (in which case we just use the.
@@ -75,10 +78,53 @@ Don't forget that you can parameterise the decoders ::
 """
 
 
-EVALUATIONS = [EvaluationConfig(key=EvaluationConfig.simple_key(l, d),
-                                learner=l,
-                                decoder=d) for l, d in
-               itertools.product(LEARNERS, DECODERS)]
+GLOBAL_DECODER_SETTINGS =\
+    [Variant(key='ADxL_joint', name=None,
+             flags=[]),
+     Variant(key='ADxL_post', name=None,
+             flags=['--post-label'])]
+"""Variants on global settings that would generally apply
+over all decoder combos.
+
+    Variant(key="post-label",
+            name=None,
+            flags=["--post-label"])
+
+The name field is ignored here.
+
+Note that not all global settings may be applicable to
+all decoders.  For example, some learners may only
+supoort '--post-label' decoding.
+
+You may need to write some fancy logic when building the
+EVALUATIONS list below in order to exclude these
+possibilities
+"""
+
+
+def combined_key(variants):
+    """return a key from a list of objects that have a
+    `key` field each"""
+    return '-'.join(v.key for v in variants)
+
+
+def mk_config(learner, decoder, global_settings):
+    """given a decoder and some global decoder settings,
+    return an 'augmented' decoder reflecting these
+    settings
+    """
+    decoder_key = combined_key([global_settings, decoder])
+    decoder2 = Variant(key=decoder_key,
+                       name=decoder.name,
+                       flags=decoder.flags + global_settings.flags)
+    return EvaluationConfig(key=combined_key([learner, decoder2]),
+                            learner=learner,
+                            decoder=decoder2)
+
+
+EVALUATIONS = [mk_config(*x) for x in
+               itertools.product(LEARNERS, DECODERS,
+                                 GLOBAL_DECODER_SETTINGS)]
 """Learners and decoders that are associated with each other.
 The idea her is that if multiple decoders have a learner in
 common, we will avoid rebuilding the model associated with
