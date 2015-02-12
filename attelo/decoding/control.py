@@ -92,19 +92,23 @@ def _add_labels(dpack, models, predictions):
     :rtype: [prediction]
     """
 
-    def update(link, label):
-        '''replace the link label (the original by rights is something
-        like "unlabelled"'''
-        edu1, edu2, _ = link
-        return (edu1, edu2, label)
-
     relate_pack = for_labelling(dpack)
     relate_idxes = models.relate.predict(relate_pack.data)
     relate_labels = [relate_pack.get_label(i) for i in relate_idxes]
+    label_dict = {(edu1.id, edu2.id): label
+                  for (edu1, edu2), label in
+                  zip(dpack.pairings, relate_labels)}
+
+    def update(link):
+        '''replace the link label (the original by rights is something
+        like "unlabelled"'''
+        edu1, edu2, _ = link
+        label = label_dict[(edu1, edu2)]
+        return (edu1, edu2, label)
+
     res = []
     for pred in predictions:
-        updated = [update(lnk, lbl) for lnk, lbl in zip(pred, relate_labels)]
-        res.append(updated)
+        res.append(update(p) for p in pred)
     return res
 
 
