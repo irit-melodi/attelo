@@ -8,7 +8,7 @@ attelo tests
 from __future__ import print_function
 from os import path as fp
 import argparse
-import csv
+import copy
 import shutil
 import tempfile
 import unittest
@@ -361,15 +361,31 @@ class ReportArgs(TestArgs):
         return attelo.cmd.report
 
 
-def fake_harness(*args, **kwargs):
+# pylint: disable=star-args
+def fake_harness(enfold_kwargs=None,
+                 learner_kwargs=None,
+                 decoder_kwargs=None,
+                 *args,
+                 **kwargs):
     '''sequence of attelo commands that fit together like they
     might in a harness'''
-    EnfoldArgs.run(*args, **kwargs)
+
+    # set/expand the kwargs dictionaries for each command
+    enfold_kwargs = enfold_kwargs or {}
+    learner_kwargs = learner_kwargs or {}
+    decoder_kwargs = decoder_kwargs or {}
+    for sub_kwargs in [enfold_kwargs, learner_kwargs, decoder_kwargs]:
+        for key, val in kwargs.items():
+            sub_kwargs[key] = val
+
+    # generate folds
+    EnfoldArgs.run(*args, **enfold_kwargs)
 
     for i in range(0, MAX_FOLDS):
-        LearnArgs.run(*args, fold=i, **kwargs)
-        DecodeArgs.run(*args, fold=i, **kwargs)
+        LearnArgs.run(*args, fold=i, **learner_kwargs)
+        DecodeArgs.run(*args, fold=i, **decoder_kwargs)
     #ReportArgs.run(idx_path=idx_filename, *args, **kwargs)
+# pylint: enable=star-args
 
 
 class CliTest(unittest.TestCase):
@@ -404,3 +420,8 @@ class CliTest(unittest.TestCase):
     def test_harness(self):
         'attelo enfold, learn, decode, report'
         self._vary(fake_harness)
+
+    def test_harness_postlabel(self):
+        'attelo enfold, learn, decode, report'
+        self._vary(fake_harness,
+                   decoder_kwargs={'extra_args': ['--post-label']})
