@@ -17,7 +17,9 @@ def learn_attach(learners, dpack, verbose=False):
     """
     Train attachment learner
     """
-    with Torpor("training attachment model", quiet=not verbose):
+    with Torpor("training attachment model",
+                sameline=False,  # concurrency
+                quiet=not verbose):
         attach_pack = for_attachment(dpack)
         return learners.attach.fit(attach_pack.data,
                                    attach_pack.target)
@@ -27,7 +29,9 @@ def learn_relate(learners, dpack, verbose=False):
     """
     Train relation learner
     """
-    with Torpor("training relations model", quiet=not verbose):
+    with Torpor("training relations model",
+                sameline=False,  # concurrency
+                quiet=not verbose):
         relate_pack = for_labelling(dpack.attached_only())
         return learners.relate.fit(relate_pack.data,
                                    relate_pack.target)
