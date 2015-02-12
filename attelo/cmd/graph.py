@@ -57,6 +57,14 @@ def _build_core_graph(title, edus):
     """
     graph = pydot.Dot(title, graph_type='digraph')
     graph.add_node(pydot.Node(FAKE_ROOT_ID, label='.'))
+    groups = sorted(set(e.subgrouping for e in edus))
+    subgraphs = {}
+    for grp in groups:
+        attrs = {'color': 'lightgrey',
+                 'style': 'dashed'}
+        subgraphs[grp] = pydot.Subgraph('cluster_' + grp, **attrs)
+        graph.add_subgraph(subgraphs[grp])
+
     for edu in edus:
         if edu.id == FAKE_ROOT_ID:
             continue
@@ -65,7 +73,7 @@ def _build_core_graph(title, edus):
             # we add a space to force pydot to quote this
             # (its need-to-quote detector isn't always reliable)
             attrs['label'] = edu.text + ' '
-        graph.add_node(pydot.Node(edu.id, **attrs))
+        subgraphs[edu.subgrouping].add_node(pydot.Node(edu.id, **attrs))
     return graph
 
 
