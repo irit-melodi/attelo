@@ -145,9 +145,8 @@ def _key_filename(output_dir, prefix, key):
     return fp.join(output_dir, bname)
 
 
-def main_for_harness(args, dpack):
+def main_for_harness(args, dpack, output_dir):
     "main for direct calls via test harness"
-    output_dir = get_output_dir(args)
     fold_dict = json.load(args.fold_file)
     index = read_index(args.index_file)
     reports, confusion = score_outputs(dpack, fold_dict, index)
@@ -163,9 +162,10 @@ def main_for_harness(args, dpack):
                   file=ostream)
 
 
+@_validate_report_args
 def main(args):
     "subcommand main (invoked from outer script)"
     output_dir = get_output_dir(args)
     dpack = load_args_data_pack(args)
-    main_for_harness(args, dpack)
+    main_for_harness(args, dpack, output_dir)
     announce_output_dir(output_dir)
