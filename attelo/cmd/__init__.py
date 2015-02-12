@@ -13,6 +13,7 @@ from . import\
      graph,
      rewrite,
      learn,
+     tmp,
      report)
 
 SUBCOMMANDS = [learn,
@@ -21,4 +22,5 @@ SUBCOMMANDS = [learn,
                evaluate,
                graph,
                rewrite,
+               tmp,
                report]
