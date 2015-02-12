@@ -12,7 +12,7 @@ from ..args import\
      add_learner_args, validate_learner_args,
      add_fold_choice_args, validate_fold_choice_args,
      args_to_decoder, args_to_learners)
-from ..io import save_model, Torpor
+from ..io import save_model
 from ..learning import (learn_attach, learn_relate)
 from .util import load_args_data_pack
 
@@ -77,8 +77,7 @@ def _learn_and_save_attach(args, learners, dpack):
     mdir = fp.dirname(args.attachment_model)
     if not fp.exists(mdir):
         os.makedirs(mdir)
-    with Torpor('writing attachment model'):
-        save_model(args.attachment_model, model)
+    save_model(args.attachment_model, model)
 
 
 def _learn_and_save_relate(args, learners, dpack):
@@ -87,8 +86,7 @@ def _learn_and_save_relate(args, learners, dpack):
     mdir = fp.dirname(args.relation_model)
     if not fp.exists(mdir):
         os.makedirs(mdir)
-    with Torpor('writing relation model'):
-        save_model(args.relation_model, model)
+    save_model(args.relation_model, model)
 
 
 def delayed_main_for_harness(args, dpack):
