@@ -11,7 +11,7 @@ import numpy
 
 from attelo.args import (add_model_read_args)
 from attelo.io import (load_labels, load_model, load_vocab)
-from attelo.table import (UNRELATED)
+from attelo.table import (UNRELATED, get_label_string)
 
 # ---------------------------------------------------------------------
 # main
@@ -127,7 +127,7 @@ def main_for_harness(args):
     rows = []
     rows.append([UNRELATED] + best_idxes(attach_model, 0))
     for i, class_ in enumerate(relate_model.classes_):
-        label = labels[int(class_) - 1]
+        label = get_label_string(labels, class_)
         rows.append([label] + best_idxes(relate_model, i))
 
     res = tabulate(condense_table(sort_table(rows)))

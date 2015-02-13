@@ -222,7 +222,7 @@ class DataPack(namedtuple('DataPack',
         '''
         Return the class label for the given target value.
         '''
-        return self.labels[int(i) - 1]
+        return get_label_string(self.labels, i)
 
     def label_number(self, label):
         '''
@@ -269,3 +269,10 @@ def for_labelling(pack):
     :rtype: :py:class:`DataPack`
     '''
     return pack
+
+
+def get_label_string(labels, i):
+    '''
+    Return the class label for the given target value.
+    '''
+    return labels[int(i) - 1]
