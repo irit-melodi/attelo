@@ -4,7 +4,6 @@ from __future__ import print_function
 from os import path as fp
 import json
 import os
-import sys
 
 from joblib import (Parallel, delayed)
 
@@ -14,7 +13,6 @@ from ..args import (add_common_args, add_decoder_args,
                     args_to_decoder, args_to_decoding_mode)
 from ..io import (load_model, append_predictions_output)
 from ..decoding import (DecoderException, decode, count_correct)
-from ..report import Count
 from ..util import Team
 from .util import load_args_data_pack
 
@@ -152,7 +150,8 @@ def main_for_harness(args, decoder, dpack, models):
     You have to supply DataModel args for attachment/relation
     yourself
     """
-    Parallel(n_jobs=-1, verbose=5)(delayed_main_for_harness(args, decoder, dpack, models))
+    Parallel(n_jobs=-1,
+             verbose=5)(delayed_main_for_harness(args, decoder, dpack, models))
     concatenate_outputs(args, dpack)
 
 
