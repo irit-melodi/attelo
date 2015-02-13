@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 from itertools import chain
+import codecs
 import itertools
 import six
 
@@ -33,6 +34,8 @@ def config_argparser(psr):
                      default=DEFAULT_TOP,
                      help=("show the best N features "
                            "(default: {})".format(DEFAULT_TOP)))
+    psr.add_argument("--output", metavar="FILE",
+                     help="output to file")
     psr.set_defaults(func=main)
 
 
@@ -127,7 +130,12 @@ def main_for_harness(args):
         label = labels[int(class_) - 1]
         rows.append([label] + best_idxes(relate_model, i))
 
-    print(tabulate(condense_table(sort_table(rows))))
+    res = tabulate(condense_table(sort_table(rows)))
+    if args.output is None:
+        print(res)
+    else:
+        with codecs.open(args.output, 'wb', 'utf-8') as fout:
+            print(res, file=fout)
 
 
 def main(args):
