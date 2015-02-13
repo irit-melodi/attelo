@@ -6,6 +6,7 @@ from os import path as fp
 import codecs
 import os
 import signal
+import subprocess
 import sys
 
 import pydot
@@ -15,6 +16,9 @@ from ..edu import FAKE_ROOT_ID
 from ..io import (load_edus, load_predictions, load_gold_predictions)
 from ..table import UNRELATED
 from attelo.harness.util import makedirs
+
+
+DEFAULT_TIMEOUT = 30
 
 
 class Alarm(Exception):
@@ -51,7 +55,8 @@ def mk_parent_dirs(filename):
 
 def write_dot_graph(filename, dot_graph,
                     run_graphviz=True,
-                    quiet=False):
+                    quiet=False,
+                    timeout=DEFAULT_TIMEOUT):
     """
     Write a dot graph and possibly run graphviz on it
     """
@@ -64,9 +69,12 @@ def write_dot_graph(filename, dot_graph,
         if not quiet:
             print("Creating %s" % svg_file, file=sys.stderr)
         signal.signal(signal.SIGALRM, alarm_handler)
-        signal.alarm(90)  # 1 and half minutes
+        signal.alarm(timeout)  # half a minute
         try:
-            os.system('dot -T svg -o %s %s' % (svg_file, dot_file))
+            subprocess.call(["dot",
+                             "-T", "svg",
+                             "-o", svg_file,
+                             dot_file])
             signal.alarm(0)  # reset the alarm
         except Alarm:
             print("Killed graphviz because it was taking too long",
@@ -145,6 +153,11 @@ def config_argparser(psr):
     psr.add_argument("--unrelated",
                      action='store_true',
                      help="include unrelated pairs")
+    psr.add_argument("--graphviz-timeout", metavar="N",
+                     type=int,
+                     default=DEFAULT_TIMEOUT,
+                     help=("seconds before timing graphviz out "
+                           "(default {})").format(DEFAULT_TIMEOUT))
     psr.set_defaults(func=main)
 
 
@@ -172,7 +185,8 @@ def main_for_harness(args):
             continue
         graph = to_graph(group, subedus, sublinks, unrelated=args.unrelated)
         ofilename = fp.join(output_dir, group)
-        write_dot_graph(ofilename, graph, quiet=args.quiet)
+        write_dot_graph(ofilename, graph, quiet=args.quiet,
+                        timeout=args.graphviz_timeout)
     announce_output_dir(output_dir)
 
 
