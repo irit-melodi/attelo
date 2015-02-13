@@ -406,6 +406,7 @@ class FakeGraphArgs(CliArgs):
         argv = [_edu_input_path(lconf),
                 '--predictions',
                 _decode_output_path(lconf, econf, fold),
+                '--graphviz-timeout', str(15),
                 '--quiet',
                 '--output', output_path]
         return argv
@@ -664,8 +665,12 @@ def _mk_econf_graphs(lconf, econf, fold):
 def _mk_graphs(lconf, dconf):
     "Generate graphs for the gold data and for one of the folds"
     with FakeGoldGraphArgs(lconf) as args:
-        with Torpor('creating gold graphs'):
-            att.graph.main_for_harness(args)
+        if fp.exists(args.output):
+            print("skipping gold graphs (already done)",
+                  file=sys.stderr)
+        else:
+            with Torpor('creating gold graphs'):
+                att.graph.main_for_harness(args)
     fold = sorted(set(dconf.folds.values()))[0]
 
     with Torpor('creating graphs for fold {}'.format(fold),
