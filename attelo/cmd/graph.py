@@ -36,7 +36,9 @@ def mk_parent_dirs(filename):
         os.makedirs(dirname)
 
 
-def write_dot_graph(filename, dot_graph, run_graphviz=True):
+def write_dot_graph(filename, dot_graph,
+                    run_graphviz=True,
+                    quiet=False):
     """
     Write a dot graph and possibly run graphviz on it
     """
@@ -46,7 +48,8 @@ def write_dot_graph(filename, dot_graph, run_graphviz=True):
     with codecs.open(dot_file, 'w', encoding='utf-8') as dotf:
         print(dot_graph.to_string(), file=dotf)
     if run_graphviz:
-        print("Creating %s" % svg_file, file=sys.stderr)
+        if not quiet:
+            print("Creating %s" % svg_file, file=sys.stderr)
         os.system('dot -T svg -o %s %s' % (svg_file, dot_file))
 
 
@@ -117,6 +120,8 @@ def config_argparser(psr):
 
     psr.add_argument("--output", metavar="DIR",
                      help="output directory for graphs")
+    psr.add_argument("--quiet", action="store_true",
+                     help="Supress all feedback")
     psr.add_argument("--unrelated",
                      action='store_true',
                      help="include unrelated pairs")
@@ -147,7 +152,7 @@ def main_for_harness(args):
             continue
         graph = to_graph(group, subedus, sublinks, unrelated=args.unrelated)
         ofilename = fp.join(output_dir, group)
-        write_dot_graph(ofilename, graph)
+        write_dot_graph(ofilename, graph, quiet=args.quiet)
     announce_output_dir(output_dir)
 
 
