@@ -21,13 +21,17 @@ source "$IRIT_RST_DT/cluster/env"
 # create the evaluation folder
 irit-rst-dt evaluate --start "${EVALUATE_FLAGS[@]}"
 
+# generate the global model
+# (only needed for reporting discriminating features)
+# we launch this first only because it's very slow
+# so we might as well start working on it early on
+jobs+=($(sbatch "$IRIT_RST_DT"/cluster/evaluate.script --combined-models "${EVALUATE_FLAGS[@]}" |\
+         sed -e 's/Submitted batch job //'))
 # request a job for each fold
 for f in $(seq 0 9); do
    jobs+=($(sbatch "$IRIT_RST_DT"/cluster/evaluate.script --folds "$f" "${EVALUATE_FLAGS[@]}" |\
             sed -e 's/Submitted batch job //'))
 done
-jobs+=($(sbatch "$IRIT_RST_DT"/cluster/evaluate.script --combined-models "${EVALUATE_FLAGS[@]}" |\
-         sed -e 's/Submitted batch job //'))
 
 for job in "${jobs[@]}"; do
    job_str="${job_str+$job_str,}afterok:$job"
