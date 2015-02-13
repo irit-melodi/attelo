@@ -17,7 +17,8 @@ import joblib
 from sklearn.datasets import load_svmlight_file
 
 from .edu import (EDU, FAKE_ROOT_ID, FAKE_ROOT)
-from .table import (DataPack, DataPackException, UNRELATED)
+from .table import (DataPack, DataPackException, UNRELATED,
+                    get_label_string)
 from .util import truncate
 
 # pylint: disable=too-few-public-methods
@@ -308,6 +309,23 @@ def load_predictions(edu_file):
     with open(edu_file, 'rb') as instream:
         reader = csv.reader(instream, dialect=csv.excel_tab)
         return [mk_pair(r) for r in reader if r]
+
+
+def load_gold_predictions(pairings_file, feature_file, verbose=False):
+    """
+    Load a pairings and feature file as though it were a set of
+    predictions
+
+    :rtype: [(string, string, string)]
+    """
+    pairings = load_pairings(pairings_file)
+    with Torpor("Reading features", quiet=not verbose):
+        labels = load_labels(feature_file)
+        # pylint: disable=unbalanced-tuple-unpacking
+        _, targets = load_svmlight_file(feature_file)
+        # pylint: enable=unbalanced-tuple-unpacking
+    return [(x1, x2, get_label_string(labels, t))
+            for ((x1, x2), t) in zip(pairings, targets)]
 
 
 # ---------------------------------------------------------------------

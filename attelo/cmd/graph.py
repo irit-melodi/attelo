@@ -11,7 +11,7 @@ import pydot
 
 from .util import (get_output_dir, announce_output_dir)
 from ..edu import FAKE_ROOT_ID
-from ..io import load_edus, load_predictions
+from ..io import (load_edus, load_predictions, load_gold_predictions)
 from ..table import UNRELATED
 from attelo.harness.util import makedirs
 
@@ -106,8 +106,15 @@ def config_argparser(psr):
 
     psr.add_argument("edus", metavar="FILE",
                      help="attelo edu input file")
-    psr.add_argument("predictions", metavar="FILE",
-                     help="attelo predictions file")
+
+    input_grp = psr.add_mutually_exclusive_group(required=True)
+    input_grp.add_argument("--gold", metavar="FILE",
+                           nargs=2,
+                           help="gold predictions [pairings, "
+                           "features (targets only)]")
+    input_grp.add_argument("--predictions", metavar="FILE",
+                           help="single predictions")
+
     psr.add_argument("--output", metavar="DIR",
                      help="output directory for graphs")
     psr.add_argument("--unrelated",
@@ -126,7 +133,13 @@ def main_for_harness(args):
     """
     output_dir = get_output_dir(args)
     edus = load_edus(args.edus)
-    links = load_predictions(args.predictions)
+    if args.predictions is not None:
+        links = load_predictions(args.predictions)
+    else:
+        # pylint: disable=star-args
+        links = load_gold_predictions(*args.gold)
+        # pylint: enable=star-args
+
     for group, subedus_ in groupby(edus, lambda x: x.grouping):
         subedus = list(subedus_)
         sublinks = select_links(subedus, links)
