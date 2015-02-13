@@ -250,6 +250,26 @@ def validate_fold_choice_args(wrapped):
     return inner
 
 
+def add_model_read_args(psr, help_):
+    """
+    models files we can read in
+
+    :param help_: python format string for help `{}` will
+                  have a word (eg. 'attachment') plugged in
+    :type help_: string
+    """
+
+    grp = psr.add_argument_group('models')
+    grp.add_argument("--attachment-model", "-A",
+                     default=None,
+                     required=True,
+                     help=help_.format("attachment"))
+    grp.add_argument("--relation-model", "-R",
+                     default=None,
+                     required=True,
+                     help=help_.format("relations"))
+
+
 def add_decoder_args(psr):
     """
     add decoding related args to subcommand parser

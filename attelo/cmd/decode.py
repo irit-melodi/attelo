@@ -9,6 +9,7 @@ import sys
 from joblib import (Parallel, delayed)
 
 from ..args import (add_common_args, add_decoder_args,
+                    add_model_read_args,
                     add_fold_choice_args, validate_fold_choice_args,
                     args_to_decoder, args_to_decoding_mode)
 from ..io import (load_model, append_predictions_output)
@@ -61,12 +62,7 @@ def config_argparser(psr):
     add_common_args(psr)
     add_decoder_args(psr)
     add_fold_choice_args(psr)
-    psr.add_argument("--attachment-model", "-A", default=None,
-                     required=True,
-                     help="model needed for attachment prediction")
-    psr.add_argument("--relation-model", "-R", default=None,
-                     required=True,
-                     help="model needed for relations prediction")
+    add_model_read_args(psr, "model needed for {} prediction")
     psr.add_argument("--output", "-o",
                      default=None,
                      required=True,
