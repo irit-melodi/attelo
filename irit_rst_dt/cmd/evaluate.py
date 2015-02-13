@@ -15,10 +15,10 @@ import os
 import shutil
 import sys
 
-from joblib import Parallel
+from joblib import (Parallel, delayed)
 
 from attelo.args import args_to_decoder
-from attelo.io import load_data_pack
+from attelo.io import (load_data_pack, Torpor)
 from attelo.harness.config import CliArgs
 from attelo.harness.report import (mk_index)
 from attelo.harness.util import\
@@ -358,9 +358,62 @@ class FakeInspectArgs(CliArgs):
 # pylint: enable=too-many-instance-attributes
 
 
+class FakeGoldGraphArgs(CliArgs):
+    'cmd line args to generate graphs (gold set)'
+    def __init__(self, lconf):
+        self.lconf = lconf
+        super(FakeGoldGraphArgs, self).__init__()
+
+    def parser(self):
+        psr = argparse.ArgumentParser()
+        att.graph.config_argparser(psr)
+        return psr
+
+    def argv(self):
+        lconf = self.lconf
+        has_stripped = fp.exists(_features_path(lconf, stripped=True))
+        argv = [_edu_input_path(lconf),
+                '--quiet',
+                '--gold',
+                _pairings_path(lconf),
+                _features_path(lconf, stripped=has_stripped),
+                '--output',
+                fp.join(_report_dir(lconf, None),
+                        'graphs-gold')]
+        return argv
+
+
+class FakeGraphArgs(CliArgs):
+    'cmd line args to generate graphs (for a fold)'
+    def __init__(self, lconf, econf, fold):
+        self.lconf = lconf
+        self.econf = econf
+        self.fold = fold
+        super(FakeGraphArgs, self).__init__()
+
+    def parser(self):
+        psr = argparse.ArgumentParser()
+        att.graph.config_argparser(psr)
+        return psr
+
+    def argv(self):
+        lconf = self.lconf
+        econf = self.econf
+        fold = self.fold
+        output_path = fp.join(_report_dir(lconf, None),
+                              'graphs-' + _fold_dir_basename(fold),
+                              econf.key)
+        argv = [_edu_input_path(lconf),
+                '--predictions',
+                _decode_output_path(lconf, econf, fold),
+                '--quiet',
+                '--output', output_path]
+        return argv
+
 # ---------------------------------------------------------------------
 # evaluation
 # ---------------------------------------------------------------------
+
 
 def _link_data_files(data_dir, eval_dir):
     """
@@ -602,6 +655,26 @@ def _mk_fold_report(lconf, dconf, fold):
         _mk_report(args, index, dconf)
 
 
+def _mk_econf_graphs(lconf, econf, fold):
+    "Generate graphs for a single configuration"
+    with FakeGraphArgs(lconf, econf, fold) as args:
+        att.graph.main_for_harness(args)
+
+
+def _mk_graphs(lconf, dconf):
+    "Generate graphs for the gold data and for one of the folds"
+    with FakeGoldGraphArgs(lconf) as args:
+        with Torpor('creating gold graphs'):
+            att.graph.main_for_harness(args)
+    fold = sorted(set(dconf.folds.values()))[0]
+
+    with Torpor('creating graphs for fold {}'.format(fold),
+                sameline=False):
+        jobs = [delayed(_mk_econf_graphs)(lconf, econf, fold)
+                for econf in EVALUATIONS]
+        Parallel(n_jobs=-1, verbose=5)(jobs)
+
+
 def _mk_global_report(lconf, dconf):
     "Generate reports for all folds"
     folds = [(f, _fold_dir_basename(f))
@@ -613,6 +686,7 @@ def _mk_global_report(lconf, dconf):
                                _report_dir_basename(lconf))
     with FakeReportArgs(lconf, None) as args:
         _mk_report(args, index, dconf)
+        _mk_graphs(lconf, dconf)
         if fp.exists(final_report_dir):
             shutil.rmtree(final_report_dir)
         shutil.copytree(args.output, final_report_dir)
