@@ -11,7 +11,6 @@ import os
 import sys
 
 import numpy
-from joblib import (Parallel, delayed)
 from sklearn.metrics import confusion_matrix
 
 from ..args import add_common_args, add_report_args
@@ -178,9 +177,8 @@ def _score_fold(dpack, fold_dict, index, fold):
     "scores for all configs within a fold"
     fold_num = fold['number']
     fpack = dpack.testing(fold_dict, fold_num)
-    jobs = [delayed(score_predictions)(fpack, _prediction_file(fold, c))
+    return [score_predictions(fpack, _prediction_file(fold, c))
             for c in index['configurations']]
-    return Parallel(n_jobs=-1)(jobs)
 
 
 def score_outputs(dpack, fold_dict, index):
