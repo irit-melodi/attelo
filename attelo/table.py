@@ -7,9 +7,7 @@ from collections import defaultdict, namedtuple
 import numpy
 import numpy.ma
 
-from .edu import FAKE_ROOT
 from .fold import fold_groupings
-from .util import truncate
 
 # pylint: disable=too-few-public-methods
 
