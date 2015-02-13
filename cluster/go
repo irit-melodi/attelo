@@ -2,6 +2,10 @@
 
 IRIT_RST_DT=$HOME/irit-rst-dt
 cd "$IRIT_RST_DT"
+
+mkdir -p OLD-LOGS
+mv irit-rst-dt-evaluate-*.out OLD-LOGS
+
 EVALUATE_FLAGS=()
 #EVALUATE_FLAGS=(--resume)
 cd "$IRIT_RST_DT"
