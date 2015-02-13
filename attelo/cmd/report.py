@@ -11,6 +11,7 @@ import os
 import sys
 
 import numpy
+from joblib import (Parallel, delayed)
 from sklearn.metrics import confusion_matrix
 
 from ..args import add_common_args, add_report_args
@@ -157,6 +158,31 @@ def build_confusion_matrix(dpack, predictions):
     return confusion_matrix(dpack.target, pred_target, labels)
 
 
+def score_predictions(dpack, predict_file):
+    """score the given predictions against the data pack,
+    returning counts and a confusion matrix
+    """
+    predictions = load_predictions(predict_file)
+    # score
+    evals = count_correct(dpack, predictions)
+    cmatrix = build_confusion_matrix(dpack, predictions)
+    return evals, cmatrix
+
+
+def _prediction_file(fold, config):
+    "predictions file for a given config within a fold"
+    return fp.join(fold['path'], config['predictions'])
+
+
+def _score_fold(dpack, fold_dict, index, fold):
+    "scores for all configs within a fold"
+    fold_num = fold['number']
+    fpack = dpack.testing(fold_dict, fold_num)
+    jobs = [delayed(score_predictions)(fpack, _prediction_file(fold, c))
+            for c in index['configurations']]
+    return Parallel(n_jobs=-1)(jobs)
+
+
 def score_outputs(dpack, fold_dict, index):
     """read outputs mentioned in the index files and score them
     against the reference pack
@@ -165,22 +191,20 @@ def score_outputs(dpack, fold_dict, index):
     """
     evals = defaultdict(list)
     confusion = {}
+    configs = index['configurations']
     for fold in index['folds']:
         fold_num = fold['number']
         with Torpor('scoring fold {}'.format(fold_num)):
-            fpack = dpack.testing(fold_dict, fold_num)
-            for config in index['configurations']:
+            scores = _score_fold(dpack, fold_dict, index, fold)
+            for config, (counts, cmatrix) in zip(configs, scores):
                 key = _config_key(config)
-                predict_file = fp.join(fold['path'], config['predictions'])
-                predictions = load_predictions(predict_file)
                 # score
-                evals[key].append(count_correct(fpack, predictions))
+                evals[key].append(counts)
                 # we store a separate confusion matrix for each config,
                 # accumulating results across the folds (this should be
                 # safe to do as the matrices have been forced to the
                 # same shape regardless of what labels actually appear
                 # in the fold)
-                cmatrix = build_confusion_matrix(fpack, predictions)
                 if key in confusion:
                     confusion[key] += cmatrix
                 else:
