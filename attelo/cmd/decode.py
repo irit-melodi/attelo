@@ -58,14 +58,14 @@ def config_argparser(psr):
     "add subcommand arguments to subparser"
 
     add_common_args(psr)
-    add_decoder_args(psr)
-    add_fold_choice_args(psr)
     add_model_read_args(psr, "model needed for {} prediction")
     psr.add_argument("--output", "-o",
                      default=None,
                      required=True,
                      metavar="FILE",
                      help="save predicted structures here")
+    add_decoder_args(psr)
+    add_fold_choice_args(psr)
     psr.set_defaults(func=main)
 
 

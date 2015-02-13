@@ -3,7 +3,6 @@ Saving and loading data or models
 """
 
 from __future__ import print_function
-from collections import defaultdict
 from itertools import chain
 from os import path as fp
 import codecs
@@ -234,6 +233,15 @@ def load_data_pack(edu_file, pairings_file, feature_file, verbose=False):
         dpack = DataPack.load(edus, pairings, data, targets, labels)
 
     return dpack
+
+
+def load_vocab(filename):
+    "read feature vocabulary"
+    features = []
+    with codecs.open(filename, 'r', 'utf-8') as stream:
+        for line in stream:
+            features.append(line.split('\t')[0])
+    return features
 
 # ---------------------------------------------------------------------
 # predictions

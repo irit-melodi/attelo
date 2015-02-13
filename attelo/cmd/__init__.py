@@ -10,17 +10,17 @@ from . import\
     (decode,
      enfold,
      evaluate,
+     inspect,
      graph,
      rewrite,
      learn,
-     tmp,
      report)
 
 SUBCOMMANDS = [learn,
                decode,
                enfold,
                evaluate,
+               inspect,
                graph,
                rewrite,
-               tmp,
                report]
