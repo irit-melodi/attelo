@@ -100,12 +100,23 @@ class Variant(namedtuple("Variant", "key name flags")):
         return cls(name, name, [])
 
 
+class Learner(namedtuple("Learner", "key name flags decoder")):
+    """
+    Unique combination of settings for a learner.
+    See :py:class:`Variant`
+
+    :param decoder: decoder that this learner is parameterised by
+    :type decoder: Variant or None
+    """
+    pass
+
+
 class LearnerConfig(Team):
     """
     Combination of an attachment and a relation learner variant
 
-    :type attach: Variant
-    :type relate: Variant
+    :type attach: Learner
+    :type relate: Learner
     """
     def __new__(cls, attach, relate):
         team = super(LearnerConfig, cls).__new__(cls, attach, relate)
