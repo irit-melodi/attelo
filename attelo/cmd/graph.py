@@ -5,6 +5,7 @@ from itertools import groupby
 from os import path as fp
 import codecs
 import os
+import signal
 import sys
 
 import pydot
@@ -14,6 +15,18 @@ from ..edu import FAKE_ROOT_ID
 from ..io import (load_edus, load_predictions, load_gold_predictions)
 from ..table import UNRELATED
 from attelo.harness.util import makedirs
+
+
+class Alarm(Exception):
+    "Exception to raise on signal timeout"
+    pass
+
+
+# pylint: disable=unused-argument
+def alarm_handler(_, frame):
+    "Raise Alarm on signal"
+    raise Alarm
+# pylint: enable=unused-argument
 
 
 def select_links(edus, links):
@@ -50,7 +63,14 @@ def write_dot_graph(filename, dot_graph,
     if run_graphviz:
         if not quiet:
             print("Creating %s" % svg_file, file=sys.stderr)
-        os.system('dot -T svg -o %s %s' % (svg_file, dot_file))
+        signal.signal(signal.SIGALRM, alarm_handler)
+        signal.alarm(90)  # 1 and half minutes
+        try:
+            os.system('dot -T svg -o %s %s' % (svg_file, dot_file))
+            signal.alarm(0)  # reset the alarm
+        except Alarm:
+            print("Killed graphviz because it was taking too long",
+                  file=sys.stderr)
 
 
 # pylint: disable=star-args
