@@ -58,17 +58,7 @@ class DecoderArgs(namedtuple("DecoderAgs",
     :param astar: Config options specific to the A* decoder
     :type astar: AstarArgs
     """
-    def __new__(cls,
-                threshold=None,
-                astar=None,
-                mst_root_strategy=MstRootStrategy.fake_root,
-                use_prob=True):
-        sup = super(DecoderArgs, cls)
-        return sup.__new__(cls,
-                           threshold=threshold,
-                           mst_root_strategy=mst_root_strategy,
-                           astar=astar,
-                           use_prob=use_prob)
+    pass
 
 
 def _mk_local_decoder(config, default=0.5):
