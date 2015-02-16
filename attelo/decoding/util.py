@@ -39,3 +39,20 @@ def get_prob_map(instances):
     """
     return {(e1.id, e2.id): (rel, prob)
             for e1, e2, prob, rel in instances}
+
+
+def order_by_sentence(sorted_edus):
+    """ iterator over sorted edus -> yield lists of edu ids, sentence by sentence
+    """
+    group = []
+    sentence_nb = None
+    for one_edu in sorted_edus: 
+        if sentence_nb is None: 
+            sentence_nb = one_edu.subgrouping
+        if one_edu.subgrouping == sentence_nb:
+            group.append(one_edu.id)
+        else:
+            yield group
+            group = [one_edu.id]
+            sentence_nb = one_edu.subgrouping
+    yield group
