@@ -5,6 +5,7 @@ General-purpose classes and functions
 from argparse import ArgumentTypeError
 from collections import namedtuple
 import enum
+import itertools
 # pylint: disable=too-few-public-methods
 
 
@@ -49,3 +50,17 @@ def truncate(text, width):
     Truncate a string and append an ellipsis if truncated
     """
     return text if len(text) < width else text[:width] + '...'
+
+
+def concat_i(iters):
+    """
+    Merge an iterable of iterables into a single iterable
+    """
+    return itertools.chain.from_iterable(iters)
+
+
+def concat_l(iters):
+    """
+    Merge an iterable of iterables into a list
+    """
+    return list(concat_i(iters))
