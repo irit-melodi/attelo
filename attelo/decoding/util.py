@@ -2,6 +2,8 @@
 Utility classes functions shared by decoders
 """
 
+from ..edu import (FAKE_ROOT_ID)
+
 
 class DecoderException(Exception):
     """
@@ -41,18 +43,31 @@ def get_prob_map(instances):
             for e1, e2, prob, rel in instances}
 
 
-def order_by_sentence(sorted_edus):
-    """ iterator over sorted edus -> yield lists of edu ids, sentence by sentence
+def get_prob_map_raw(instances):
     """
-    group = []
-    sentence_nb = None
-    for one_edu in sorted_edus: 
-        if sentence_nb is None: 
+    Reformat a probability distribution as a dictionary from
+    edu pairs to a (relation, probability) tuples
+
+    :rtype dict (EDU, EDU) (string, float)
+    """
+    return {(e1.id, e2.id): (rel, prob)
+            for e1, e2, prob, rel in instances}
+
+
+def subgroupings(sorted_edus):
+    """ iterator over sorted edus -> subgrouping
+    sentence by sentence
+
+    (we exploit here the idea that subgroupings are contiguous,
+    eg. as would be the case for sentences)
+    """
+    if not sorted_edus:
+        raise ValueError('Need a non-empty list of EDUs')
+    if sorted_edus[0].id == FAKE_ROOT_ID:
+        sorted_edus = sorted_edus[1:]
+    sentence_nb = sorted_edus[0].subgrouping
+    yield sentence_nb
+    for one_edu in sorted_edus[1:]:
+        if one_edu.subgrouping != sentence_nb:
             sentence_nb = one_edu.subgrouping
-        if one_edu.subgrouping == sentence_nb:
-            group.append(one_edu.id)
-        else:
-            yield group
-            group = [one_edu.id]
-            sentence_nb = one_edu.subgrouping
-    yield group
+            yield sentence_nb
