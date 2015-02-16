@@ -44,7 +44,7 @@ parsed/mrg/wsj)
 
 _BASIC_LEARNERS =\
     [Variant(key=x, name=x, flags=[]) for x in
-     ["bayes", "maxent"]]
+     ["maxent", "sk-perceptron", "sk-pasagg"]]
 """Attelo learner algorithms to try.
 
 It's up to you to choose values for the key field that can distinguish
@@ -62,6 +62,13 @@ you might have something like
             flags=["--frobnication", "0.4"])
 
 """
+_BASIC_NON_PROB = ["sk-perceptron", "sk-pasagg"]
+"""
+Models that can only assign a confidence score but not a
+probability to a class
+"""
+
+
 _FANCY_LEARNERS =\
     []
 #    [Variant(key='perc-struct', name='perc-struct', flags=[])]
@@ -137,12 +144,16 @@ def expanded_learners():
     Return a list of simple learners, and a list of decoder
     parameterised learners (as a functions)
     """
+    default_relate = Learner(key="maxent", name="maxent",
+                             flags=[], decoder=None)
+
     simple =\
         [LearnerConfig(attach=Learner(key=l.key,
                                       name=l.name,
                                       flags=l.flags,
                                       decoder=None),
-                       relate=None)
+                       relate=default_relate if l.key in _BASIC_NON_PROB
+                       else None)
          for l in _BASIC_LEARNERS]
 
     # pylint: disable=cell-var-from-loop
@@ -151,10 +162,7 @@ def expanded_learners():
                                           name=learner.name,
                                           flags=learner.flags,
                                           decoder=d),
-                           relate=Learner(key="maxent",
-                                          name="maxent",
-                                          flags=[],
-                                          decoder=None))
+                           relate=default_relate)
              for learner in _FANCY_LEARNERS]
     # pylint: enable=cell-var-from-loop
     return (simple, fancy)
@@ -211,9 +219,14 @@ def mk_config((learner, decoder), global_settings):
     settings
     """
     decoder_key = combined_key([global_settings, decoder])
+    decoder_flags = decoder.flags + global_settings.flags
+    if learner.attach.key in _BASIC_NON_PROB:
+        if '--post-label' not in global_settings.flags:
+            return None
+        decoder_flags += ['--non-prob-scores']
     decoder2 = Variant(key=decoder_key,
                        name=decoder.name,
-                       flags=decoder.flags + global_settings.flags)
+                       flags=decoder_flags)
     return EvaluationConfig(key=combined_key([learner, decoder2]),
                             learner=learner,
                             decoder=decoder2)
@@ -222,9 +235,10 @@ def mk_config((learner, decoder), global_settings):
 LEARNERS = learners_for_learning(_CORE_DECODERS)
 """Learners that we would want to build models for"""
 
-EVALUATIONS = [mk_config(*x) for x in
-               itertools.product(learner_decoder_pairs(_CORE_DECODERS),
-                                 _GLOBAL_DECODER_SETTINGS)]
+_EVALUATIONS = [mk_config(*x) for x in
+                itertools.product(learner_decoder_pairs(_CORE_DECODERS),
+                                  _GLOBAL_DECODER_SETTINGS)]
+EVALUATIONS = [e for e in _EVALUATIONS if e is not None]
 """Learners and decoders that are associated with each other.
 The idea her is that if multiple decoders have a learner in
 common, we will avoid rebuilding the model associated with
