@@ -691,7 +691,7 @@ def _mk_global_report(lconf, dconf):
                                _report_dir_basename(lconf))
     with FakeReportArgs(lconf, None) as args:
         _mk_report(args, index, dconf)
-        _mk_graphs(lconf, dconf)
+        # _mk_graphs(lconf, dconf)
         if fp.exists(final_report_dir):
             shutil.rmtree(final_report_dir)
         shutil.copytree(args.output, final_report_dir)
