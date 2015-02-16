@@ -12,4 +12,5 @@ us to write one over time.
    input
    output
    learning
+   decoding
    report
