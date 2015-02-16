@@ -28,7 +28,7 @@ def _load_and_select_data(args):
     """
     if args.fold is None:
         dpack = load_args_data_pack(args)
-        return load_args_data_pack(args)
+        return dpack
     else:
         # load fold dictionary before data pack
         # this way, if it fails we find out sooner
