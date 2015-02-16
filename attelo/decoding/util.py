@@ -7,8 +7,7 @@ class DecoderException(Exception):
     """
     Exceptions that arise during the decoding process
     """
-    def __init__(self, msg):
-        super(DecoderException, self).__init__(msg)
+    pass
 
 
 def get_sorted_edus(instances):
