@@ -21,13 +21,17 @@ class ArgparserEnum(enum.Enum):
     @classmethod
     def help_suffix(cls, default):
         "help text suffix showing choices and default"
-        template = "(choices: {{{choices}}}, default: {default})"
-        return template.format(choices=cls.choices_str(),
-                               default=default.name)
+        if default is None:
+            template = "(choices: {{{choices}}})"
+            return template.format(choices=cls.choices_str())
+        else:
+            template = "(choices: {{{choices}}}, default: {default})"
+            return template.format(choices=cls.choices_str(),
+                                   default=default.name)
 
     @classmethod
     def from_string(cls, string):
-        "command line arg to MstRootStrategy"
+        "from command line arg"
         names = {x.name: x for x in cls}
         value = names.get(string)
         if value is not None:
