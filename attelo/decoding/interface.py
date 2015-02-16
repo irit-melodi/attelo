@@ -40,9 +40,9 @@ class Decoder(with_metaclass(ABCMeta, object)):
                              to decode over
         :type prob_distrib: [(string, string, float, string)]
 
-        Note that in each prediction made, the number of links must
-        exactly match the number of proposed links from the
-        probability distribution
+        The links you return must be a subset of the proposed links
+        from the probability distribution (modulo probabilities).
+        They can be in any order.
 
         :rtype: [ [(string,string,string)] ]
         '''
