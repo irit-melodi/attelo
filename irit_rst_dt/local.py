@@ -83,9 +83,9 @@ Don't forget that you can parameterise the decoders ::
 """
 
 _GLOBAL_DECODER_SETTINGS =\
-    [Variant(key='ADxL_joint', name=None,
+    [Variant(key='AD.L_joint', name=None,
              flags=[]),
-     Variant(key='ADxL_post', name=None,
+     Variant(key='AD.L_post', name=None,
              flags=['--post-label'])]
 """Variants on global settings that would generally apply
 over all decoder combos.
