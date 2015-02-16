@@ -19,6 +19,7 @@ from numpy import inf
 from .decoding import (DecodingMode, DecoderArgs, DECODERS)
 from .decoding.astar import (AstarArgs, RfcConstraint, Heuristic)
 from .decoding.mst import (MstRootStrategy)
+from .decoding.subgrouping import (IntraStrategy)
 from .learning import (LearnerArgs, PerceptronArgs,
                        ATTACH_LEARNERS, RELATE_LEARNERS)
 from .util import Team
@@ -94,6 +95,7 @@ def args_to_decoder(args):
 
     config = DecoderArgs(threshold=args.threshold,
                          mst_root_strategy=args.mst_root_strategy,
+                         intra_strategy=args.intrasent_strategy,
                          astar=astar_args,
                          use_prob=not args.non_prob_scores)
 
@@ -295,6 +297,11 @@ def _add_decoder_args(psr):
                              help="decoders for attachment; " +
                              "default: %s " % DEFAULT_DECODER +
                              "(cf also heuristics for astar)")
+    decoder_grp.add_argument("--intrasent-strategy",
+                             default=None,
+                             type=IntraStrategy.from_string,
+                             help="use intrasentiantial decoding " +
+                             IntraStrategy.help_suffix(None))
 
     mst_grp = psr.add_argument_group("MST/MSDAG decoder arguments")
     mst_grp.add_argument("--mst-root-strategy",
