@@ -6,9 +6,11 @@ from __future__ import print_function
 from enum import Enum
 import sys
 
+from attelo.learning import (can_predict_proba)
 from attelo.report import Count
 from attelo.table import (for_attachment, for_labelling, UNRELATED)
 from attelo.util import truncate
+from .util import (DecoderException)
 # pylint: disable=too-few-public-methods
 
 
@@ -122,16 +124,20 @@ def _get_attach_only_prob(dpack, models):
     Attachment probabilities (only) for each EDU pair in the data
     """
     pack = for_attachment(dpack)
-    probs = models.attach.predict_proba(dpack.data)
-    pick_attach = _pick_attached_prob(models.attach)
+    if can_predict_proba(models.attach):
+        confidence = models.attach.predict_proba(dpack.data)
+        pick_attach = _pick_attached_prob(models.attach)
+    else:
+        confidence = models.attach.decision_function(dpack.data)
+        pick_attach = lambda x: x
 
     def link(pair, dist):
         ':rtype: proposed link (see attelo.decoding.interface)'
         id1, id2 = pair
-        prob = pick_attach(dist)
-        return (id1, id2, prob, 'unlabelled')
+        conf = pick_attach(dist)
+        return (id1, id2, conf, 'unlabelled')
 
-    return [link(x, y) for x, y in zip(pack.pairings, probs)]
+    return [link(x, y) for x, y in zip(pack.pairings, confidence)]
 
 
 def decode(mode, decoder, dpack, models):
@@ -144,6 +150,15 @@ def decode(mode, decoder, dpack, models):
     """
 
     if mode != DecodingMode.post_label:
+        if not can_predict_proba(models.attach):
+            oops = ('Attachment model does not know how to predict '
+                    'probabilities. It should only be used in post '
+                    'labelling mode')
+            raise DecoderException(oops)
+        if not can_predict_proba(models.relate):
+            raise DecoderException('Relation labelling model does not '
+                                   'know how to predict probabilities')
+
         prob_distrib = _combine_probs(dpack, models)
     else:
         prob_distrib = _get_attach_only_prob(dpack, models)

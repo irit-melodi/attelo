@@ -48,3 +48,13 @@ def learn(learners, dpack, verbose=False):
     """
     return Team(attach=learn_attach(learners, dpack, verbose),
                 relate=learn_relate(learners, dpack, verbose))
+
+
+def can_predict_proba(model):
+    """
+    True if a model is capable of returning a probability for
+    a given instance. The alternative would be for it to
+    implement `decision_function` which associates
+    """
+    func = getattr(model, "predict_proba", None)
+    return callable(func)

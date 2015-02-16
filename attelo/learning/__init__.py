@@ -9,12 +9,16 @@ import copy
 
 from sklearn.dummy import DummyClassifier
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import (LogisticRegression,
+                                  Perceptron as SkPerceptron,
+                                  PassiveAggressiveClassifier as
+                                  SkPassiveAggressiveClassifier)
 from sklearn.svm import SVC
 
 from .control import (learn,
                       learn_attach,
-                      learn_relate)
+                      learn_relate,
+                      can_predict_proba)
 from .perceptron import (PerceptronArgs,
                          Perceptron,
                          PassiveAggressive,
@@ -52,7 +56,8 @@ and ignore the rest
 '''
 ATTACH_LEARNERS["constant"] = lambda _: DummyClassifier(strategy="constant",
                                                         constant=1)
-
+ATTACH_LEARNERS["sk-perceptron"] = lambda _: SkPerceptron()
+ATTACH_LEARNERS["sk-pasagg"] = lambda _: SkPassiveAggressiveClassifier()
 
 # TODO (Pascal)
 #
