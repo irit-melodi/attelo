@@ -44,7 +44,7 @@ LoopConfig = namedtuple("LoopConfig",
                          "stage",
                          "folds",
                          "fold_file",
-                         "sequential",
+                         "n_jobs",
                          "dataset"])
 "that which is common to outerish loops"
 
@@ -591,9 +591,23 @@ def _parallel(lconf, n_jobs=None, verbose=None):
     Run some delayed jobs in parallel (or sequentially
     depending on our settings)
     """
-    n_jobs = n_jobs or (1 if lconf.sequential else -1)
+    n_jobs = n_jobs or lconf.n_jobs
     verbose = verbose or 5
-    return Parallel(n_jobs=n_jobs, verbose=verbose)
+
+    def sequential(jobs):
+        """
+        run jobs in truly sequential fashion without any of
+        this parallel nonsense
+        """
+        # pylint: disable=star-args
+        for func, args, kwargs in jobs:
+            func(*args, **kwargs)
+        # pylint: enable=star-args
+
+    if n_jobs == 0:
+        return sequential
+    else:
+        return Parallel(n_jobs=n_jobs, verbose=verbose)
 
 
 def _delayed_learn(lconf, dconf, rconf, fold):
@@ -843,9 +857,12 @@ def config_argparser(psr):
     psr.add_argument("--resume",
                      default=False, action="store_true",
                      help="resume previous interrupted evaluation")
-    psr.add_argument("--sequential",
-                     default=False, action="store_true",
-                     help="disable parallelism")
+    psr.add_argument("--n-jobs", type=int,
+                     default=-1,
+                     help="number of jobs (-1 for max [DEFAULT], "
+                     "2+ for parallel, "
+                     "1 for sequential but using parallel infrastructure, "
+                     "0 for fully sequential)")
     cluster_grp = psr.add_mutually_exclusive_group()
     cluster_grp.add_argument("--start", action='store_true',
                              default=False,
@@ -906,6 +923,6 @@ def main(args):
                            folds=args.folds,
                            stage=stage,
                            fold_file=fold_file,
-                           sequential=args.sequential,
+                           n_jobs=args.n_jobs,
                            dataset=dataset)
         _do_corpus(lconf)
