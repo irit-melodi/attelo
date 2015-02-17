@@ -111,6 +111,21 @@ def _select_ids(prob_distrib, edu_ids):
             if is_in_whitelist(e1) or is_in_whitelist(e2)]
 
 
+def _select_intra(prob_distrib, sources, targets):
+    """
+    Return elements from a probability distribution in which
+
+    * the source comes from the list of allowed sources
+    * the target comes from the list of allowed targets
+    * the source and target are not the same node
+
+    :type sources: [string]
+    :type targets: [string]
+    """
+    return [(e1, e2, prob, rel) for (e1, e2, prob, rel) in prob_distrib
+            if e1 in sources and e2 in targets and e1 != e2]
+
+
 class IntrasentWrapper(object):
     """
     Augment a decoder with the ability to do separate decoding

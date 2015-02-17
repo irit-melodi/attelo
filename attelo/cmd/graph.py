@@ -36,6 +36,23 @@ def config_argparser(psr):
     input_grp.add_argument("--predictions", metavar="FILE",
                            help="single predictions")
 
+    psr.add_argument("--diff-to", metavar="FILE",
+                     help="single predictions to diff against [target]")
+
+    sent_grp = psr.add_mutually_exclusive_group()
+    sent_grp.add_argument("--intra",
+                          action='store_true',
+                          default=False,
+                          help="hide links between subgroupings")
+    sent_grp.add_argument("--inter",
+                          action='store_true',
+                          default=False,
+                          help="hide links within subgroupings")
+
+    psr.add_argument("--select", nargs='*',
+                     metavar='GROUPING',
+                     help="only show graphs for these groupings")
+
     psr.add_argument("--output", metavar="DIR",
                      help="output directory for graphs")
     psr.add_argument("--quiet", action="store_true",
@@ -51,6 +68,28 @@ def config_argparser(psr):
     psr.set_defaults(func=main)
 
 
+def _load_links(args):
+    """
+    Return edus, source links, and maybe target links
+    """
+    edus = load_edus(args.edus)
+    if args.predictions is not None:
+        src_links = load_predictions(args.predictions)
+    elif args.gold is not None:
+        # pylint: disable=star-args
+        src_links = load_gold_predictions(*args.gold)
+        # pylint: enable=star-args
+    else:
+        raise Exception('TODO need arg validation to trap this case')
+
+    if args.diff_to is not None:
+        tgt_links = load_predictions(args.diff_to)
+    else:
+        tgt_links = None
+
+    return edus, src_links, tgt_links
+
+
 def main_for_harness(args):
     """
     main function core that you can hook into if writing your own
@@ -60,20 +99,30 @@ def main_for_harness(args):
     (see `select_data`)
     """
     output_dir = get_output_dir(args)
-    edus = load_edus(args.edus)
-    if args.predictions is not None:
-        links = load_predictions(args.predictions)
-    else:
-        # pylint: disable=star-args
-        links = load_gold_predictions(*args.gold)
-        # pylint: enable=star-args
-
+    edus, links, tgt_links = _load_links(args)
     for group, subedus_ in groupby(edus, lambda x: x.grouping):
+        if args.select is not None and group not in args.select:
+            continue
         subedus = list(subedus_)
-        sublinks = select_links(subedus, links)
+        sublinks = select_links(subedus, links,
+                                intra=args.intra,
+                                inter=args.inter)
         if not sublinks:  # not in fold
             continue
-        graph = to_graph(group, subedus, sublinks, unrelated=args.unrelated)
+        # skip any groups that are not in diff target (envisioned
+        # use case, diffing gold against an output)
+        if tgt_links is None:
+            tgt_sublinks = None
+        else:
+            tgt_sublinks = select_links(subedus, tgt_links,
+                                        intra=args.intra,
+                                        inter=args.inter)
+            if not tgt_sublinks:
+                continue
+        graph = to_graph(group, subedus, sublinks,
+                         tgt_links=tgt_sublinks,
+                         unrelated=args.unrelated,
+                         inter=args.inter)
         ofilename = fp.join(output_dir, group)
         write_dot_graph(ofilename, graph, quiet=args.quiet,
                         timeout=args.graphviz_timeout)
