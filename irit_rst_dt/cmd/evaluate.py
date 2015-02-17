@@ -412,21 +412,8 @@ class FakeGraphArgs(CliArgs):
         return argv
 
 # ---------------------------------------------------------------------
-# evaluation
+# paths
 # ---------------------------------------------------------------------
-
-
-def _link_data_files(data_dir, eval_dir):
-    """
-    Hard-link all files from the data dir into the evaluation
-    directory. This does not cost space and it makes future
-    archiving a bit more straightforward
-    """
-    for fname in os.listdir(data_dir):
-        data_file = os.path.join(data_dir, fname)
-        eval_file = os.path.join(eval_dir, fname)
-        if os.path.isfile(data_file):
-            os.link(data_file, eval_file)
 
 
 def _eval_data_path(lconf, ext):
@@ -541,6 +528,61 @@ def _model_info_path(lconf, rconf, fold=None):
     template = "discr-features.{learner}.txt"
     return fp.join(_report_dir(lconf, fold),
                    template.format(learner=rconf.key))
+
+
+# ---------------------------------------------------------------------
+# preparation
+# ---------------------------------------------------------------------
+
+def _link_data_files(data_dir, eval_dir):
+    """
+    Hard-link all files from the data dir into the evaluation
+    directory. This does not cost space and it makes future
+    archiving a bit more straightforward
+    """
+    for fname in os.listdir(data_dir):
+        data_file = os.path.join(data_dir, fname)
+        eval_file = os.path.join(eval_dir, fname)
+        if os.path.isfile(data_file):
+            os.link(data_file, eval_file)
+
+
+def _create_eval_dirs(args, data_dir):
+    """
+    Return eval and scatch directory paths
+    """
+
+    eval_current = fp.join(data_dir, "eval-current")
+    scratch_current = fp.join(data_dir, "scratch-current")
+    stage = args_to_stage(args)
+
+    if args.resume or stage in [ClusterStage.main,
+                                ClusterStage.combined_models,
+                                ClusterStage.end]:
+        if not fp.exists(eval_current) or not fp.exists(scratch_current):
+            sys.exit("No currently running evaluation to resume!")
+        else:
+            return eval_current, scratch_current
+    else:
+        tstamp = "TEST" if _DEBUG else timestamp()
+        eval_dir = fp.join(data_dir, "eval-" + tstamp)
+        if not fp.exists(eval_dir):
+            os.makedirs(eval_dir)
+            _link_data_files(data_dir, eval_dir)
+            force_symlink(fp.basename(eval_dir), eval_current)
+        elif not _DEBUG:
+            sys.exit("Try again in literally one second")
+
+        scratch_dir = fp.join(data_dir, "scratch-" + tstamp)
+        if not fp.exists(scratch_dir):
+            os.makedirs(scratch_dir)
+            force_symlink(fp.basename(scratch_dir), scratch_current)
+
+        return eval_dir, scratch_dir
+
+# ---------------------------------------------------------------------
+# evaluation
+# ---------------------------------------------------------------------
 
 
 def _delayed_learn(lconf, dconf, rconf, fold):
@@ -817,40 +859,6 @@ def args_to_stage(args):
         return ClusterStage.end
     else:
         return None
-
-
-def _create_eval_dirs(args, data_dir):
-    """
-    Return eval and scatch directory paths
-    """
-
-    eval_current = fp.join(data_dir, "eval-current")
-    scratch_current = fp.join(data_dir, "scratch-current")
-    stage = args_to_stage(args)
-
-    if args.resume or stage in [ClusterStage.main,
-                                ClusterStage.combined_models,
-                                ClusterStage.end]:
-        if not fp.exists(eval_current) or not fp.exists(scratch_current):
-            sys.exit("No currently running evaluation to resume!")
-        else:
-            return eval_current, scratch_current
-    else:
-        tstamp = "TEST" if _DEBUG else timestamp()
-        eval_dir = fp.join(data_dir, "eval-" + tstamp)
-        if not fp.exists(eval_dir):
-            os.makedirs(eval_dir)
-            _link_data_files(data_dir, eval_dir)
-            force_symlink(fp.basename(eval_dir), eval_current)
-        elif not _DEBUG:
-            sys.exit("Try again in literally one second")
-
-        scratch_dir = fp.join(data_dir, "scratch-" + tstamp)
-        if not fp.exists(scratch_dir):
-            os.makedirs(scratch_dir)
-            force_symlink(fp.basename(scratch_dir), scratch_current)
-
-        return eval_dir, scratch_dir
 
 
 def main(args):
