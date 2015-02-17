@@ -44,6 +44,7 @@ LoopConfig = namedtuple("LoopConfig",
                          "stage",
                          "folds",
                          "fold_file",
+                         "sequential",
                          "dataset"])
 "that which is common to outerish loops"
 
@@ -585,6 +586,16 @@ def _create_eval_dirs(args, data_dir):
 # ---------------------------------------------------------------------
 
 
+def _parallel(lconf, n_jobs=None, verbose=None):
+    """
+    Run some delayed jobs in parallel (or sequentially
+    depending on our settings)
+    """
+    n_jobs = n_jobs or (1 if lconf.sequential else -1)
+    verbose = verbose or 5
+    return Parallel(n_jobs=n_jobs, verbose=verbose)
+
+
 def _delayed_learn(lconf, dconf, rconf, fold):
     """
     Return possible futures for learning models for this
@@ -719,7 +730,7 @@ def _mk_graphs(lconf, dconf):
                 sameline=False):
         jobs = [delayed(_mk_econf_graphs)(lconf, econf, fold)
                 for econf in EVALUATIONS]
-        Parallel(n_jobs=-1, verbose=5)(jobs)
+        _parallel(lconf)(jobs)
 
 
 def _mk_global_report(lconf, dconf):
@@ -755,11 +766,11 @@ def _do_fold(lconf, dconf, fold):
     # learn all models in parallel
     learner_jobs = concat_i(_delayed_learn(lconf, dconf, rconf, fold)
                             for rconf in LEARNERS)
-    Parallel(n_jobs=-1, verbose=5)(learner_jobs)
+    _parallel(lconf)(learner_jobs)
     # run all model/decoder joblets in parallel
     decoder_jobs = concat_i(_delayed_decode(lconf, dconf, econf, fold)
                             for econf in EVALUATIONS)
-    Parallel(n_jobs=-1, verbose=5)(decoder_jobs)
+    _parallel(lconf)(decoder_jobs)
     for econf in EVALUATIONS:
         _post_decode(lconf, dconf, econf, fold)
     fold_dir = _fold_dir_path(lconf, fold)
@@ -772,7 +783,7 @@ def _mk_combined_models(lconf, dconf):
     """
     jobs = concat_i(_delayed_learn_combined(lconf, dconf, learner)
                     for learner in LEARNERS)
-    Parallel(n_jobs=-1, verbose=5)(jobs)
+    _parallel(lconf)(jobs)
 
 
 def _is_standalone_or(lconf, stage):
@@ -832,6 +843,9 @@ def config_argparser(psr):
     psr.add_argument("--resume",
                      default=False, action="store_true",
                      help="resume previous interrupted evaluation")
+    psr.add_argument("--sequential",
+                     default=False, action="store_true",
+                     help="disable parallelism")
     cluster_grp = psr.add_mutually_exclusive_group()
     cluster_grp.add_argument("--start", action='store_true',
                              default=False,
@@ -892,5 +906,6 @@ def main(args):
                            folds=args.folds,
                            stage=stage,
                            fold_file=fold_file,
+                           sequential=args.sequential,
                            dataset=dataset)
         _do_corpus(lconf)
