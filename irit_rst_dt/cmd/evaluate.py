@@ -849,7 +849,8 @@ def _do_corpus(lconf):
                            _features_path(lconf, stripped=has_stripped),
                            verbose=True)
 
-    _generate_fold_file(lconf, dpack)
+    if _is_standalone_or(lconf, ClusterStage.start):
+        _generate_fold_file(lconf, dpack)
 
     with open(lconf.fold_file) as f_in:
         dconf = DataConfig(pack=dpack,
