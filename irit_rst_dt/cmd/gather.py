@@ -38,7 +38,7 @@ def main(_):
     tdir = current_tmp()
     for corpus in TRAINING_CORPORA:
         call(["rst-dt-learning", "extract", corpus, PTB_DIR, tdir])
-    with open(os.path.join(tdir, "versions.txt"), "w") as stream:
+    with open(os.path.join(tdir, "versions-gather.txt"), "w") as stream:
         call(["pip", "freeze"], stdout=stream)
     latest_dir = latest_tmp()
     force_symlink(os.path.basename(tdir), latest_dir)

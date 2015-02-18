@@ -582,7 +582,7 @@ def _create_eval_dirs(args, data_dir):
             os.makedirs(scratch_dir)
             force_symlink(fp.basename(scratch_dir), scratch_current)
 
-        with open(os.path.join(eval_dir, "versions.txt"), "w") as stream:
+        with open(fp.join(eval_dir, "versions-evaluate.txt"), "w") as stream:
             call(["pip", "freeze"], stdout=stream)
 
         return eval_dir, scratch_dir
