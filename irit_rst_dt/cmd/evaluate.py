@@ -933,10 +933,6 @@ def main(args):
         _exit_ungathered()
     eval_dir, scratch_dir = _create_eval_dirs(args, data_dir)
 
-    if stage == ClusterStage.start:
-        # all done! just wanted to create the directory
-        return
-
     for corpus in TRAINING_CORPORA:
         dataset = os.path.basename(corpus)
         fold_file = os.path.join(eval_dir,
