@@ -582,6 +582,9 @@ def _create_eval_dirs(args, data_dir):
             os.makedirs(scratch_dir)
             force_symlink(fp.basename(scratch_dir), scratch_current)
 
+        with open(os.path.join(eval_dir, "versions.txt"), "w") as stream:
+            call(["pip", "freeze"], stdout=stream)
+
         return eval_dir, scratch_dir
 
 # ---------------------------------------------------------------------
@@ -928,9 +931,6 @@ def main(args):
     if not os.path.exists(data_dir):
         _exit_ungathered()
     eval_dir, scratch_dir = _create_eval_dirs(args, data_dir)
-
-    with open(os.path.join(eval_dir, "versions.txt"), "w") as stream:
-        call(["pip", "freeze"], stdout=stream)
 
     if stage == ClusterStage.start:
         # all done! just wanted to create the directory
