@@ -42,10 +42,10 @@ Where to read the Penn Treebank from (should be dir corresponding to
 parsed/mrg/wsj)
 """
 
-_BASIC_LEARNERS =\
+_BASIC_LEARNERS_PROB =\
     [Variant(key=x, name=x, flags=[]) for x in
-     ["maxent", "sk-perceptron", "sk-pasagg"]]
-"""Attelo learner algorithms to try.
+     ["maxent"]]
+"""Attelo learner algorithms to try (probabilistic).
 
 It's up to you to choose values for the key field that can distinguish
 between different configurations of your learners.  For example,
@@ -62,7 +62,10 @@ you might have something like
             flags=["--frobnication", "0.4"])
 
 """
-_BASIC_NON_PROB = ["sk-perceptron", "sk-pasagg"]
+
+_BASIC_LEARNERS_NON_PROB =\
+    [Variant(key=x, name=x, flags=[]) for x in
+     ["sk-perceptron", "sk-pasagg"]]
 """
 Models that can only assign a confidence score but not a
 probability to a class
@@ -147,14 +150,24 @@ def expanded_learners():
     default_relate = Learner(key="maxent", name="maxent",
                              flags=[], decoder=None)
 
-    simple =\
-        [LearnerConfig(attach=Learner(key=l.key,
-                                      name=l.name,
-                                      flags=l.flags,
-                                      decoder=None),
-                       relate=default_relate if l.key in _BASIC_NON_PROB
-                       else None)
-         for l in _BASIC_LEARNERS]
+    simple = []
+    simple.extend(LearnerConfig(attach=Learner(key=l.key,
+                                               name=l.name,
+                                               flags=l.flags,
+                                               decoder=None),
+                                relate=None)
+                  for l in _BASIC_LEARNERS_PROB)
+    # we assume for now that the non-probabilistic learners
+    # need to be paired with the maxent relation learner
+    # (which isn't necessarily the case, but is true for
+    # Pascal's perceptrons)
+    simple.extend(LearnerConfig(attach=Learner(key=l.key,
+                                               name=l.name,
+                                               flags=l.flags,
+                                               decoder=None),
+                                relate=default_relate)
+                  for l in _BASIC_LEARNERS_NON_PROB)
+
 
     # pylint: disable=cell-var-from-loop
     fancy = [lambda d:
@@ -220,7 +233,7 @@ def mk_config((learner, decoder), global_settings):
     """
     decoder_key = combined_key([global_settings, decoder])
     decoder_flags = decoder.flags + global_settings.flags
-    if learner.attach.key in _BASIC_NON_PROB:
+    if learner.attach in _BASIC_LEARNERS_NON_PROB:
         if '--post-label' not in global_settings.flags:
             return None
         decoder_flags += ['--non-prob-scores']
