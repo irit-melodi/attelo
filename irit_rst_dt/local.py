@@ -42,6 +42,11 @@ Where to read the Penn Treebank from (should be dir corresponding to
 parsed/mrg/wsj)
 """
 
+FEATURE_SET = 'li2014'  # one of ['eyk', 'li2014']
+"""
+Which feature set to use for feature extraction
+"""
+
 _BASIC_LEARNERS_PROB =\
     [Variant(key=x, name=x, flags=[]) for x in
      ["maxent"]]
