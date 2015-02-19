@@ -79,14 +79,19 @@ def load_models(args):
                 relate=load_model(args.relation_model))
 
 
-def _decode_group(mode, output, decoder, dpack, models):
+def _decode_group(mode, full_output, decoder, dpack, docset, models):
     '''
     decode a single group and write its output
 
     score the predictions if we have
 
+    :param full_output output filename for combined outputs
+    :param docset (current doc, all docs)
+
     :rtype Count or None
     '''
+    onedoc, alldocs = docset
+    output = tmp_output_filename(full_output, onedoc)
     predictions = decode(mode, decoder, dpack, models)
     if not predictions:
         raise DecoderException('decoder must make at least one prediction')
@@ -94,6 +99,34 @@ def _decode_group(mode, output, decoder, dpack, models):
     # we trust the decoder to select what it thinks is its best prediction
     first_prediction = predictions[0]
     append_predictions_output(dpack, first_prediction, output)
+    # ok we're done here for this document
+    with open(output + '.done', 'wb'):
+        pass
+    # how about everybody else?
+    # when we think every potentially conflicting parallel task is done
+    # concatenate all the temp files and clean up
+    tmpfiles = [tmp_output_filename(full_output, d) for d in alldocs]
+    if all(fp.exists(x + '.done') for x in tmpfiles):
+        with open(full_output, 'wb') as file_out:
+            for tfile in tmpfiles:
+                with open(tfile, 'rb') as file_in:
+                    file_out.write(file_in.read())
+        _clean_temp_filenames(full_output, alldocs)
+
+
+def _clean_temp_filenames(full_output, alldocs):
+    """
+    Remove temporary files that would be created during parallel
+    decoding. This may be important if you interrupt a parallel
+    decoding task
+    """
+    tmpfiles = [tmp_output_filename(full_output, d) for d in alldocs]
+    for tmpfile in tmpfiles:
+        done_file = tmpfile + '.done'
+        if fp.exists(tmpfile):
+            os.remove(tmpfile)
+        if fp.exists(done_file):
+            os.remove(done_file)
 
 
 def tmp_output_filename(path, suffix):
@@ -102,24 +135,6 @@ def tmp_output_filename(path, suffix):
     """
     return fp.join(fp.dirname(path),
                    '_' + fp.basename(path) + '.' + suffix)
-
-
-def concatenate_outputs(args, dpack):
-    """
-    (For use after :py:func:`delayed_main_for_harness`)
-
-    Concatenate temporary per-group outputs into a single
-    combined output
-    """
-    groupings = dpack.groupings()
-    tmpfiles = [tmp_output_filename(args.output, d)
-                for d in groupings]
-    with open(args.output, 'wb') as file_out:
-        for tfile in tmpfiles:
-            with open(tfile, 'rb') as file_in:
-                file_out.write(file_in.read())
-    for tmpfile in tmpfiles:
-        os.remove(tmpfile)
 
 
 def delayed_main_for_harness(args, decoder, dpack, models):
@@ -135,11 +150,15 @@ def delayed_main_for_harness(args, decoder, dpack, models):
     groupings = dpack.groupings()
     mode = args_to_decoding_mode(args)
     jobs = []
+    alldocs = groupings.keys()
+    _clean_temp_filenames(args.output, alldocs)
     for onedoc, indices in groupings.items():
         onepack = dpack.selected(indices)
-        output = tmp_output_filename(args.output, onedoc)
-        jobs.append(delayed(_decode_group)(mode, output,
-                                           decoder, onepack, models))
+        jobs.append(delayed(_decode_group)(mode, args.output,
+                                           decoder,
+                                           onepack,
+                                           (onedoc, alldocs),
+                                           models))
     return jobs
 
 
@@ -152,7 +171,6 @@ def main_for_harness(args, decoder, dpack, models):
     """
     Parallel(n_jobs=-1,
              verbose=5)(delayed_main_for_harness(args, decoder, dpack, models))
-    concatenate_outputs(args, dpack)
 
 
 @validate_fold_choice_args
