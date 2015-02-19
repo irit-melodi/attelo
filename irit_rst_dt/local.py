@@ -173,7 +173,6 @@ def expanded_learners():
                                 relate=default_relate)
                   for l in _BASIC_LEARNERS_NON_PROB)
 
-
     # pylint: disable=cell-var-from-loop
     fancy = [lambda d:
              LearnerConfig(attach=Learner(key=learner.key,
