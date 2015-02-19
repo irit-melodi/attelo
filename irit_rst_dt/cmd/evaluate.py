@@ -760,7 +760,7 @@ def _mk_hashfile(parent_dir, lconf, dconf):
     for fold in sorted(frozenset(dconf.folds.values())):
         for rconf in LEARNERS:
             models_path = _eval_model_path(lconf, rconf, fold, '*')
-            hash_me.extend(glob.glob(models_path + '*'))
+            hash_me.extend(sorted(glob.glob(models_path + '*')))
     with open(fp.join(parent_dir, 'hashes.txt'), 'w') as stream:
         for path in hash_me:
             fold_basename = fp.basename(fp.dirname(path))
