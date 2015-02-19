@@ -842,7 +842,7 @@ def _do_corpus(lconf):
     if not os.path.exists(edus_file):
         _exit_ungathered()
 
-    has_stripped = (lconf.stage == ClusterStage.end
+    has_stripped = (lconf.stage in [ClusterStage.end, ClusterStage.start]
                     and fp.exists(_features_path(lconf, stripped=True)))
     dpack = load_data_pack(edus_file,
                            _pairings_path(lconf),
