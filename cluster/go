@@ -6,7 +6,7 @@ cd "$IRIT_RST_DT"
 mkdir -p OLD-LOGS
 mv irit-rst-dt-evaluate-*.out OLD-LOGS
 
-EVALUATE_FLAGS=()
+EVALUATE_FLAGS=("$@")
 #EVALUATE_FLAGS=(--resume)
 cd "$IRIT_RST_DT"
 if [ ! -e "$IRIT_RST_DT"/cluster/env ]; then

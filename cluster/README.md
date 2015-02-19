@@ -92,3 +92,6 @@ cd irit-rst-dt
 chmod u+x cluster/go
 cluster/go
 ```
+
+HINT: the `cluster/go` script can accept arguments for `irit-stac
+evaluate` on the command line
