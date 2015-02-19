@@ -102,9 +102,17 @@ def _decode_group(mode, full_output, decoder, dpack, docset, models):
     # ok we're done here for this document
     with open(output + '.done', 'wb'):
         pass
-    # how about everybody else?
-    # when we think every potentially conflicting parallel task is done
-    # concatenate all the temp files and clean up
+    _concatenate_files_if_done(full_output, alldocs)
+
+
+def _concatenate_files_if_done(full_output, alldocs):
+    """
+    Check if we've completed all decoding tasks in our parallel
+    set; concatenate the results.
+
+    Return 'False' if we're only partially done: ie if some
+    control files exist but not all
+    """
     tmpfiles = [tmp_output_filename(full_output, d) for d in alldocs]
     if all(fp.exists(x + '.done') for x in tmpfiles):
         with open(full_output, 'wb') as file_out:
@@ -112,6 +120,11 @@ def _decode_group(mode, full_output, decoder, dpack, docset, models):
                 with open(tfile, 'rb') as file_in:
                     file_out.write(file_in.read())
         _clean_temp_filenames(full_output, alldocs)
+        return True
+    elif any(fp.exists(x + '.done') for x in tmpfiles):
+        return False
+    else:
+        return True
 
 
 def _clean_temp_filenames(full_output, alldocs):
@@ -135,6 +148,26 @@ def tmp_output_filename(path, suffix):
     """
     return fp.join(fp.dirname(path),
                    '_' + fp.basename(path) + '.' + suffix)
+
+
+def concatenate_outputs(args, dpack):
+    """
+    (For use after :py:func:`delayed_main_for_harness`)
+
+    Concatenate temporary per-group outputs into a single
+    combined output.
+
+    We already try to do this at the end of each group-wide
+    decoding, but this is necessary as race-condition
+    proofing, in case of the corner-case where some jobs
+    finish simultaneously and nobody thinks the other is done
+    """
+    alldocs = dpack.groupings().keys()
+    status = _concatenate_files_if_done(args.output, alldocs)
+    if not status:
+        raise DecoderException('Found some but not all find temporary and '
+                               'control files for parallel decoding; this '
+                               'may be a bug; should be all or nothing')
 
 
 def delayed_main_for_harness(args, decoder, dpack, models):
@@ -171,6 +204,7 @@ def main_for_harness(args, decoder, dpack, models):
     """
     Parallel(n_jobs=-1,
              verbose=5)(delayed_main_for_harness(args, decoder, dpack, models))
+    concatenate_outputs(args, dpack)
 
 
 @validate_fold_choice_args
