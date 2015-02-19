@@ -21,7 +21,7 @@ source "$IRIT_RST_DT/cluster/env"
 # create the evaluation folder
 sjobs+=($(sbatch "$IRIT_RST_DT"/cluster/evaluate.script --start "${EVALUATE_FLAGS[@]}" |\
          sed -e 's/Submitted batch job //'))
-for job in "${sobs[@]}"; do
+for job in "${sjobs[@]}"; do
    sjob_str="${sjob_str+$sjob_str,}afterok:$job"
 done
 
