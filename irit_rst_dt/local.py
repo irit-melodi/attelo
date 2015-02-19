@@ -238,7 +238,8 @@ def mk_config((learner, decoder), global_settings):
     """
     decoder_key = combined_key([global_settings, decoder])
     decoder_flags = decoder.flags + global_settings.flags
-    if learner.attach in _BASIC_LEARNERS_NON_PROB:
+    non_prob_keys = [l.key for l in _BASIC_LEARNERS_NON_PROB]
+    if learner.attach in non_prob_keys:
         if '--post-label' not in global_settings.flags:
             return None
         decoder_flags += ['--non-prob-scores']
