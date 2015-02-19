@@ -135,6 +135,10 @@ def delayed_main_for_harness(args, decoder, dpack, models):
     groupings = dpack.groupings()
     mode = args_to_decoding_mode(args)
     jobs = []
+    tmpfiles = [tmp_output_filename(args.output, d)
+                for d in groupings]
+    for tmpfile in tmpfiles:
+        os.remove(tmpfile)
     for onedoc, indices in groupings.items():
         onepack = dpack.selected(indices)
         output = tmp_output_filename(args.output, onedoc)
