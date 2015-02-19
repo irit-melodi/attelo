@@ -90,6 +90,17 @@ def _exit_ungathered():
 Please run `irit-rst-dt gather`""")
 
 
+def _eval_banner(econf, lconf, fold):
+    """
+    Which combo of eval parameters are we running now?
+    """
+    return "\n".join(["----------" * 3,
+                      "fold %d [%s]" % (fold, lconf.dataset),
+                      "learner(s): %s" % econf.learner.key,
+                      "decoder: %s" % econf.decoder.key,
+                      "----------" * 3])
+
+
 def _corpus_banner(lconf):
     "banner to announce the corpus"
     return "\n".join(["==========" * 7,
@@ -665,15 +676,25 @@ def _delayed_decode(lconf, dconf, econf, fold):
     fold_dir = _fold_dir_path(lconf, fold)
     if not os.path.exists(fold_dir):
         os.makedirs(fold_dir)
-    # otherwise we'd try to concatenate these
-    for partial_output in glob.glob(fp.join(fold_dir, '_output.*')):
-        os.remove(partial_output)
     with FakeDecodeArgs(lconf, econf, fold) as args:
         decoder = args_to_decoder(args)
         subpack = dconf.pack.testing(dconf.folds, fold)
         models = att.decode.load_models(args)
         return att.decode.delayed_main_for_harness(args, decoder,
                                                    subpack, models)
+
+
+def _post_decode(lconf, dconf, econf, fold):
+    """
+    Join together output files from this model/decoder combo
+    """
+    if _say_if_decoded(lconf, econf, fold):
+        return
+
+    print(_eval_banner(econf, lconf, fold), file=sys.stderr)
+    with FakeDecodeArgs(lconf, econf, fold) as args:
+        subpack = dconf.pack.testing(dconf.folds, fold)
+        att.decode.concatenate_outputs(args, subpack)
 
 
 def _generate_fold_file(lconf, dpack):
@@ -790,6 +811,8 @@ def _do_fold(lconf, dconf, fold):
     decoder_jobs = concat_i(_delayed_decode(lconf, dconf, econf, fold)
                             for econf in EVALUATIONS)
     _parallel(lconf)(decoder_jobs)
+    for econf in EVALUATIONS:
+        _post_decode(lconf, dconf, econf, fold)
     fold_dir = _fold_dir_path(lconf, fold)
     _mk_fold_report(lconf, dconf, fold)
 
