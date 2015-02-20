@@ -25,6 +25,7 @@ from attelo.harness.report import (mk_index)
 from attelo.harness.util import\
     timestamp, call, force_symlink
 import attelo.cmd as att
+from attelo.util import (Team)
 
 from ..local import (LEARNERS,
                      EVALUATIONS,
@@ -679,7 +680,8 @@ def _delayed_decode(lconf, dconf, econf, fold):
     with FakeDecodeArgs(lconf, econf, fold) as args:
         decoder = args_to_decoder(args)
         subpack = dconf.pack.testing(dconf.folds, fold)
-        models = att.decode.load_models(args)
+        models = att.decode.load_models(Team(attach=args.attachment_model,
+                                             relate=args.relation_model))
         return att.decode.delayed_main_for_harness(args, decoder,
                                                    subpack, models)
 
