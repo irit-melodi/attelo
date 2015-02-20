@@ -16,39 +16,40 @@ if [ ! -e "$IRIT_RST_DT"/cluster/env ]; then
 fi
 
 
+function j_sbatch {
+    sbatch "$@" | sed -e 's/Submitted batch job //'
+}
+
+function mk_deps {
+    for job in "$@"; do
+       dep_str="${dep_str+$dep_str:}$job"
+    done
+    echo "${dep_str+afterok:}$dep_str"
+}
+
 set -e
 source "$IRIT_RST_DT/cluster/env"
 # create the evaluation folder
-sjobs+=($(sbatch "$IRIT_RST_DT"/cluster/evaluate.script --start "${EVALUATE_FLAGS[@]}" |\
-         sed -e 's/Submitted batch job //'))
-for job in "${sjobs[@]}"; do
-   sjob_str="${sjob_str+$sjob_str,}afterok:$job"
-done
+sjobs+=($(j_sbatch "$IRIT_RST_DT"/cluster/evaluate.script --start "${EVALUATE_FLAGS[@]}"))
+sjob_str=$(mk_deps "${sjobs[@]}")
 
 # generate the global model
 # (only needed for reporting discriminating features)
 # we launch this first only because it's very slow
 # so we might as well start working on it early on
-jobs+=($(sbatch --dependency="$sjob_str"\
-         "$IRIT_RST_DT"/cluster/evaluate.script --combined-models "${EVALUATE_FLAGS[@]}" |\
-         sed -e 's/Submitted batch job //'))
+jobs+=($(j_sbatch --dependency="$sjob_str"\
+    "$IRIT_RST_DT"/cluster/evaluate.script --combined-models "${EVALUATE_FLAGS[@]}"))
 # request a job for each fold
-jobs+=($(sbatch --dependency="$sjob_str"\
-            "$IRIT_RST_DT"/cluster/evaluate.script --folds 0 1 2 "${EVALUATE_FLAGS[@]}" |\
-            sed -e 's/Submitted batch job //'))
-jobs+=($(sbatch --dependency="$sjob_str"\
-            "$IRIT_RST_DT"/cluster/evaluate.script --folds 3 4 5 "${EVALUATE_FLAGS[@]}" |\
-            sed -e 's/Submitted batch job //'))
-jobs+=($(sbatch --dependency="$sjob_str"\
-            "$IRIT_RST_DT"/cluster/evaluate.script --folds 6 7 "${EVALUATE_FLAGS[@]}" |\
-            sed -e 's/Submitted batch job //'))
-jobs+=($(sbatch --dependency="$sjob_str"\
-            "$IRIT_RST_DT"/cluster/evaluate.script --folds 8 9 "${EVALUATE_FLAGS[@]}" |\
-            sed -e 's/Submitted batch job //'))
-
-
-for job in "${jobs[@]}"; do
-   job_str="${job_str+$job_str,}afterok:$job"
-done
+jobs+=($(j_sbatch --dependency="$sjob_str"\
+    "$IRIT_RST_DT"/cluster/evaluate.script --folds 0 1 "${EVALUATE_FLAGS[@]}"))
+jobs+=($(j_sbatch --dependency="$sjob_str"\
+    "$IRIT_RST_DT"/cluster/evaluate.script --folds 2 3 "${EVALUATE_FLAGS[@]}"))
+jobs+=($(j_sbatch --dependency="$sjob_str"\
+    "$IRIT_RST_DT"/cluster/evaluate.script --folds 4 5 "${EVALUATE_FLAGS[@]}"))
+jobs+=($(j_sbatch --dependency="$sjob_str"\
+    "$IRIT_RST_DT"/cluster/evaluate.script --folds 6 7 "${EVALUATE_FLAGS[@]}"))
+jobs+=($(j_sbatch --dependency="$sjob_str"\
+    "$IRIT_RST_DT"/cluster/evaluate.script --folds 8 9 "${EVALUATE_FLAGS[@]}"))
 # generate the report when all folds are done
+job_str=$(mk_deps "${jobs[@]}")
 sbatch --dependency="$job_str" "$IRIT_RST_DT"/cluster/report.script
