@@ -12,11 +12,10 @@ from ..args import\
      args_to_decoding_mode,
      args_to_learners,
      args_to_rng)
-from ..decoding import (decode)
+from ..decoding import (decode, count_correct_edges)
 from ..learning import (learn)
 from ..fold import make_n_fold
 from ..report import Report
-from .decode import score_prediction
 from .util import load_args_data_pack
 
 
@@ -31,11 +30,7 @@ def best_prediction(dpack, predictions):
                    otherwise only attachments
     :param predicted: a single prediction (list of id, id, label tuples)
     """
-    def score(prediction):
-        'score a single prediction'
-        return score_prediction(dpack, prediction)
-
-    max_key = lambda x: score(x).tpos_label
+    max_key = lambda x: count_correct_edges(dpack, x).tpos_label
     return max(predictions, key=max_key)
 
 
@@ -68,7 +63,7 @@ def _decode_group(mode, decoder, dpack, models):
     '''
     predictions = decode(mode, decoder, dpack, models)
     best = best_prediction(dpack, predictions)
-    return score_prediction(dpack, best)
+    return count_correct_edges(dpack, best)
 
 
 def _decode_fold(mode, decoder, dpack, models):

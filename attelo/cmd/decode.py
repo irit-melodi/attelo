@@ -12,7 +12,7 @@ from ..args import (add_common_args, add_decoder_args,
                     add_fold_choice_args, validate_fold_choice_args,
                     args_to_decoder, args_to_decoding_mode)
 from ..io import (load_model, append_predictions_output)
-from ..decoding import (DecoderException, decode, count_correct)
+from ..decoding import (DecoderException, decode)
 from ..util import Team
 from .util import load_args_data_pack
 
@@ -37,17 +37,6 @@ def _load_and_select_data(args):
         dpack = load_args_data_pack(args)
         return dpack.testing(fold_dict, args.fold)
 
-
-def score_prediction(dpack, predicted):
-    """
-    Return the best prediction for the given data along with its
-    score. Best is defined in a recall-centric way, by the number
-    of correct labels made (or if in attach-only mode, the number
-    of correct decisions to attach).
-
-    :param predicted: a single prediction (list of id, id, label tuples)
-    """
-    return count_correct(dpack.attached_only(), predicted)
 
 # ---------------------------------------------------------------------
 # main

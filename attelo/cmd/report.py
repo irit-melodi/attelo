@@ -14,7 +14,7 @@ import numpy
 from sklearn.metrics import confusion_matrix
 
 from ..args import add_common_args, add_report_args
-from ..decoding import count_correct
+from ..decoding import (count_correct_edges)
 from ..io import load_predictions, Torpor
 from ..report import (CombinedReport, Report,
                       show_confusion_matrix)
@@ -163,7 +163,7 @@ def score_predictions(dpack, predict_file):
     """
     predictions = load_predictions(predict_file)
     # score
-    evals = count_correct(dpack, predictions)
+    evals = count_correct_edges(dpack, predictions)
     cmatrix = build_confusion_matrix(dpack, predictions)
     return evals, cmatrix
 

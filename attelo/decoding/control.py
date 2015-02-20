@@ -172,7 +172,7 @@ def decode(mode, decoder, dpack, models):
         return predictions
 
 
-def count_correct(dpack, predicted):
+def count_correct_edges(dpack, predicted):
     """basic eval: counting correct predicted edges (labelled or not)
     data contains the reference attachments
     labels the corresponding relations
