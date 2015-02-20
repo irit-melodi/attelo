@@ -8,9 +8,13 @@ import sys
 
 from attelo.learning import (can_predict_proba)
 from attelo.report import Count
-from attelo.table import (for_attachment, for_labelling, UNRELATED)
+from attelo.table import (for_attachment, for_labelling,
+                          UNRELATED, UNLABELLED)
 from attelo.util import truncate
-from .util import (DecoderException)
+from .subgrouping import (IntraInterPair, select_subgrouping)
+from .util import (DecoderException,
+                   get_sorted_edus,
+                   subgroupings)
 # pylint: disable=too-few-public-methods
 
 
@@ -84,7 +88,7 @@ def _combine_probs(dpack, models, debug=False):
     # pylint: disable=star-args
 
 
-def _add_labels(dpack, models, predictions):
+def _add_labels(dpack, models, predictions, clobber=True):
     """given a list of predictions, predict labels for a given set of edges
     (=post-labelling an unlabelled decoding)
 
@@ -92,6 +96,9 @@ def _add_labels(dpack, models, predictions):
 
     :type predictions: [prediction] (see `attelo.decoding.interface`)
     :rtype: [prediction]
+
+    :param clobber: if True, override pre-existing labels; if False, only
+                    do so if == UNLABELLED
     """
 
     relate_pack = for_labelling(dpack)
@@ -104,8 +111,9 @@ def _add_labels(dpack, models, predictions):
     def update(link):
         '''replace the link label (the original by rights is something
         like "unlabelled"'''
-        edu1, edu2, _ = link
-        label = label_dict[(edu1, edu2)]
+        edu1, edu2, old_label = link
+        can_replace = clobber or old_label == UNLABELLED
+        label = label_dict[(edu1, edu2)] if can_replace else old_label
         return (edu1, edu2, label)
 
     res = []
@@ -135,20 +143,18 @@ def _get_attach_only_prob(dpack, models):
         ':rtype: proposed link (see attelo.decoding.interface)'
         id1, id2 = pair
         conf = pick_attach(dist)
-        return (id1, id2, conf, 'unlabelled')
+        return (id1, id2, conf, UNLABELLED)
 
     return [link(x, y) for x, y in zip(pack.pairings, confidence)]
 
 
-def decode(mode, decoder, dpack, models):
+def build_prob_distrib(mode, dpack, models):
     """
-    Decode every instance in the attachment table (predicting
-    relations too if we have the data/model for it).
-    Return the predictions made
+    Extract a decoder probability distribution from the models
+    for all instances in the datapack
 
     :type models: Team(model)
     """
-
     if mode != DecodingMode.post_label:
         if not can_predict_proba(models.attach):
             oops = ('Attachment model does not know how to predict '
@@ -159,17 +165,81 @@ def decode(mode, decoder, dpack, models):
             raise DecoderException('Relation labelling model does not '
                                    'know how to predict probabilities')
 
-        prob_distrib = _combine_probs(dpack, models)
+        return _combine_probs(dpack, models)
     else:
-        prob_distrib = _get_attach_only_prob(dpack, models)
-    # print prob_distrib
+        return _get_attach_only_prob(dpack, models)
 
-    predictions = decoder.decode(prob_distrib)
 
+def _maybe_post_label(mode, dpack, models, predictions,
+                      clobber=True):
+    """
+    If post labelling mode is enabled, apply the best label from
+    our relation model to all links in the prediction
+    """
     if mode == DecodingMode.post_label:
-        return _add_labels(dpack, models, predictions)
+        return _add_labels(dpack, models, predictions, clobber=clobber)
     else:
         return predictions
+
+
+def decode(mode, decoder, dpack, models):
+    """
+    Decode every instance in the attachment table (predicting
+    relations too if we have the data/model for it).
+
+    Use intra/inter-sentential decoding if the decoder is a
+    :py:class:`IntraInterDecoder` (duck typed). Note that
+    you must also supply intra/inter sentential models
+    for this
+
+    Return the predictions made.
+
+    :type: models: Team(model) or IntraInterPair(Team(model))
+    """
+    if callable(getattr(decoder, "decode_sentence", None)):
+        func = decode_intra_inter
+    else:
+        func = decode_vanilla
+    return func(mode, decoder, dpack, models)
+
+
+def decode_vanilla(mode, decoder, dpack, models):
+    """
+    Decode every instance in the attachment table (predicting
+    relations too if we have the data/model for it).
+    Return the predictions made
+
+    :type models: Team(model)
+    """
+    prob_distrib = build_prob_distrib(mode, dpack, models)
+    predictions = decoder.decode(prob_distrib)
+    return _maybe_post_label(mode, dpack, models, predictions)
+
+
+def decode_intra_inter(mode, decoder, dpack, models):
+    """
+    Variant of `decode` which uses an IntraInterDecoder rather than
+    a normal decoder
+
+    :type models: IntraInterPair(Team(model))
+    """
+    prob_distribs =\
+        IntraInterPair(intra=build_prob_distrib(mode, dpack, models.intra),
+                       inter=build_prob_distrib(mode, dpack, models.inter))
+    sorted_edus = get_sorted_edus(prob_distribs.inter)
+
+    # launch a decoder per sentence
+    sent_parses = []
+    for subg in subgroupings(sorted_edus):
+        mini_distrib = select_subgrouping(prob_distribs.intra, subg)
+        sent_predictions = decoder.decode_sentence(mini_distrib)
+        sent_parses.append(_maybe_post_label(mode, dpack, models.intra,
+                                             sent_predictions))
+    ##########
+
+    doc_predictions = decoder.decode_document(prob_distribs.inter, sent_parses)
+    return _maybe_post_label(mode, dpack, models.inter, doc_predictions,
+                             clobber=False)
 
 
 def count_correct(dpack, predicted):

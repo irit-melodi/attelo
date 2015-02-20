@@ -14,6 +14,9 @@ from .fold import fold_groupings
 # pylint: disable=pointless-string-statement
 UNRELATED = "UNRELATED"
 "distinguished value for unrelateted relation labels"
+
+UNLABELLED = "unlabelled"
+"distinguished internal value for post-labelling mode"
 # pylint: enable=pointless-string-statement
 
 

@@ -27,7 +27,6 @@ from .astar import (AstarDecoder)
 from .baseline import LastBaseline, LocalBaseline
 from .mst import (MsdagDecoder, MstDecoder, MstRootStrategy)
 from .greedy import LocallyGreedy
-from .subgrouping import (IntrasentWrapper)
 
 
 class DecoderArgs(namedtuple("DecoderAgs",
@@ -96,8 +95,6 @@ DECODERS = {"last": lambda _: LastBaseline(),
             "locallyGreedy": lambda _: LocallyGreedy(),
             "msdag": lambda c: MsdagDecoder(c.mst_root_strategy, c.use_prob),
             "mst": _mk_mst_decoder,
-            "intra-mst": lambda c: IntrasentWrapper(_mk_mst_decoder(c),
-                                                    c.intra_strategy),
             "astar": lambda c: AstarDecoder(c.astar)}
 """
 Dictionary (`string -> DecoderAgs -> Decoder`) of decoder names (recognised by
