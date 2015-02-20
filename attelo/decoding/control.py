@@ -3,11 +3,12 @@ Central interface to the decoders
 """
 
 from __future__ import print_function
+from collections import defaultdict
 from enum import Enum
 import sys
 
 from attelo.learning import (can_predict_proba)
-from attelo.report import Count
+from attelo.report import (Count, EduCount)
 from attelo.table import (for_attachment, for_labelling, UNRELATED)
 from attelo.util import truncate
 from .util import (DecoderException)
@@ -196,3 +197,49 @@ def count_correct_edges(dpack, predicted):
                  tpos_label=tpos_label,
                  tpos_fpos=len(dict_predicted.keys()),
                  tpos_fneg=len(dpack.attached_only().pairings))
+
+
+def count_correct_edus(dpack, predicted):
+    """compute the number of edus
+
+    1. with correct attachments to their heads (ie. given edu
+    e, every reference (p, e) link is present, and only such
+    links are present)
+    2. with correct attachments to their heads and labels
+    (ie. given edu e, every reference (p, e) link is present,
+    with the correct label, and only such links are present)
+
+    This score may quite low if we are predicted a multiheaded
+    graph
+
+    :rtype EduCount
+    """
+
+    e_predictions = defaultdict(list)
+    for parent, edu, rel in predicted:
+        if rel == UNRELATED:
+            continue
+        e_predictions[edu].append((parent, dpack.label_number(rel)))
+
+    e_reference = defaultdict(list)
+    unrelated = dpack.label_number(UNRELATED)
+    for edu_pair, ref_label in zip(dpack.pairings, dpack.target):
+        if ref_label == unrelated:
+            continue
+        parent, edu = edu_pair
+        e_reference[edu.id].append((parent.id, int(ref_label)))
+
+    correct_attach = 0
+    correct_label = 0
+    for edu in dpack.edus:
+        pred = sorted(e_predictions.get(edu.id, []))
+        ref = sorted(e_reference.get(edu.id, []))
+        if [x[0] for x in pred] == [x[0] for x in ref]:
+            correct_attach += 1
+        if pred == ref:
+            correct_label += 1
+    assert correct_label <= correct_attach
+
+    return EduCount(correct_attach=correct_attach,
+                    correct_label=correct_label,
+                    total=len(dpack.edus))

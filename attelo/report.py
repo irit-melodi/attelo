@@ -76,6 +76,40 @@ class Count(namedtuple('Count',
                      correction)
 
 
+class EduCount(namedtuple('EduCount',
+                          ['correct_attach',
+                           'correct_label',
+                           'total'])):
+    """
+    Things we would count during the scoring process
+    """
+    @classmethod
+    def sum(cls, counts):
+        """
+        Count made of the total of all counts
+        """
+        return cls(sum(x.correct_attach for x in counts),
+                   sum(x.correct_label for x in counts),
+                   sum(x.total for x in counts))
+
+    def __add__(self, other):
+        return EduCount(self.correct_attach + other.correct_attach,
+                        self.correct_label + other.correct_label,
+                        self.total + other.total)
+
+    def score_attach(self):
+        """
+        Compute the attachment precision, recall, etc based on this count
+        """
+        return EduScore(_sloppy_div(self.correct_attach, self.total))
+
+    def score_label(self):
+        """
+        Compute the labeling precision, recall, etc based on this count
+        """
+        return EduScore(_sloppy_div(self.correct_label, self.total))
+
+
 ScoreConfig = namedtuple("ScoreConfig", "correction prefix")
 
 DEFAULT_SCORE_CONFIG = ScoreConfig(correction=1.0,
@@ -146,6 +180,34 @@ class Score(object):
         return res
 
 
+class EduScore(object):
+    """
+    Accuracy scores
+    """
+    def __init__(self, accuracy):
+        self.accuracy = accuracy
+
+    def for_json(self):
+        """
+        Return a JSON-serialisable dictionary representing the scores
+        for this run
+        """
+        return {"accuracy": self.accuracy}
+
+    def table_row(self):
+        "Scores as a row of floats (meant to be included in a table)"
+        return [self.accuracy]
+
+    @classmethod
+    def table_header(cls, config=None):
+        """
+        Header for table using these scores (prefix to distinguish
+        between different kinds of scores)
+        """
+        config = config or DEFAULT_SCORE_CONFIG
+
+        res = ["acc" if config.prefix is None else "%s acc" % config.prefix]
+        return res
 # pylint: enable=invalid-name
 
 
@@ -271,13 +333,21 @@ class Report(object):
     Experimental results and some basic statistical tests on them
     """
     def __init__(self, evals, params=None, correction=1.0):
-        totals = Count.sum(evals)
+        # pylint: disable=star-args
+        edge_evals, edu_evals = zip(*evals)
+        # pylint: enable=star-args
+        edge_totals = Count.sum(edge_evals)
+        edu_totals = EduCount.sum(edu_evals)
         self.config = ScoreConfig(prefix=None,
                                   correction=correction)
-        self.attach = Multiscore.create(lambda x: x.score_attach(correction),
-                                        totals, evals)
-        self.label = Multiscore.create(lambda x: x.score_label(correction),
-                                       totals, evals)
+        self.edge_attach =\
+            Multiscore.create(lambda x: x.score_attach(correction),
+                              edge_totals, edge_evals)
+        self.edge_label =\
+            Multiscore.create(lambda x: x.score_label(correction),
+                              edge_totals, edge_evals)
+        self.edu_attach = edu_totals.score_attach()
+        self.edu_label = edu_totals.score_label()
         self.params = params if params is not None else {}
 
     def for_json(self):
@@ -285,10 +355,10 @@ class Report(object):
         Return a JSON-serialisable dictionary representing the scores
         for this run
         """
-        attach = self.attach.for_json()
-        label = self.label.for_json()
-        scores = {"attachment": attach,
-                  "labeling": label}
+        scores = {"edge_scores": {"attachment": self.edge_attach.for_json(),
+                                  "labeling": self.edge_label.for_json()},
+                  "edu_scores": {"attachment": self.edu_attach.for_json(),
+                                 "labeling": self.edu_label.for_json()}}
         return scores
 
     def _params_to_filename(self):
@@ -305,18 +375,24 @@ class Report(object):
         "One line summary string"
 
         output = [self._params_to_filename(),
-                  "\tATTACHMENT", self.attach.summary(),
-                  "\tLABELLING", self.label.summary()]
+                  "\tATTACHMENT", self.edge_attach.summary(),
+                  "\tLABELLING", self.edge_label.summary()]
         return " ".join(output)
 
-    def table_row(self):
+    def edge_table_row(self):
         "Scores as a tabulate table row"
         return\
-            self.attach.table_row() +\
-            self.label.table_row()
+            self.edge_attach.table_row() +\
+            self.edge_label.table_row()
+
+    def edu_table_row(self):
+        "Scores as a tabulate table row"
+        return\
+            self.edu_attach.table_row() +\
+            self.edu_label.table_row()
 
     @classmethod
-    def table_header(cls, config=None):
+    def _table_header(cls, subcl, config=None):
         "Scores as a tabulate table row"
         config = config or DEFAULT_SCORE_CONFIG
         config_a = ScoreConfig(correction=config.correction,
@@ -324,8 +400,18 @@ class Report(object):
         config_l = ScoreConfig(correction=config.correction,
                                prefix="LABEL")
         return\
-            Multiscore.table_header(config_a) +\
-            Multiscore.table_header(config_l)
+            subcl.table_header(config_a) +\
+            subcl.table_header(config_l)
+
+    @classmethod
+    def edge_table_header(cls, config=None):
+        "Scores as a tabulate table row"
+        return cls._table_header(Multiscore, config)
+
+    @classmethod
+    def edu_table_header(cls, config=None):
+        "Scores as a tabulate table row"
+        return cls._table_header(EduScore, config)
 
 
 class CombinedReport(object):
@@ -338,13 +424,24 @@ class CombinedReport(object):
         "dictionary from config name (string) to Report"
     # pylint: enable=pointless-string-statement
 
-    def table(self):
+    def edge_table(self):
         """
         2D tabular output
         """
         keys = sorted(self.reports.keys())
-        return tabulate([list(k) + self.reports[k].table_row() for k in keys],
-                        headers=Report.table_header(),
+        rows = [list(k) + self.reports[k].edge_table_row() for k in keys]
+        return tabulate(rows,
+                        headers=Report.edge_table_header(),
+                        floatfmt=".3f")
+
+    def edu_table(self):
+        """
+        2D tabular output
+        """
+        keys = sorted(self.reports.keys())
+        rows = [list(k) + self.reports[k].edu_table_row() for k in keys]
+        return tabulate(rows,
+                        headers=Report.edu_table_header(),
                         floatfmt=".3f")
 
     def for_json(self):

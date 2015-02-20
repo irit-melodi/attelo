@@ -14,7 +14,7 @@ import numpy
 from sklearn.metrics import confusion_matrix
 
 from ..args import add_common_args, add_report_args
-from ..decoding import (count_correct_edges)
+from ..decoding import (count_correct_edges, count_correct_edus)
 from ..io import load_predictions, Torpor
 from ..report import (CombinedReport, Report,
                       show_confusion_matrix)
@@ -164,8 +164,9 @@ def score_predictions(dpack, predict_file):
     predictions = load_predictions(predict_file)
     # score
     evals = count_correct_edges(dpack, predictions)
+    edu_counts = count_correct_edus(dpack, predictions)
     cmatrix = build_confusion_matrix(dpack, predictions)
-    return evals, cmatrix
+    return evals, edu_counts, cmatrix
 
 
 def _prediction_file(fold, config):
@@ -194,10 +195,10 @@ def score_outputs(dpack, fold_dict, index):
         fold_num = fold['number']
         with Torpor('scoring fold {}'.format(fold_num)):
             scores = _score_fold(dpack, fold_dict, index, fold)
-            for config, (counts, cmatrix) in zip(configs, scores):
+            for config, (counts, ecounts, cmatrix) in zip(configs, scores):
                 key = _config_key(config)
                 # score
-                evals[key].append(counts)
+                evals[key].append((counts, ecounts))
                 # we store a separate confusion matrix for each config,
                 # accumulating results across the folds (this should be
                 # safe to do as the matrices have been forced to the
@@ -232,9 +233,15 @@ def main_for_harness(args, dpack, output_dir):
     reports, confusion = score_outputs(dpack, fold_dict, index)
     if not fp.exists(output_dir):
         os.makedirs(output_dir)
+    # edgewise scores
     ofilename = fp.join(output_dir, 'scores.txt')
     with open(ofilename, 'w') as ostream:
-        print(reports.table(), file=ostream)
+        print(reports.edge_table(), file=ostream)
+    # edu scores
+    ofilename = fp.join(output_dir, 'edu-scores.txt')
+    with open(ofilename, 'w') as ostream:
+        print(reports.edu_table(), file=ostream)
+    # confusion matrices
     for key, matrix in confusion.items():
         ofilename = _key_filename(output_dir, 'confusion', key)
         with open(ofilename, 'w') as ostream:

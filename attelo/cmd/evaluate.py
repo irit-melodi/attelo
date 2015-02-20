@@ -12,7 +12,7 @@ from ..args import\
      args_to_decoding_mode,
      args_to_learners,
      args_to_rng)
-from ..decoding import (decode, count_correct_edges)
+from ..decoding import (decode, count_correct_edges, count_correct_edus)
 from ..learning import (learn)
 from ..fold import make_n_fold
 from ..report import Report
@@ -63,7 +63,8 @@ def _decode_group(mode, decoder, dpack, models):
     '''
     predictions = decode(mode, decoder, dpack, models)
     best = best_prediction(dpack, predictions)
-    return count_correct_edges(dpack, best)
+    return (count_correct_edges(dpack, best),
+            count_correct_edus(dpack, best))
 
 
 def _decode_fold(mode, decoder, dpack, models):
