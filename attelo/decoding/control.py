@@ -179,8 +179,8 @@ def count_correct(dpack, predicted):
 
     :rtype: :py:class:`attelo.report.Count`
     """
-    score_attach = 0
-    score_label = 0
+    tpos_attach = 0
+    tpos_label = 0
     dict_predicted = {(arg1, arg2): rel for arg1, arg2, rel in predicted
                       if rel != UNRELATED}
     pack = dpack.attached_only()
@@ -188,11 +188,11 @@ def count_correct(dpack, predicted):
         edu1, edu2 = edu_pair
         pred_label = dict_predicted.get((edu1.id, edu2.id))
         if pred_label is not None:
-            score_attach += 1
+            tpos_attach += 1
             if dpack.label_number(pred_label) == ref_label:
-                score_label += 1
+                tpos_label += 1
 
-    return Count(correct_attach=score_attach,
-                 correct_label=score_label,
-                 total_predicted=len(dict_predicted.keys()),
-                 total_reference=len(pack.pairings))
+    return Count(tpos_attach=tpos_attach,
+                 tpos_label=tpos_label,
+                 tpos_fpos=len(dict_predicted.keys()),
+                 tpos_fneg=len(dpack.attached_only().pairings))

@@ -41,43 +41,38 @@ def _f1_score(prec, recall):
     return 2 * _sloppy_div(prec * recall, prec + recall)
 
 
-class Count(object):
+class Count(namedtuple('Count',
+                       ['tpos_attach',
+                        'tpos_label',
+                        'tpos_fpos',
+                        'tpos_fneg'])):
     """
     Things we would count during the scoring process
     """
-
-    def __init__(self,
-                 correct_attach, correct_label,
-                 total_predicted, total_reference):
-        self.correct_attach = correct_attach
-        self.correct_label = correct_label
-        self.total_predicted = total_predicted
-        self.total_reference = total_reference
-
     @classmethod
     def sum(cls, counts):
         """
         Count made of the total of all counts
         """
-        return cls(sum(x.correct_attach for x in counts),
-                   sum(x.correct_label for x in counts),
-                   sum(x.total_predicted for x in counts),
-                   sum(x.total_reference for x in counts))
+        return cls(sum(x.tpos_attach for x in counts),
+                   sum(x.tpos_label for x in counts),
+                   sum(x.tpos_fpos for x in counts),
+                   sum(x.tpos_fneg for x in counts))
 
     def score_attach(self, correction=1.0):
         """
         Compute the attachment precision, recall, etc based on this count
         """
-        return Score(_sloppy_div(self.correct_attach, self.total_predicted),
-                     _sloppy_div(self.correct_attach, self.total_reference),
+        return Score(_sloppy_div(self.tpos_attach, self.tpos_fpos),
+                     _sloppy_div(self.tpos_attach, self.tpos_fneg),
                      correction)
 
     def score_label(self, correction=1.0):
         """
         Compute the labeling precision, recall, etc based on this count
         """
-        return Score(_sloppy_div(self.correct_label, self.total_predicted),
-                     _sloppy_div(self.correct_label, self.total_reference),
+        return Score(_sloppy_div(self.tpos_label, self.tpos_fpos),
+                     _sloppy_div(self.tpos_label, self.tpos_fneg),
                      correction)
 
 

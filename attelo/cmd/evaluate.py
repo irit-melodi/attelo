@@ -35,7 +35,7 @@ def best_prediction(dpack, predictions):
         'score a single prediction'
         return score_prediction(dpack, prediction)
 
-    max_key = lambda x: score(x).correct_label
+    max_key = lambda x: score(x).tpos_label
     return max(predictions, key=max_key)
 
 
