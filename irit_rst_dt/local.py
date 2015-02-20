@@ -23,7 +23,7 @@ live with throwing away as needed"""
 SNAPSHOTS = 'SNAPSHOTS'
 """Results over time we are making a point of saving"""
 
-TRAINING_CORPORA = ['corpus/RSTtrees-WSJ-double-1.0']
+TRAINING_CORPORA = ['tiny'] #'corpus/RSTtrees-WSJ-double-1.0']
 """Corpora for use in building/training models and running our
 incremental experiments. Later on we should consider using the
 held-out test data for something, but let's make a point of
@@ -100,6 +100,10 @@ Don't forget that you can parameterise the decoders ::
 _GLOBAL_DECODER_SETTINGS =\
     [Variant(key='AD.L_joint', name=None,
              flags=[]),
+     Variant(key='AD.L_joint_intra_only', name=None,
+             flags=['HARNESS:intra:only']),
+     Variant(key='AD.L_joint_intra_heads', name=None,
+             flags=['HARNESS:intra:head']),
      Variant(key='AD.L_post', name=None,
              flags=['--post-label'])]
 """Variants on global settings that would generally apply
@@ -172,7 +176,6 @@ def expanded_learners():
                                                decoder=None),
                                 relate=default_relate)
                   for l in _BASIC_LEARNERS_NON_PROB)
-
 
     # pylint: disable=cell-var-from-loop
     fancy = [lambda d:

@@ -7,9 +7,6 @@ run an experiment
 
 from __future__ import print_function
 from os import path as fp
-from collections import namedtuple
-from enum import Enum
-import argparse
 import glob
 import json
 import os
@@ -20,53 +17,50 @@ from joblib import (Parallel, delayed)
 
 from attelo.args import args_to_decoder
 from attelo.io import (load_data_pack, Torpor)
-from attelo.harness.config import CliArgs
+from attelo.decoding.intra import (IntraInterPair,
+                                   IntraInterDecoder,
+                                   IntraStrategy)
 from attelo.harness.report import (mk_index)
 from attelo.harness.util import\
     timestamp, call, force_symlink
 import attelo.cmd as att
-from attelo.util import (Team)
+
+from ..attelo_cfg import (attelo_doc_model_paths,
+                          attelo_sent_model_paths,
+                          is_intra,
+                          EnfoldArgs,
+                          LearnArgs,
+                          DecodeArgs,
+                          ReportArgs,
+                          InspectArgs,
+                          GoldGraphArgs,
+                          GraphArgs)
+
 
 from ..local import (LEARNERS,
                      EVALUATIONS,
-                     TRAINING_CORPORA,
-                     ATTELO_CONFIG_FILE)
+                     TRAINING_CORPORA)
+from ..path import (combined_dir_path,
+                    decode_output_basename,
+                    decode_output_path,
+                    edu_input_path,
+                    eval_model_path,
+                    features_path,
+                    fold_dir_basename,
+                    fold_dir_path,
+                    pairings_path,
+                    report_dir_basename)
 from ..util import (concat_i,
                     latest_tmp,
                     md5sum_file)
+from ..loop import (LoopConfig,
+                    DataConfig,
+                    ClusterStage)
 
 # pylint: disable=too-few-public-methods
 
 NAME = 'evaluate'
 _DEBUG = 0
-
-
-# pylint: disable=pointless-string-statement
-LoopConfig = namedtuple("LoopConfig",
-                        ["eval_dir",
-                         "scratch_dir",
-                         "stage",
-                         "folds",
-                         "fold_file",
-                         "n_jobs",
-                         "dataset"])
-"that which is common to outerish loops"
-
-
-DataConfig = namedtuple("DataConfig",
-                        "pack folds")
-"data tables we have read"
-# pylint: enable=pointless-string-statement
-
-
-class ClusterStage(Enum):
-    '''
-    What stage of cluster usage we are at
-    '''
-    start = 1
-    main = 2
-    combined_models = 3
-    end = 4
 
 
 # ---------------------------------------------------------------------
@@ -81,7 +75,6 @@ class ClusterStage(Enum):
 # ---------------------------------------------------------------------
 # user feedback
 # ---------------------------------------------------------------------
-
 
 def _exit_ungathered():
     """
@@ -116,428 +109,19 @@ def _fold_banner(lconf, fold):
                       "==========" * 6])
 
 # ---------------------------------------------------------------------
-# attelo config
-# ---------------------------------------------------------------------
-
-
-def _attelo_model_args(lconf, rconf, fold):
-    """
-    Return command line args for attelo model flags
-    """
-    return ["--attachment-model",
-            _eval_model_path(lconf, rconf, fold, "attach"),
-            "--relation-model",
-            _eval_model_path(lconf, rconf, fold, "relate")]
-
-
-_ATTELO_CONFIG_ARGS = ['--config', ATTELO_CONFIG_FILE]
-
-
-# pylint: disable=too-many-instance-attributes
-class FakeEvalArgs(CliArgs):
-    """
-    Fake argparse object (to be subclassed)
-    Things in common between attelo learn/decode
-
-    Note: must be used as a context manager
-    """
-    def __init__(self, lconf, rconf, fold):
-        self.lconf = lconf
-        self.rconf = rconf
-        self.fold = fold
-        super(FakeEvalArgs, self).__init__()
-
-    def parser(self):
-        """
-        The argparser that would be called on context manager
-        entry
-        """
-        psr = argparse.ArgumentParser()
-        att.enfold.config_argparser(psr)
-
-    def argv(self):
-        """
-        Command line arguments that would correspond to this
-        configuration
-
-        :rtype: `[String]`
-        """
-        rconf = self.rconf
-        lconf = self.lconf
-        fold = self.fold
-
-        argv = [_edu_input_path(lconf),
-                _pairings_path(lconf),
-                _features_path(lconf)]
-
-        argv.extend(_ATTELO_CONFIG_ARGS)
-        argv.extend(_attelo_model_args(lconf, rconf, fold))
-
-        if fold is not None:
-            argv.extend(["--fold", str(fold),
-                         "--fold-file", lconf.fold_file])
-
-        return argv
-
-    # pylint: disable=no-member
-    def __exit__(self, ctype, value, traceback):
-        "Tidy up any open file handles, etc"
-        if self.fold_file is not None:
-            self.fold_file.close()
-        super(FakeEvalArgs, self).__exit__(ctype, value, traceback)
-    # pylint: enable=no-member
-
-
-class FakeEnfoldArgs(CliArgs):
-    """
-    Fake argparse object that would be generated by attelo enfold
-    """
-    def __init__(self, lconf):
-        self.lconf = lconf
-        super(FakeEnfoldArgs, self).__init__()
-
-    def parser(self):
-        psr = argparse.ArgumentParser()
-        att.enfold.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        """
-        Command line arguments that would correspond to this
-        configuration
-
-        :rtype: `[String]`
-        """
-        lconf = self.lconf
-        args = [_edu_input_path(lconf),
-                _pairings_path(lconf),
-                _features_path(lconf),
-                "--config", ATTELO_CONFIG_FILE,
-                "--output", lconf.fold_file]
-        return args
-
-    # pylint: disable=no-member
-    def __exit__(self, ctype, value, traceback):
-        "Tidy up any open file handles, etc"
-        self.output.close()
-        super(FakeEnfoldArgs, self).__exit__(ctype, value, traceback)
-    # pylint: enable=no-member
-
-
-class FakeLearnArgs(FakeEvalArgs):
-    """
-    Fake argparse object that would be generated by attelo learn.
-    """
-    def __init__(self, lconf, rconf, fold):
-        super(FakeLearnArgs, self).__init__(lconf, rconf, fold)
-
-    def parser(self):
-        psr = argparse.ArgumentParser()
-        att.learn.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        rconf = self.rconf
-        args = super(FakeLearnArgs, self).argv()
-        args.extend(["--learner", rconf.attach.name])
-        args.extend(rconf.attach.flags)
-        if rconf.relate is not None:
-            args.extend(["--relation-learner", rconf.relate.name])
-            # yuck: we assume that learner and relation learner flags
-            # are compatible
-            args.extend(rconf.relate.flags)
-        decoder = rconf.attach.decoder
-        if decoder is None and rconf.relate is not None:
-            decoder = rconf.relate.decoder
-        if decoder is not None:
-            args.extend(["--decoder", decoder.name])
-            args.extend(decoder.flags)
-        return args
-
-
-class FakeDecodeArgs(FakeEvalArgs):
-    """
-    Fake argparse object that would be generated by attelo decode
-    """
-    def __init__(self, lconf, econf, fold):
-        super(FakeDecodeArgs, self).__init__(lconf, econf.learner, fold)
-        self.econf = econf
-
-    def parser(self):
-        psr = argparse.ArgumentParser()
-        att.decode.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        lconf = self.lconf
-        econf = self.econf
-        fold = self.fold
-        args = super(FakeDecodeArgs, self).argv()
-        args.extend(["--decoder", econf.decoder.name,
-                     "--output", _decode_output_path(lconf, econf, fold)])
-        args.extend(econf.decoder.flags)
-        return args
-
-
-class FakeReportArgs(CliArgs):
-    "args for attelo report"
-    def __init__(self, lconf, fold):
-        self.lconf = lconf
-        self.fold = fold
-        super(FakeReportArgs, self).__init__()
-
-    def parser(self):
-        """
-        The argparser that would be called on context manager
-        entry
-        """
-        psr = argparse.ArgumentParser()
-        att.report.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        """
-        Command line arguments that would correspond to this
-        configuration
-
-        :rtype: `[String]`
-        """
-        lconf = self.lconf
-        index_path = fp.join(_report_parent_dir(lconf, self.fold),
-                             'index.json')
-        argv = [_edu_input_path(lconf),
-                _pairings_path(lconf),
-                _features_path(lconf),
-                "--index", index_path,
-                "--config", ATTELO_CONFIG_FILE,
-                "--fold-file", lconf.fold_file,
-                "--output", _report_dir(lconf, self.fold)]
-        return argv
-
-    # pylint: disable=no-member
-    def __exit__(self, ctype, value, traceback):
-        "Tidy up any open file handles, etc"
-        self.fold_file.close()
-        super(FakeReportArgs, self).__exit__(ctype, value, traceback)
-    # pylint: enable=no-member
-# pylint: enable=too-many-instance-attributes
-
-
-class FakeInspectArgs(CliArgs):
-    "args for attelo inspect"
-    def __init__(self, lconf, rconf, fold=None):
-        self.lconf = lconf
-        self.rconf = rconf
-        self.fold = fold
-        super(FakeInspectArgs, self).__init__()
-
-    def parser(self):
-        """
-        The argparser that would be called on context manager
-        entry
-        """
-        psr = argparse.ArgumentParser()
-        att.inspect.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        """
-        Command line arguments that would correspond to this
-        configuration
-
-        :rtype: `[String]`
-        """
-        lconf = self.lconf
-        rconf = self.rconf
-        argv = [_features_path(lconf),
-                _vocab_path(lconf),
-                '--output', _model_info_path(lconf, rconf, self.fold)]
-        argv.extend(_attelo_model_args(lconf, rconf, self.fold))
-        return argv
-
-    # pylint: disable=no-member
-    def __exit__(self, ctype, value, traceback):
-        "Tidy up any open file handles, etc"
-        super(FakeInspectArgs, self).__exit__(ctype, value, traceback)
-    # pylint: enable=no-member
-# pylint: enable=too-many-instance-attributes
-
-
-class FakeGoldGraphArgs(CliArgs):
-    'cmd line args to generate graphs (gold set)'
-    def __init__(self, lconf):
-        self.lconf = lconf
-        super(FakeGoldGraphArgs, self).__init__()
-
-    def parser(self):
-        psr = argparse.ArgumentParser()
-        att.graph.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        lconf = self.lconf
-        has_stripped = fp.exists(_features_path(lconf, stripped=True))
-        argv = [_edu_input_path(lconf),
-                '--quiet',
-                '--gold',
-                _pairings_path(lconf),
-                _features_path(lconf, stripped=has_stripped),
-                '--output',
-                fp.join(_report_dir(lconf, None),
-                        'graphs-gold')]
-        return argv
-
-
-class FakeGraphArgs(CliArgs):
-    'cmd line args to generate graphs (for a fold)'
-    def __init__(self, lconf, econf, fold):
-        self.lconf = lconf
-        self.econf = econf
-        self.fold = fold
-        super(FakeGraphArgs, self).__init__()
-
-    def parser(self):
-        psr = argparse.ArgumentParser()
-        att.graph.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        lconf = self.lconf
-        econf = self.econf
-        fold = self.fold
-        output_path = fp.join(_report_dir(lconf, None),
-                              'graphs-' + _fold_dir_basename(fold),
-                              econf.key)
-        argv = [_edu_input_path(lconf),
-                '--predictions',
-                _decode_output_path(lconf, econf, fold),
-                '--graphviz-timeout', str(15),
-                '--quiet',
-                '--output', output_path]
-        return argv
-
-# ---------------------------------------------------------------------
-# paths
-# ---------------------------------------------------------------------
-
-
-def _eval_data_path(lconf, ext):
-    """
-    Path to data file in the evaluation dir
-    """
-    return os.path.join(lconf.eval_dir,
-                        "%s.%s" % (lconf.dataset, ext))
-
-
-def _features_path(lconf, stripped=False):
-    """
-    Path to the feature file in the evaluation dir
-    """
-    ext = 'relations.sparse'
-    if stripped:
-        ext += '.stripped'
-    return _eval_data_path(lconf, ext)
-
-
-def _vocab_path(lconf):
-    """
-    Path to the vocab file in the evaluation dir
-    """
-    return _features_path(lconf) + '.vocab'
-
-
-def _edu_input_path(lconf):
-    """
-    Path to the feature file in the evaluation dir
-    """
-    return _features_path(lconf) + '.edu_input'
-
-
-def _pairings_path(lconf):
-    """
-    Path to the pairings file in the evaluation dir
-    """
-    return _features_path(lconf) + '.pairings'
-
-
-def _fold_dir_basename(fold):
-    "Relative directory for working within a given fold"
-    return "fold-%d" % fold
-
-
-def _fold_dir_path(lconf, fold):
-    "Scratch directory for working within a given fold"
-    return os.path.join(lconf.scratch_dir,
-                        _fold_dir_basename(fold))
-
-
-def _combined_dir_path(lconf):
-    "Scratch directory for working within the global config"
-    return fp.join(lconf.scratch_dir, 'combined')
-
-
-def _model_basename(lconf, rconf, mtype, ext):
-    "Basic filename for a model"
-    template = '{dataset}.{learner}.{task}.{ext}'
-    return template.format(dataset=lconf.dataset,
-                           learner=rconf.key,
-                           task=mtype,
-                           ext=ext)
-
-
-def _eval_model_path(lconf, rconf, fold, mtype):
-    "Model for a given loop/eval config and fold"
-    parent_dir = _combined_dir_path(lconf) if fold is None\
-        else _fold_dir_path(lconf, fold)
-    return fp.join(parent_dir,
-                   _model_basename(lconf, rconf, mtype, 'model'))
-
-
-def _decode_output_basename(econf):
-    "Model for a given loop/eval config and fold"
-    return ".".join(["output", econf.key])
-
-
-def _decode_output_path(lconf, econf, fold):
-    "Model for a given loop/eval config and fold"
-    fold_dir = _fold_dir_path(lconf, fold)
-    return os.path.join(fold_dir, _decode_output_basename(econf))
-
-
-def _report_dir_basename(lconf):
-    "Relative directory for a report directory"
-    return "reports-%s" % lconf.dataset
-
-
-def _report_parent_dir(lconf, fold=None):
-    "Directory that a report dir would be placed in"
-    if fold is None:
-        return lconf.scratch_dir
-    else:
-        return _fold_dir_path(lconf, fold)
-
-
-def _report_dir(lconf, fold=None):
-    """
-    Path to a score file given a parent dir.
-    You'll need to tack an extension onto this
-    """
-    return fp.join(_report_parent_dir(lconf, fold),
-                   _report_dir_basename(lconf))
-
-
-def _model_info_path(lconf, rconf, fold=None):
-    """
-    Path to the model output file
-    """
-    template = "discr-features.{learner}.txt"
-    return fp.join(_report_dir(lconf, fold),
-                   template.format(learner=rconf.key))
-
-
-# ---------------------------------------------------------------------
 # preparation
 # ---------------------------------------------------------------------
+
+
+def _intra_strategy(flag):
+    """
+    Return an attelo intrasentential decoding strategy name
+    if it's mentioned in our flags, else None
+    """
+    len_prefix = len('HARNESS:intra:') + 1
+    flags = [f[len_prefix:] for f in flag if is_intra(f)]
+    return IntraStrategy.from_string(flags[0]) if flags else None
+
 
 def _link_data_files(data_dir, eval_dir):
     """
@@ -622,34 +206,31 @@ def _delayed_learn(lconf, dconf, rconf, fold):
     Return possible futures for learning models for this
     fold
     """
-    fold_dir = _fold_dir_path(lconf, fold)
-    if not os.path.exists(fold_dir):
-        os.makedirs(fold_dir)
-
-    with FakeLearnArgs(lconf, rconf, fold) as args:
-        if fp.exists(args.attachment_model) and fp.exists(args.relation_model):
-            print("reusing %s model (already built)" % rconf.key,
-                  file=sys.stderr)
-            return []
+    if fold is None:
+        parent_dir = combined_dir_path(lconf)
+        subpack = dconf.pack
+    else:
+        parent_dir = fold_dir_path(lconf, fold)
         subpack = dconf.pack.training(dconf.folds, fold)
-        return att.learn.delayed_main_for_harness(args, subpack)
 
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir)
 
-def _delayed_learn_combined(lconf, dconf, rconf):
-    """
-    Return possible futures for learning models with the
-    given learner configuration
-    """
-    combined_dir = _combined_dir_path(lconf)
-    if not os.path.exists(combined_dir):
-        os.makedirs(combined_dir)
-
-    with FakeLearnArgs(lconf, rconf, None) as args:
+    def _get_jobs(args):
+        "return model learning jobs unless the models already exist"
         if fp.exists(args.attachment_model) and fp.exists(args.relation_model):
             print("reusing %s model (already built)" % rconf.key,
                   file=sys.stderr)
             return []
-        return att.learn.delayed_main_for_harness(args, dconf.pack)
+        else:
+            return att.learn.delayed_main_for_harness(args, subpack)
+
+    jobs = []
+    with LearnArgs(lconf, rconf, fold) as args:
+        jobs.extend(_get_jobs(args))
+    with LearnArgs(lconf, rconf, fold, intra=True) as args:
+        jobs.extend(_get_jobs(args))
+    return jobs
 
 
 def _say_if_decoded(lconf, econf, fold):
@@ -657,7 +238,7 @@ def _say_if_decoded(lconf, econf, fold):
     If we have already done the decoding for a given config
     and fold, say so and return True
     """
-    if fp.exists(_decode_output_path(lconf, econf, fold)):
+    if fp.exists(decode_output_path(lconf, econf, fold)):
         print("skipping %s/%s (already done)" % (econf.learner.key,
                                                  econf.decoder.key),
               file=sys.stderr)
@@ -674,14 +255,25 @@ def _delayed_decode(lconf, dconf, econf, fold):
     if _say_if_decoded(lconf, econf, fold):
         return []
 
-    fold_dir = _fold_dir_path(lconf, fold)
+    fold_dir = fold_dir_path(lconf, fold)
     if not os.path.exists(fold_dir):
         os.makedirs(fold_dir)
-    with FakeDecodeArgs(lconf, econf, fold) as args:
+    with DecodeArgs(lconf, econf, fold) as args:
         decoder = args_to_decoder(args)
         subpack = dconf.pack.testing(dconf.folds, fold)
-        models = att.decode.load_models(Team(attach=args.attachment_model,
-                                             relate=args.relation_model))
+        doc_model_paths = attelo_doc_model_paths(lconf, econf.learner, fold)
+
+        if any(is_intra(f) for f in econf.decoder.flags):
+            strategy = _intra_strategy(econf.decoder.flags)
+            sent_model_paths =\
+                attelo_sent_model_paths(lconf, econf.learner, fold)
+            models =\
+                IntraInterPair(intra=att.decode.load_models(sent_model_paths),
+                               inter=att.decode.load_models(doc_model_paths))
+            decoder = IntraInterDecoder(decoder, strategy)
+        else:
+            models = att.decode.load_models(doc_model_paths)
+
         return att.decode.delayed_main_for_harness(args, decoder,
                                                    subpack, models)
 
@@ -694,7 +286,7 @@ def _post_decode(lconf, dconf, econf, fold):
         return
 
     print(_eval_banner(econf, lconf, fold), file=sys.stderr)
-    with FakeDecodeArgs(lconf, econf, fold) as args:
+    with DecodeArgs(lconf, econf, fold) as args:
         subpack = dconf.pack.testing(dconf.folds, fold)
         att.decode.concatenate_outputs(args, subpack)
 
@@ -703,7 +295,7 @@ def _generate_fold_file(lconf, dpack):
     """
     Generate the folds file
     """
-    with FakeEnfoldArgs(lconf) as args:
+    with EnfoldArgs(lconf) as args:
         att.enfold.main_for_harness(args, dpack)
 
 
@@ -713,7 +305,7 @@ def _mk_report(args, index, dconf):
         json.dump(index, ostream)
     att.report.main_for_harness(args, dconf.pack, args.output)
     for rconf in LEARNERS:
-        with FakeInspectArgs(args.lconf, rconf, args.fold) as inspect_args:
+        with InspectArgs(args.lconf, rconf, args.fold) as inspect_args:
             _mk_model_summary(inspect_args)
 
 
@@ -724,22 +316,22 @@ def _mk_model_summary(args):
 
 def _mk_fold_report(lconf, dconf, fold):
     "Generate reports for scores"
-    configurations = [(econf, _decode_output_basename(econf))
+    configurations = [(econf, decode_output_basename(econf))
                       for econf in EVALUATIONS]
     index = mk_index([(fold, '.')], configurations)
-    with FakeReportArgs(lconf, fold) as args:
+    with ReportArgs(lconf, fold) as args:
         _mk_report(args, index, dconf)
 
 
 def _mk_econf_graphs(lconf, econf, fold):
     "Generate graphs for a single configuration"
-    with FakeGraphArgs(lconf, econf, fold) as args:
+    with GraphArgs(lconf, econf, fold) as args:
         att.graph.main_for_harness(args)
 
 
 def _mk_graphs(lconf, dconf):
     "Generate graphs for the gold data and for one of the folds"
-    with FakeGoldGraphArgs(lconf) as args:
+    with GoldGraphArgs(lconf) as args:
         if fp.exists(args.output):
             print("skipping gold graphs (already done)",
                   file=sys.stderr)
@@ -758,10 +350,10 @@ def _mk_graphs(lconf, dconf):
 def _mk_hashfile(parent_dir, lconf, dconf):
     "Hash the features and models files for long term archiving"
 
-    hash_me = [_features_path(lconf)]
+    hash_me = [features_path(lconf)]
     for fold in sorted(frozenset(dconf.folds.values())):
         for rconf in LEARNERS:
-            models_path = _eval_model_path(lconf, rconf, fold, '*')
+            models_path = eval_model_path(lconf, rconf, fold, '*')
             hash_me.extend(sorted(glob.glob(models_path + '*')))
     with open(fp.join(parent_dir, 'hashes.txt'), 'w') as stream:
         for path in hash_me:
@@ -776,14 +368,14 @@ def _mk_hashfile(parent_dir, lconf, dconf):
 
 def _mk_global_report(lconf, dconf):
     "Generate reports for all folds"
-    folds = [(f, _fold_dir_basename(f))
+    folds = [(f, fold_dir_basename(f))
              for f in frozenset(dconf.folds.values())]
-    configurations = [(econf, _decode_output_basename(econf))
+    configurations = [(econf, decode_output_basename(econf))
                       for econf in EVALUATIONS]
     index = mk_index(folds, configurations)
     final_report_dir = fp.join(lconf.eval_dir,
-                               _report_dir_basename(lconf))
-    with FakeReportArgs(lconf, None) as args:
+                               report_dir_basename(lconf))
+    with ReportArgs(lconf, None) as args:
         _mk_report(args, index, dconf)
         # _mk_graphs(lconf, dconf)
         _mk_hashfile(args.output, args.lconf, dconf)
@@ -800,7 +392,7 @@ def _do_fold(lconf, dconf, fold):
     """
     Run all learner/decoder combos within this fold
     """
-    fold_dir = _fold_dir_path(lconf, fold)
+    fold_dir = fold_dir_path(lconf, fold)
     print(_fold_banner(lconf, fold), file=sys.stderr)
     if not os.path.exists(fold_dir):
         os.makedirs(fold_dir)
@@ -815,7 +407,7 @@ def _do_fold(lconf, dconf, fold):
     _parallel(lconf)(decoder_jobs)
     for econf in EVALUATIONS:
         _post_decode(lconf, dconf, econf, fold)
-    fold_dir = _fold_dir_path(lconf, fold)
+    fold_dir = fold_dir_path(lconf, fold)
     _mk_fold_report(lconf, dconf, fold)
 
 
@@ -823,7 +415,7 @@ def _mk_combined_models(lconf, dconf):
     """
     Create global for all learners
     """
-    jobs = concat_i(_delayed_learn_combined(lconf, dconf, learner)
+    jobs = concat_i(_delayed_learn(lconf, dconf, learner, None)
                     for learner in LEARNERS)
     _parallel(lconf)(jobs)
 
@@ -840,15 +432,15 @@ def _do_corpus(lconf):
     "Run evaluation on a corpus"
     print(_corpus_banner(lconf), file=sys.stderr)
 
-    edus_file = _edu_input_path(lconf)
+    edus_file = edu_input_path(lconf)
     if not os.path.exists(edus_file):
         _exit_ungathered()
 
     has_stripped = (lconf.stage in [ClusterStage.end, ClusterStage.start]
-                    and fp.exists(_features_path(lconf, stripped=True)))
+                    and fp.exists(features_path(lconf, stripped=True)))
     dpack = load_data_pack(edus_file,
-                           _pairings_path(lconf),
-                           _features_path(lconf, stripped=has_stripped),
+                           pairings_path(lconf),
+                           features_path(lconf, stripped=has_stripped),
                            verbose=True)
 
     if _is_standalone_or(lconf, ClusterStage.start):
