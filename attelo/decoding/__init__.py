@@ -32,7 +32,6 @@ from .greedy import LocallyGreedy
 class DecoderArgs(namedtuple("DecoderAgs",
                              ["threshold",
                               "mst_root_strategy",
-                              "intra_strategy",
                               "astar",
                               "use_prob"])):
     """
@@ -51,11 +50,6 @@ class DecoderArgs(namedtuple("DecoderAgs",
     :param mst_root_strategy: How the MST/MSDAG decoders should select
                               their root node
     :type mst_root_strategy: :py:class:MstRootStrategy:
-
-    :param intra_strategy: What sort of intra/inter-sentential strategy
-                           the decoder should use (currently only
-                           available for MST)
-    :type intra_strategy: :py:class:IntraStrategy: or None
 
     :param threshold: For some decoders, a probability floor that helps
                       the decoder decide whether or not to attach something

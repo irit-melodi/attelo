@@ -11,7 +11,7 @@ from attelo.report import Count
 from attelo.table import (for_attachment, for_labelling,
                           UNRELATED, UNLABELLED)
 from attelo.util import truncate
-from .subgrouping import (IntraInterPair, select_subgrouping)
+from .intra import (IntraInterPair, select_subgrouping)
 from .util import (DecoderException,
                    get_sorted_edus,
                    subgroupings)
