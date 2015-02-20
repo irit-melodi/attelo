@@ -4,7 +4,6 @@ Experiment results
 
 from __future__ import print_function
 from collections import namedtuple
-import csv
 import itertools
 import sys
 
@@ -47,12 +46,6 @@ class Count(object):
     Things we would count during the scoring process
     """
 
-    _FIELDNAMES = ["doc",
-                   "num_correctly_attached",
-                   "num_correctly_labeled",
-                   "num_attached_predicted",
-                   "num_attached_reference"]
-
     def __init__(self,
                  correct_attach, correct_label,
                  total_predicted, total_reference):
@@ -87,43 +80,6 @@ class Count(object):
                      _sloppy_div(self.correct_label, self.total_reference),
                      correction)
 
-    @classmethod
-    def write_csv(cls, scores, counts_file):
-        """
-        Write counts out for any predictions that we made
-        (counts_file is any python file object, eg. sys.stdout)
-
-        :param scores: mapping from document to count
-        :type scores: dict(string, Count)
-        """
-        writer = csv.writer(counts_file)
-        writer.writerow(cls._FIELDNAMES)
-        for doc, count in scores.items():
-            writer.writerow([doc,
-                             count.correct_attach,
-                             count.correct_label,
-                             count.total_predicted,
-                             count.total_reference])
-
-    @classmethod
-    def read_csv(cls, counts_file):
-        """
-        Read a counts file into a dictionary mapping
-        documents to Count objects
-        """
-        reader = csv.DictReader(counts_file, fieldnames=cls._FIELDNAMES)
-        header_row = reader.next()
-        header = [header_row[k] for k in cls._FIELDNAMES]
-        if header != cls._FIELDNAMES:
-            oops = "Malformed counts file (expected keys: %s, got: %s)"\
-                % (cls._FIELDNAMES, header)
-            raise AtteloReportException(oops)
-
-        def mk_count(row):
-            "row to Count object"
-            return cls(*[int(row[a]) for a in cls._FIELDNAMES[1:]])
-
-        return {r["doc"]: mk_count(r) for r in reader}
 
 ScoreConfig = namedtuple("ScoreConfig", "correction prefix")
 
