@@ -23,7 +23,7 @@ live with throwing away as needed"""
 SNAPSHOTS = 'SNAPSHOTS'
 """Results over time we are making a point of saving"""
 
-TRAINING_CORPORA = ['tiny'] #'corpus/RSTtrees-WSJ-double-1.0']
+TRAINING_CORPORA = ['corpus/RSTtrees-WSJ-double-1.0']
 """Corpora for use in building/training models and running our
 incremental experiments. Later on we should consider using the
 held-out test data for something, but let's make a point of
