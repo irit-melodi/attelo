@@ -281,7 +281,7 @@ their decoder, and cannot be shared
 """
 
 
-GRAPH_DOCS = ['wsj_1322.out']
+GRAPH_DOCS = ['wsj_1184.out']
 """Just the documents that you want to graph.
 Set to None to graph everything
 """
