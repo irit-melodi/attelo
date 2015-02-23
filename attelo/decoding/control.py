@@ -6,6 +6,8 @@ from __future__ import print_function
 from enum import Enum
 import sys
 
+import numpy as np
+
 from attelo.learning import (can_predict_proba)
 from attelo.report import Count
 from attelo.table import (for_attachment, for_labelling,
@@ -34,22 +36,45 @@ class DecodingMode(Enum):
 # ---------------------------------------------------------------------
 
 
-def _pick_attached_prob(model):
-    '''
-    Given a model, return a function that picks out the probability
-    of attachment out of a distribution. In the usual case, the
-    distribution consists of probabilities for unattached, and
-    attached respectively; but we want account for the corner cases
-    where either everything or nothing is attached.
+def _predict_attach(dpack, models):
+    """
+    Return an array either of probabilities (or in the case of
+    non-probability-capable models), confidence scores
+    """
+    if models.attach == 'oracle':
+        return dpack.target
+    elif can_predict_proba(models.attach):
+        attach_idx = list(models.attach.classes_).index(1)
+        probs = models.attach.predict_proba(dpack.data)
+        res = probs[:, attach_idx]
+        return res
+    else:
+        return models.attach.decision_function(dpack.data)
 
-    :rtype [float] -> float
-    '''
-    try:
-        idx = list(model.classes_).index(1)
-        return lambda dist: dist[idx]
-    except ValueError:
-        # never atached...
-        return lambda _: 0.
+
+def _predict_relate(dpack, models):
+    """
+    Return an array of probabilities (that of the best label),
+    and an list of labels
+    """
+    if models.relate == 'oracle':
+        idxes = dpack.target
+        # pylint: disable=no-member
+        probs = np.ones(idxes.shape)
+        # pylint: enable=no-member
+    elif not can_predict_proba(models.relate):
+        raise DecoderException('Tried to use a non-prob decoder for relations')
+    else:
+        all_probs = models.relate.predict_proba(dpack.data)
+        # get the probability associated with the best label
+        # pylint: disable=no-member
+        probs = np.amax(all_probs, axis=1)
+        # pylint: enable=no-member
+        idxes = models.relate.predict(dpack.data)
+    # pylint: disable=no-member
+    get_label = np.vectorize(dpack.get_label)
+    # pylint: enable=no-member
+    return probs, get_label(idxes)
 
 
 def _combine_probs(dpack, models, debug=False):
@@ -57,30 +82,24 @@ def _combine_probs(dpack, models, debug=False):
     on that pair, given the probability of an attachment
 
     """
-    pick_attach = _pick_attached_prob(models.attach)
-    pick_relate = max
-
-    def link(pair, a_probs, r_probs, label):
+    def link(pair, a_prob, r_prob, label):
         'return a combined-probability link'
         edu1, edu2 = pair
         # TODO: log would be better, no?
-        prob = pick_attach(a_probs) * pick_relate(r_probs)
+        prob = a_prob * r_prob
         if debug:
             print('DECODE', edu1.id, edu2.id, file=sys.stderr)
             print(' edu1: ', truncate(edu1.text, 50), file=sys.stderr)
             print(' edu2: ', truncate(edu2.text, 50), file=sys.stderr)
-            print(' attach: ', a_probs, pick_attach(a_probs), file=sys.stderr)
-            print(' relate: ', r_probs, pick_relate(r_probs), file=sys.stderr)
+            print(' attach: ', a_prob, file=sys.stderr)
+            print(' relate: ', r_prob, file=sys.stderr)
             print(' combined: ', prob, file=sys.stderr)
         return (edu1, edu2, prob, label)
 
     attach_pack = for_attachment(dpack)
     relate_pack = for_labelling(dpack)
-
-    attach_probs = models.attach.predict_proba(attach_pack.data)
-    relate_probs = models.relate.predict_proba(relate_pack.data)
-    relate_idxes = models.relate.predict(relate_pack.data)
-    relate_labels = [relate_pack.get_label(i) for i in relate_idxes]
+    attach_probs = _predict_attach(attach_pack, models)
+    relate_probs, relate_labels = _predict_relate(relate_pack, models)
 
     # pylint: disable=star-args
     return [link(*x) for x in
@@ -102,8 +121,7 @@ def _add_labels(dpack, models, predictions, clobber=True):
     """
 
     relate_pack = for_labelling(dpack)
-    relate_idxes = models.relate.predict(relate_pack.data)
-    relate_labels = [relate_pack.get_label(i) for i in relate_idxes]
+    _, relate_labels = _predict_relate(relate_pack, models)
     label_dict = {(edu1.id, edu2.id): label
                   for (edu1, edu2), label in
                   zip(dpack.pairings, relate_labels)}
@@ -127,27 +145,6 @@ def _add_labels(dpack, models, predictions, clobber=True):
 # ---------------------------------------------------------------------
 
 
-def _get_attach_only_prob(dpack, models):
-    """
-    Attachment probabilities (only) for each EDU pair in the data
-    """
-    pack = for_attachment(dpack)
-    if can_predict_proba(models.attach):
-        confidence = models.attach.predict_proba(dpack.data)
-        pick_attach = _pick_attached_prob(models.attach)
-    else:
-        confidence = models.attach.decision_function(dpack.data)
-        pick_attach = lambda x: x
-
-    def link(pair, dist):
-        ':rtype: proposed link (see attelo.decoding.interface)'
-        id1, id2 = pair
-        conf = pick_attach(dist)
-        return (id1, id2, conf, UNLABELLED)
-
-    return [link(x, y) for x, y in zip(pack.pairings, confidence)]
-
-
 def build_prob_distrib(mode, dpack, models):
     """
     Extract a decoder probability distribution from the models
@@ -167,7 +164,13 @@ def build_prob_distrib(mode, dpack, models):
 
         return _combine_probs(dpack, models)
     else:
-        return _get_attach_only_prob(dpack, models)
+        attach_pack = for_attachment(dpack)
+        pairings = attach_pack.pairings
+        # FIXME: this is a bug in how we're calling perceptrons
+        # should be just pack
+        confidence = _predict_attach(attach_pack, models)
+        return [(id1, id2, conf, UNLABELLED) for
+                (id1, id2), conf in zip(pairings, confidence)]
 
 
 def _maybe_post_label(mode, dpack, models, predictions,

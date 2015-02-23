@@ -38,7 +38,8 @@ class LearnerArgs(namedtuple("LearnerArgs",
 
 
 _LEARNERS =\
-    {"bayes": lambda _: MultinomialNB(),
+    {"oracle": lambda _: 'oracle',
+     "bayes": lambda _: MultinomialNB(),
      "maxent": lambda _: LogisticRegression(),
      "svm": lambda _: SVC(),
      "majority": lambda _: DummyClassifier(strategy="most_frequent")}
