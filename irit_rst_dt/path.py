@@ -64,11 +64,17 @@ def combined_dir_path(lconf):
 
 def model_basename(lconf, rconf, mtype, ext):
     "Basic filename for a model"
-    template = '{dataset}.{learner}.{task}.{ext}'
-    return template.format(dataset=lconf.dataset,
-                           learner=rconf.key,
-                           task=mtype,
-                           ext=ext)
+    rrelate = rconf.relate or rconf.attach
+    if 'attach' in mtype and rconf.attach.key == 'oracle':
+        return '__oracle__'
+    elif 'relate' in mtype and rrelate.key == 'oracle':
+        return '__oracle__'
+    else:
+        template = '{dataset}.{learner}.{task}.{ext}'
+        return template.format(dataset=lconf.dataset,
+                               learner=rconf.key,
+                               task=mtype,
+                               ext=ext)
 
 
 def eval_model_path(lconf, rconf, fold, mtype):
@@ -77,8 +83,12 @@ def eval_model_path(lconf, rconf, fold, mtype):
         parent_dir = combined_dir_path(lconf)
     else:
         parent_dir = fold_dir_path(lconf, fold)
-    return fp.join(parent_dir,
-                   model_basename(lconf, rconf, mtype, 'model'))
+
+    bname = model_basename(lconf, rconf, mtype, 'model')
+    if bname == '__oracle__':
+        return bname
+    else:
+        return fp.join(parent_dir, bname)
 
 
 def decode_output_basename(econf):

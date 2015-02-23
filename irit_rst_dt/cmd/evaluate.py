@@ -16,7 +16,7 @@ import sys
 from joblib import (Parallel, delayed)
 from sklearn.datasets import load_svmlight_file
 
-from attelo.args import args_to_decoder
+from attelo.args import (args_to_decoder, args_to_learners)
 from attelo.io import (load_data_pack, Torpor)
 from attelo.decoding.intra import (IntraInterPair,
                                    IntraInterDecoder,
@@ -218,6 +218,34 @@ def _parallel(lconf, n_jobs=None, verbose=None):
         return Parallel(n_jobs=n_jobs, verbose=verbose)
 
 
+def _get_learner_jobs(args, subpacks):
+    "return model learning jobs unless the models already exist"
+    subpack = subpacks.intra if args.intra else subpacks.inter
+    decoder = args_to_decoder(args)
+    learners = args_to_learners(decoder, args)
+    jobs = []
+    rconf = args.rconf
+    if rconf.attach.name == 'oracle':
+        pass
+    elif fp.exists(args.attachment_model):
+        print("reusing %s attach model (already built)" % rconf.attach.key,
+              file=sys.stderr)
+    else:
+        learn_fn = att.learn.learn_and_save_attach
+        jobs.append(delayed(learn_fn)(args, learners, subpack))
+
+    rrelate = rconf.relate or rconf.attach
+    if rrelate.name == 'oracle':
+        pass
+    elif rconf.relate is not None and fp.exists(args.relation_model):
+        print("reusing %s relate model (already built)" % rrelate.key,
+              file=sys.stderr)
+    else:
+        learn_fn = att.learn.learn_and_save_relate
+        jobs.append(delayed(learn_fn)(args, learners, subpack))
+    return jobs
+
+
 def _delayed_learn(lconf, dconf, rconf, fold):
     """
     Return possible futures for learning models for this
@@ -233,24 +261,14 @@ def _delayed_learn(lconf, dconf, rconf, fold):
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
 
-    subpack_intra = get_subpack(dconf.pack_intra)
-    subpack_main = get_subpack(dconf.pack)
-
-    def _get_jobs(args):
-        "return model learning jobs unless the models already exist"
-        subpack = subpack_intra if args.intra else subpack_main
-        if fp.exists(args.attachment_model) and fp.exists(args.relation_model):
-            print("reusing %s model (already built)" % rconf.key,
-                  file=sys.stderr)
-            return []
-        else:
-            return att.learn.delayed_main_for_harness(args, subpack)
+    subpacks = IntraInterPair(intra=get_subpack(dconf.pack_intra),
+                              inter=get_subpack(dconf.pack))
 
     jobs = []
     with LearnArgs(lconf, rconf, fold) as args:
-        jobs.extend(_get_jobs(args))
+        jobs.extend(_get_learner_jobs(args, subpacks))
     with LearnArgs(lconf, rconf, fold, intra=True) as args:
-        jobs.extend(_get_jobs(args))
+        jobs.extend(_get_learner_jobs(args, subpacks))
     return jobs
 
 
@@ -326,13 +344,18 @@ def _mk_report(args, index, dconf):
         json.dump(index, ostream)
     att.report.main_for_harness(args, dconf.pack, args.output)
     for rconf in LEARNERS:
-        with InspectArgs(args.lconf, rconf, args.fold) as inspect_args:
-            _mk_model_summary(inspect_args)
+        if rconf.attach.name == 'oracle':
+            pass
+        elif rconf.relate is not None and rconf.relate.name == 'oracle':
+            pass
+        else:
+            _mk_model_summary(args.lconf, rconf, args.fold)
 
 
-def _mk_model_summary(args):
+def _mk_model_summary(lconf, rconf, fold):
     "generate summary of best model features"
-    att.inspect.main_for_harness(args)
+    with InspectArgs(lconf, rconf, fold) as args:
+        att.inspect.main_for_harness(args)
 
 
 def _mk_fold_report(lconf, dconf, fold):
