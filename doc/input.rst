@@ -69,16 +69,20 @@ which attelo can use to associate relation labels with string values ::
 
     # labels: <space delimited list of labels>
 
-One of these labels must be the string 'UNRELATED' which is used for edu
-pairs which are not related/attached.  For example, in the below, the second
-and fourth EDU pairs are not considered to be related ::
+The labels 'UNRELATED' must exist and be used for any edu pairs which are not
+related/attached.  For example, in the below, the second and fourth EDU pairs
+are not considered to be related ::
 
-    # labels: elaboration narration continuation UNRELATED
+    # labels: elaboration narration continuation UNRELATED ROOT
     1 1:1 2:1
     4 1:2
     2 1:3 3:1
     4 1:1
     3 1:2
+
+Also, if intersentential learning/decoding is used, the label 'ROOT' must also
+be exist and be used for links from the ROOT edu.
+
 
 Note that labels are assumed to start from 1.
 

@@ -7,6 +7,7 @@ from collections import defaultdict, namedtuple
 import numpy
 import numpy.ma
 
+from .edu import FAKE_ROOT_ID
 from .fold import fold_groupings
 
 # pylint: disable=too-few-public-methods
@@ -270,6 +271,55 @@ def for_labelling(pack):
     :rtype: :py:class:`DataPack`
     '''
     return pack
+
+
+def for_intra(pack):
+    '''
+    Adapt a datapack to intrasentential decoding. An intrasenential
+    datapack is almost identical to its original, except that we
+    set the label for each ('ROOT', edu) pairing to 'ROOT' if that
+    edu is a subgrouping head (if it has no parents other than than
+    'ROOT' within its subgrouping).
+
+    Note: we assume that subgroupings are contiguous in this code
+
+    This should be done before either :pyfunc:`for_labelling` or
+    pyfunc:`for_attachment`
+
+    :rtype: :py:class:`DataPack`
+    '''
+    def _reset():
+        "return new local control values"
+        return set(), set([FAKE_ROOT_ID]), {}
+    all_heads = []
+    subgrouping = None
+    local_heads, ruled_out, indices = _reset()
+    for i, (edu1, edu2) in enumerate(pack.pairings):
+        new_subgrouping = edu1.subgrouping or edu2.subgrouping
+        if new_subgrouping != subgrouping:
+            all_heads.extend(indices[x] for x in local_heads)
+            local_heads, ruled_out, indices = _reset()
+            subgrouping = new_subgrouping
+
+        if edu1.id == FAKE_ROOT_ID:
+            if edu2.id not in ruled_out:
+                local_heads.add(edu2.id)
+                indices[edu2.id] = i
+        else:
+            # any child edu is necessarily ruled out
+            ruled_out.add(edu2.id)
+            if edu2.id in local_heads:
+                local_heads.remove(edu2.id)
+
+    # pylint: disable=no-member
+    new_target = numpy.copy(pack.target)
+    new_target[all_heads] = pack.label_number('ROOT')
+    # pylint: enable=no-member
+    return DataPack(edus=pack.edus,
+                    pairings=pack.pairings,
+                    data=pack.data,
+                    target=new_target,
+                    labels=pack.labels)
 
 
 def get_label_string(labels, i):

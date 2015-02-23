@@ -362,6 +362,9 @@ def add_learner_args(psr):
                      choices=RELATE_LEARNERS.keys(),
                      help="learners for relation labeling "
                      "[default same as attachment]")
+    psr.add_argument("--intrasentential",
+                     action='store_true',
+                     help="learn an intrasentential model")
 
     # perceptron prefs
     perc_grp = groups.get("perceptron",

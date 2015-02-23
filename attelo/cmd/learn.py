@@ -14,6 +14,7 @@ from ..args import\
      args_to_decoder, args_to_learners)
 from ..io import save_model
 from ..learning import (learn_attach, learn_relate)
+from ..table import (for_intra)
 from .util import load_args_data_pack
 
 
@@ -73,6 +74,8 @@ def main_for_harness(args, dpack):
 
 def learn_and_save_attach(args, learners, dpack):
     'learn and write the attachment model'
+    if args.intrasentential:
+        dpack = for_intra(dpack)
     model = learn_attach(learners, dpack, verbose=True)
     mdir = fp.dirname(args.attachment_model)
     if not fp.exists(mdir):
@@ -82,6 +85,8 @@ def learn_and_save_attach(args, learners, dpack):
 
 def learn_and_save_relate(args, learners, dpack):
     'learn and write the relation model'
+    if args.intrasentential:
+        dpack = for_intra(dpack)
     model = learn_relate(learners, dpack, verbose=True)
     mdir = fp.dirname(args.relation_model)
     if not fp.exists(mdir):
