@@ -398,7 +398,7 @@ def _mk_global_report(lconf, dconf):
                                report_dir_basename(lconf))
     with ReportArgs(lconf, None) as args:
         _mk_report(args, index, dconf)
-        # _mk_graphs(lconf, dconf)
+        _mk_graphs(lconf, dconf)
         _mk_hashfile(args.output, args.lconf, dconf)
         if fp.exists(final_report_dir):
             shutil.rmtree(final_report_dir)

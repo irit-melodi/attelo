@@ -9,7 +9,8 @@ from attelo.harness.config import CliArgs
 from attelo.util import (Team)
 import attelo.cmd as att
 
-from .local import (ATTELO_CONFIG_FILE)
+from .local import (ATTELO_CONFIG_FILE,
+                    GRAPH_DOCS)
 from .path import (decode_output_path,
                    edu_input_path,
                    eval_model_path,
@@ -314,7 +315,7 @@ class GoldGraphArgs(CliArgs):
     def argv(self):
         lconf = self.lconf
         has_stripped = fp.exists(features_path(lconf, stripped=True))
-        argv = [edu_input_path(lconf),
+        args = [edu_input_path(lconf),
                 '--quiet',
                 '--gold',
                 pairings_path(lconf),
@@ -322,7 +323,10 @@ class GoldGraphArgs(CliArgs):
                 '--output',
                 fp.join(report_dir_path(lconf, None),
                         'graphs-gold')]
-        return argv
+        if GRAPH_DOCS is not None:
+            args.extend(['--select'])
+            args.extend(GRAPH_DOCS)
+        return args
 
 
 class GraphArgs(CliArgs):
@@ -345,10 +349,13 @@ class GraphArgs(CliArgs):
         output_path = fp.join(report_dir_path(lconf, None),
                               'graphs-' + fold_dir_basename(fold),
                               econf.key)
-        argv = [edu_input_path(lconf),
+        args = [edu_input_path(lconf),
                 '--predictions',
                 decode_output_path(lconf, econf, fold),
                 '--graphviz-timeout', str(15),
                 '--quiet',
                 '--output', output_path]
-        return argv
+        if GRAPH_DOCS is not None:
+            args.extend(['--select'])
+            args.extend(GRAPH_DOCS)
+        return args
