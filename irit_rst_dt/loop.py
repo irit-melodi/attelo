@@ -20,7 +20,9 @@ LoopConfig = namedtuple("LoopConfig",
 
 
 DataConfig = namedtuple("DataConfig",
-                        "pack folds")
+                        ["pack",
+                         "pack_intra",
+                         "folds"])
 "data tables we have read"
 # pylint: enable=pointless-string-statement
 

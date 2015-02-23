@@ -14,6 +14,7 @@ import shutil
 import sys
 
 from joblib import (Parallel, delayed)
+from sklearn.datasets import load_svmlight_file
 
 from attelo.args import args_to_decoder
 from attelo.io import (load_data_pack, Torpor)
@@ -23,6 +24,7 @@ from attelo.decoding.intra import (IntraInterPair,
 from attelo.harness.report import (mk_index)
 from attelo.harness.util import\
     timestamp, call, force_symlink
+from attelo.table import (DataPack)
 import attelo.cmd as att
 
 from ..attelo_cfg import (attelo_doc_model_paths,
@@ -118,7 +120,7 @@ def _intra_strategy(flag):
     Return an attelo intrasentential decoding strategy name
     if it's mentioned in our flags, else None
     """
-    len_prefix = len('HARNESS:intra:') + 1
+    len_prefix = len('HARNESS:intra:')
     flags = [f[len_prefix:] for f in flag if is_intra(f)]
     return IntraStrategy.from_string(flags[0]) if flags else None
 
@@ -136,7 +138,20 @@ def _link_data_files(data_dir, eval_dir):
             os.link(data_file, eval_file)
 
 
-def _create_eval_dirs(args, data_dir):
+def _link_model_files(old_dir, new_dir):
+    """
+    Hardlink any fold-level or combined folds files
+    """
+    for old_mpath in glob.glob(fp.join(old_dir, '*', '*model*')):
+        old_fold_dir_bn = fp.basename(fp.dirname(old_mpath))
+        new_fold_dir = fp.join(new_dir, old_fold_dir_bn)
+        new_mpath = fp.join(new_fold_dir, fp.basename(old_mpath))
+        if not fp.exists(new_fold_dir):
+            os.makedirs(new_fold_dir)
+        os.link(old_mpath, new_mpath)
+
+
+def _create_eval_dirs(args, data_dir, jumpstart):
     """
     Return eval and scatch directory paths
     """
@@ -165,6 +180,8 @@ def _create_eval_dirs(args, data_dir):
         scratch_dir = fp.join(data_dir, "scratch-" + tstamp)
         if not fp.exists(scratch_dir):
             os.makedirs(scratch_dir)
+            if jumpstart:
+                _link_model_files(scratch_current, scratch_dir)
             force_symlink(fp.basename(scratch_dir), scratch_current)
 
         with open(fp.join(eval_dir, "versions-evaluate.txt"), "w") as stream:
@@ -208,16 +225,20 @@ def _delayed_learn(lconf, dconf, rconf, fold):
     """
     if fold is None:
         parent_dir = combined_dir_path(lconf)
-        subpack = dconf.pack
+        get_subpack = lambda d: d
     else:
         parent_dir = fold_dir_path(lconf, fold)
-        subpack = dconf.pack.training(dconf.folds, fold)
+        get_subpack = lambda d: d.training(dconf.folds, fold)
 
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
 
+    subpack_intra = get_subpack(dconf.pack_intra)
+    subpack_main = get_subpack(dconf.pack)
+
     def _get_jobs(args):
         "return model learning jobs unless the models already exist"
+        subpack = subpack_intra if args.intra else subpack_main
         if fp.exists(args.attachment_model) and fp.exists(args.relation_model):
             print("reusing %s model (already built)" % rconf.key,
                   file=sys.stderr)
@@ -442,12 +463,25 @@ def _do_corpus(lconf):
                            pairings_path(lconf),
                            features_path(lconf, stripped=has_stripped),
                            verbose=True)
+    # pylint: disable=unbalanced-tuple-unpacking
+    if has_stripped:
+        dpack_intra = dpack
+    else:
+        with Torpor("Reading intra-sentential features"):
+            intra_data, intra_targets =\
+                load_svmlight_file(features_path(lconf, intra=True))
+        dpack_intra = DataPack.load(dpack.edus,
+                                    dpack.pairings,
+                                    intra_data,
+                                    intra_targets,
+                                    dpack.labels)
 
     if _is_standalone_or(lconf, ClusterStage.start):
         _generate_fold_file(lconf, dpack)
 
     with open(lconf.fold_file) as f_in:
         dconf = DataConfig(pack=dpack,
+                           pack_intra=dpack_intra,
                            folds=json.load(f_in))
 
     if _is_standalone_or(lconf, ClusterStage.main):
@@ -484,6 +518,12 @@ def config_argparser(psr):
                      "2+ for parallel, "
                      "1 for sequential but using parallel infrastructure, "
                      "0 for fully sequential)")
+    psr.add_argument("--jumpstart", action='store_true',
+                     help="copy any model files over from last evaluation "
+                     "(useful if you just want to evaluate recent changes "
+                     "to the decoders without losing previous scores)")
+
+
     cluster_grp = psr.add_mutually_exclusive_group()
     cluster_grp.add_argument("--start", action='store_true',
                              default=False,
@@ -525,7 +565,7 @@ def main(args):
     data_dir = latest_tmp()
     if not os.path.exists(data_dir):
         _exit_ungathered()
-    eval_dir, scratch_dir = _create_eval_dirs(args, data_dir)
+    eval_dir, scratch_dir = _create_eval_dirs(args, data_dir, args.jumpstart)
 
     for corpus in TRAINING_CORPORA:
         dataset = os.path.basename(corpus)

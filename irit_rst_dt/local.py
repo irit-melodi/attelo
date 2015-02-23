@@ -242,7 +242,12 @@ def mk_config((learner, decoder), global_settings):
     decoder_key = combined_key([global_settings, decoder])
     decoder_flags = decoder.flags + global_settings.flags
     non_prob_keys = [l.key for l in _BASIC_LEARNERS_NON_PROB]
+    # intrasential mode only works with mst for now
+    if decoder.key != 'mst':
+        if any(f.startswith('HARNESS:intra') for f in global_settings.flags):
+            return None
     if learner.attach.key in non_prob_keys:
+
         if '--post-label' not in global_settings.flags:
             return None
         decoder_flags += ['--non-prob-scores']
