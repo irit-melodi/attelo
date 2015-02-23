@@ -335,11 +335,18 @@ def load_gold_predictions(pairings_file, feature_file, verbose=False):
 
 def load_model(filename):
     """
-    Load model into memory from file
+    Load model into memory from file.
+
+    Note that we consider the filename '__oracle__' to be special.
+    Instead of loading a model, we simply return the virtual
+    oracle decoder
 
     :rtype: sklearn classifier
     """
-    return joblib.load(filename)
+    if filename == '__oracle__':
+        return 'oracle'
+    else:
+        return joblib.load(filename)
 
 
 def save_model(filename, model):

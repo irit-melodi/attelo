@@ -56,5 +56,8 @@ def can_predict_proba(model):
     a given instance. The alternative would be for it to
     implement `decision_function` which associates
     """
-    func = getattr(model, "predict_proba", None)
-    return callable(func)
+    if model == 'oracle':
+        return True
+    else:
+        func = getattr(model, "predict_proba", None)
+        return callable(func)

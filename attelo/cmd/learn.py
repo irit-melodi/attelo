@@ -71,7 +71,7 @@ def main_for_harness(args, dpack):
     Parallel(n_jobs=-1)(delayed_main_for_harness(args, dpack))
 
 
-def _learn_and_save_attach(args, learners, dpack):
+def learn_and_save_attach(args, learners, dpack):
     'learn and write the attachment model'
     model = learn_attach(learners, dpack, verbose=True)
     mdir = fp.dirname(args.attachment_model)
@@ -80,7 +80,7 @@ def _learn_and_save_attach(args, learners, dpack):
     save_model(args.attachment_model, model)
 
 
-def _learn_and_save_relate(args, learners, dpack):
+def learn_and_save_relate(args, learners, dpack):
     'learn and write the relation model'
     model = learn_relate(learners, dpack, verbose=True)
     mdir = fp.dirname(args.relation_model)
@@ -99,8 +99,8 @@ def delayed_main_for_harness(args, dpack):
     """
     decoder = args_to_decoder(args)
     learners = args_to_learners(decoder, args)
-    return [delayed(_learn_and_save_attach)(args, learners, dpack),
-            delayed(_learn_and_save_relate)(args, learners, dpack)]
+    return [delayed(learn_and_save_attach)(args, learners, dpack),
+            delayed(learn_and_save_relate)(args, learners, dpack)]
 
 
 @validate_fold_choice_args

@@ -7,6 +7,7 @@ subgrouping and then join the results together.
 """
 
 from __future__ import print_function
+from collections import namedtuple
 import sys
 
 from ..edu import (FAKE_ROOT_ID)
@@ -27,6 +28,16 @@ class IntraStrategy(ArgparserEnum):
     """
     only = 1
     heads = 2
+
+
+class IntraInterPair(namedtuple("IntraInterPair",
+                                "intra inter")):
+    """
+    Any pair of the same sort of thing, but with one meant
+    for intra-sentential decoding, and the other meant for
+    intersentential
+    """
+    pass
 
 
 def _roots(edge_list):
@@ -81,7 +92,7 @@ def _zip_sentences(func, sent_parses):
     # pylint: enable=star-args
 
 
-def _select_subgrouping(prob_distrib, subg):
+def select_subgrouping(prob_distrib, subg):
     """
     Return elements from a probability distribution which belong
     to a subgrouping.
@@ -126,7 +137,7 @@ def _select_intra(prob_distrib, sources, targets):
             if e1 in sources and e2 in targets and e1 != e2]
 
 
-class IntrasentWrapper(object):
+class IntraInterDecoder(object):
     """
     Augment a decoder with the ability to do separate decoding
     on sentences and then combine the results.
@@ -164,24 +175,4 @@ class IntrasentWrapper(object):
         elif self._strategy == IntraStrategy.heads:
             return concat_l(_zip_sentences(decode_head, sent_parses))
 
-    def decode(self, prob_distrib):
-        """
-        Run the decoder separately per sentence
-        """
-        sorted_edus = get_sorted_edus(prob_distrib)
 
-        # launch a decoder per sentence
-        #   - sent parses collect separate parses
-        #   - to_link will collect admissible edus for document level
-        #     attachment (head parses for now=first edu of sentence)
-
-        sent_parses = []
-        for subg in subgroupings(sorted_edus):
-            if self._debug:
-                print("doing sentence {}".format(subg), file=sys.stderr)
-            sent_distrib = _select_subgrouping(prob_distrib, subg)
-            sent_predictions = self.decode_sentence(sent_distrib)
-            sent_parses.append(sent_predictions)
-            ##########
-
-        return self.decode_document(prob_distrib, sent_parses)

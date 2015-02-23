@@ -27,13 +27,11 @@ from .astar import (AstarDecoder)
 from .baseline import LastBaseline, LocalBaseline
 from .mst import (MsdagDecoder, MstDecoder, MstRootStrategy)
 from .greedy import LocallyGreedy
-from .subgrouping import (IntrasentWrapper)
 
 
 class DecoderArgs(namedtuple("DecoderAgs",
                              ["threshold",
                               "mst_root_strategy",
-                              "intra_strategy",
                               "astar",
                               "use_prob"])):
     """
@@ -52,11 +50,6 @@ class DecoderArgs(namedtuple("DecoderAgs",
     :param mst_root_strategy: How the MST/MSDAG decoders should select
                               their root node
     :type mst_root_strategy: :py:class:MstRootStrategy:
-
-    :param intra_strategy: What sort of intra/inter-sentential strategy
-                           the decoder should use (currently only
-                           available for MST)
-    :type intra_strategy: :py:class:IntraStrategy: or None
 
     :param threshold: For some decoders, a probability floor that helps
                       the decoder decide whether or not to attach something
@@ -96,8 +89,6 @@ DECODERS = {"last": lambda _: LastBaseline(),
             "locallyGreedy": lambda _: LocallyGreedy(),
             "msdag": lambda c: MsdagDecoder(c.mst_root_strategy, c.use_prob),
             "mst": _mk_mst_decoder,
-            "intra-mst": lambda c: IntrasentWrapper(_mk_mst_decoder(c),
-                                                    c.intra_strategy),
             "astar": lambda c: AstarDecoder(c.astar)}
 """
 Dictionary (`string -> DecoderAgs -> Decoder`) of decoder names (recognised by
