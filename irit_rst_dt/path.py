@@ -62,15 +62,18 @@ def combined_dir_path(lconf):
 
 def model_basename(lconf, rconf, mtype, ext):
     "Basic filename for a model"
-    rrelate = rconf.relate or rconf.attach
-    if 'attach' in mtype and rconf.attach.key == 'oracle':
-        return '__oracle__'
-    elif 'relate' in mtype and rrelate.key == 'oracle':
+
+    if 'attach' in mtype:
+        rsubconf = rconf.attach
+    else:
+        rsubconf = rconf.relate or rconf.attach
+
+    if rsubconf.key == 'oracle':
         return '__oracle__'
     else:
         template = '{dataset}.{learner}.{task}.{ext}'
         return template.format(dataset=lconf.dataset,
-                               learner=rconf.key,
+                               learner=rsubconf.key,
                                task=mtype,
                                ext=ext)
 
