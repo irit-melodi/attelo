@@ -14,7 +14,6 @@ import shutil
 import sys
 
 from joblib import (Parallel, delayed)
-from sklearn.datasets import load_svmlight_file
 
 from attelo.args import (args_to_decoder, args_to_learners)
 from attelo.io import (load_data_pack, Torpor)
@@ -24,7 +23,7 @@ from attelo.decoding.intra import (IntraInterPair,
 from attelo.harness.report import (mk_index)
 from attelo.harness.util import\
     timestamp, call, force_symlink
-from attelo.table import (DataPack)
+from attelo.table import (for_intra)
 import attelo.cmd as att
 
 from ..attelo_cfg import (attelo_doc_model_paths,
@@ -261,7 +260,7 @@ def _delayed_learn(lconf, dconf, rconf, fold):
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
 
-    subpacks = IntraInterPair(intra=get_subpack(dconf.pack_intra),
+    subpacks = IntraInterPair(intra=get_subpack(for_intra(dconf.pack)),
                               inter=get_subpack(dconf.pack))
 
     jobs = []
@@ -486,25 +485,12 @@ def _do_corpus(lconf):
                            pairings_path(lconf),
                            features_path(lconf, stripped=has_stripped),
                            verbose=True)
-    # pylint: disable=unbalanced-tuple-unpacking
-    if has_stripped:
-        dpack_intra = dpack
-    else:
-        with Torpor("Reading intra-sentential features"):
-            intra_data, intra_targets =\
-                load_svmlight_file(features_path(lconf, intra=True))
-        dpack_intra = DataPack.load(dpack.edus,
-                                    dpack.pairings,
-                                    intra_data,
-                                    intra_targets,
-                                    dpack.labels)
 
     if _is_standalone_or(lconf, ClusterStage.start):
         _generate_fold_file(lconf, dpack)
 
     with open(lconf.fold_file) as f_in:
         dconf = DataConfig(pack=dpack,
-                           pack_intra=dpack_intra,
                            folds=json.load(f_in))
 
     if _is_standalone_or(lconf, ClusterStage.main):
@@ -545,7 +531,6 @@ def config_argparser(psr):
                      help="copy any model files over from last evaluation "
                      "(useful if you just want to evaluate recent changes "
                      "to the decoders without losing previous scores)")
-
 
     cluster_grp = psr.add_mutually_exclusive_group()
     cluster_grp.add_argument("--start", action='store_true',

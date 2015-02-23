@@ -23,14 +23,14 @@ from .path import (decode_output_path,
                    vocab_path)
 
 
-def _attelo_dpack_args(lconf, intra=False):
+def _attelo_dpack_args(lconf):
     """
     Return a list of attelo args that correspond to the data pack
     files (edu inputs, pairings, features)
     """
     return [edu_input_path(lconf),
             pairings_path(lconf),
-            features_path(lconf, intra=intra)]
+            features_path(lconf)]
 
 
 def attelo_doc_model_paths(lconf, rconf, fold):
@@ -149,7 +149,7 @@ class LearnArgs(CliArgs):
         fold = self.fold
 
         args = []
-        args.extend(_attelo_dpack_args(lconf, intra=self.intra))
+        args.extend(_attelo_dpack_args(lconf))
         args.extend(_ATTELO_CONFIG_ARGS)
         args.extend(_attelo_model_args(lconf, rconf, fold,
                                        intra=self.intra))
@@ -170,6 +170,9 @@ class LearnArgs(CliArgs):
             # intercept fake intra-inter flag because we handle this on
             # the harness level
             args.extend(censor_flags(decoder.flags))
+
+        if self.intra:
+            args.extend(["--intrasentential"])
         return args
 
     # pylint: disable=no-member

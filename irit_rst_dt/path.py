@@ -13,13 +13,11 @@ def eval_data_path(lconf, ext):
                    "%s.%s" % (lconf.dataset, ext))
 
 
-def features_path(lconf, intra=False, stripped=False):
+def features_path(lconf, stripped=False):
     """
     Path to the feature file in the evaluation dir
     """
     ext = 'relations.sparse'
-    if intra:
-        ext += '.sent'
     if stripped:
         ext += '.stripped'
     return eval_data_path(lconf, ext)
