@@ -12,7 +12,7 @@ from ..args import\
      add_learner_args, validate_learner_args,
      add_fold_choice_args, validate_fold_choice_args,
      args_to_decoder, args_to_learners)
-from ..io import save_model
+from ..io import (Torpor, save_model)
 from ..learning import (learn_attach, learn_relate)
 from ..table import (for_intra)
 from .util import load_args_data_pack
@@ -76,22 +76,31 @@ def learn_and_save_attach(args, learners, dpack):
     'learn and write the attachment model'
     if args.intrasentential:
         dpack = for_intra(dpack)
-    model = learn_attach(learners, dpack, verbose=True)
-    mdir = fp.dirname(args.attachment_model)
+    model_path = args.attachment_model
+    with Torpor("training attachment model {}".format(model_path),
+                sameline=False,  # concurrency
+                quiet=args.quiet):
+        model = learn_attach(learners, dpack)
+    mdir = fp.dirname(model_path)
     if not fp.exists(mdir):
         os.makedirs(mdir)
-    save_model(args.attachment_model, model)
+    save_model(model_path, model)
 
 
 def learn_and_save_relate(args, learners, dpack):
     'learn and write the relation model'
     if args.intrasentential:
         dpack = for_intra(dpack)
-    model = learn_relate(learners, dpack, verbose=True)
-    mdir = fp.dirname(args.relation_model)
+    model_path = args.relation_model
+    with Torpor("training relations model {}".format(model_path),
+                sameline=False,  # concurrency
+                quiet=args.quiet):
+        model = learn_relate(learners, dpack,
+                             verbose=not args.quiet)
+    mdir = fp.dirname(model_path)
     if not fp.exists(mdir):
         os.makedirs(mdir)
-    save_model(args.relation_model, model)
+    save_model(model_path, model)
 
 
 def delayed_main_for_harness(args, dpack):
