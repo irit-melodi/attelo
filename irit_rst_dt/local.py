@@ -55,10 +55,18 @@ Which feature set to use for feature extraction
 """
 
 _BASIC_LEARNERS_PROB = [
-    Variant(key=x, name=x, flags=[]) for x in [
+    LearnerConfig(attach=Learner(key=x, name=x, flags=[], decoder=None),
+                  relate=None) for x in
+    [
         "maxent",
-    ]
-]
+    ]] + [\
+    LearnerConfig(attach=Learner(key=x, name=x, flags=[], decoder=None),
+                  relate=Learner(key='oracle', name='oracle',
+                                 flags=[], decoder=None)) for x in
+    [
+        #"always",
+        #"never",
+    ]]
 """Attelo learner algorithms to try (probabilistic).
 
 It's up to you to choose values for the key field that can distinguish
@@ -67,25 +75,28 @@ you might have something like
 
 ::
 
-    Variant(key="perceptron-very-frob",
+    Learner(key="perceptron-very-frob",
             name="perceptron",
             flags=["--frobnication", "0.9"]),
 
-    Variant(key="perceptron-not-so-frob",
+    Learner(key="perceptron-not-so-frob",
             name="perceptron",
             flags=["--frobnication", "0.4"])
 
 """
 
 _BASIC_LEARNERS_NON_PROB = [
-    Variant(key=x, name=x, flags=[]) for x in [
-        "sk-perceptron",
-        "sk-pasagg",
+    LearnerConfig(attach=Learner(key=x, name=x, flags=[], decoder=None),
+                  relate=Learner(key='maxent', name='maxent',
+                                 flags=[], decoder=None)) for x in
+    [
+        #"sk-perceptron",
+        #"sk-pasagg",
     ]
 ]
 """
 Models that can only assign a confidence score but not a
-probability to a class
+probability to a class.
 """
 
 
@@ -194,27 +205,9 @@ def expanded_learners():
     Return a list of simple learners, and a list of decoder
     parameterised learners (as a functions)
     """
-    default_relate = Learner(key="maxent", name="maxent",
+    default_relate = Learner(key='maxent', name='maxent',
                              flags=[], decoder=None)
-    simple = []
-    simple.extend(LearnerConfig(attach=Learner(key=l.key,
-                                               name=l.name,
-                                               flags=l.flags,
-                                               decoder=None),
-                                relate=None)
-                  for l in _BASIC_LEARNERS_PROB)
-
-    # we assume for now that the non-probabilistic learners
-    # need to be paired with the maxent relation learner
-    # (which isn't necessarily the case, but is true for
-    # Pascal's perceptrons)
-    simple.extend(LearnerConfig(attach=Learner(key=l.key,
-                                               name=l.name,
-                                               flags=l.flags,
-                                               decoder=None),
-                                relate=default_relate)
-                  for l in _BASIC_LEARNERS_NON_PROB)
-
+    simple = _BASIC_LEARNERS_PROB + _BASIC_LEARNERS_NON_PROB
     # pylint: disable=cell-var-from-loop
     fancy = [lambda d:
              LearnerConfig(attach=Learner(key=learner.key,
@@ -265,7 +258,7 @@ def mk_config((learner, decoder), global_settings):
     """
     decoder_key = combined_key([global_settings, decoder])
     decoder_flags = decoder.flags + global_settings.flags
-    non_prob_keys = [l.key for l in _BASIC_LEARNERS_NON_PROB]
+    non_prob_keys = [l.attach.key for l in _BASIC_LEARNERS_NON_PROB]
     intra_flag = [f for f in global_settings.flags if isinstance(f, IntraFlag)]
     intra_flag = intra_flag[0] if intra_flag else None
 
