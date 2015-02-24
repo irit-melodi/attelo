@@ -30,7 +30,7 @@ import attelo.cmd as att
 
 from ..attelo_cfg import (attelo_doc_model_paths,
                           attelo_sent_model_paths,
-                          is_intra,
+                          intra_flags,
                           EnfoldArgs,
                           LearnArgs,
                           DecodeArgs,
@@ -231,9 +231,8 @@ def _parallel(lconf, n_jobs=None, verbose=None):
         return Parallel(n_jobs=n_jobs, verbose=verbose)
 
 
-def _get_learner_jobs(args, subpacks):
+def _get_learner_jobs(args, subpack):
     "return model learning jobs unless the models already exist"
-    subpack = subpacks.intra if args.intra else subpacks.inter
     decoder = args_to_decoder(args)
     learners = args_to_learners(decoder, args)
     jobs = []
@@ -263,7 +262,7 @@ def _get_learner_jobs(args, subpacks):
     return jobs
 
 
-def _delayed_learn(lconf, dconf, rconf, fold):
+def _delayed_learn(lconf, dconf, rconf, fold, include_intra):
     """
     Return possible futures for learning models for this
     fold
@@ -278,14 +277,14 @@ def _delayed_learn(lconf, dconf, rconf, fold):
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
 
-    subpacks = IntraInterPair(intra=get_subpack(for_intra(dconf.pack)),
-                              inter=get_subpack(dconf.pack))
-
     jobs = []
     with LearnArgs(lconf, rconf, fold) as args:
-        jobs.extend(_get_learner_jobs(args, subpacks))
-    with LearnArgs(lconf, rconf, fold, intra=True) as args:
-        jobs.extend(_get_learner_jobs(args, subpacks))
+        subpack = get_subpack(dconf.pack)
+        jobs.extend(_get_learner_jobs(args, subpack))
+    if include_intra:
+        with LearnArgs(lconf, rconf, fold, intra=True) as args:
+            subpack = get_subpack(for_intra(dconf.pack))
+            jobs.extend(_get_learner_jobs(args, subpack))
     return jobs
 
 
@@ -321,7 +320,7 @@ def _delayed_decode(lconf, dconf, econf, fold):
         subpack = dconf.pack.testing(dconf.folds, fold)
         doc_model_paths = attelo_doc_model_paths(lconf, econf.learner, fold)
 
-        intra_flag = [f for f in econf.decoder.flags if is_intra(f)]
+        intra_flag = intra_flags(econf.decoder.flags)
         intra_flag = intra_flag[0] if intra_flag else None
         if intra_flag is not None:
             sent_model_paths =\
@@ -477,7 +476,10 @@ def _do_fold(lconf, dconf, fold):
         os.makedirs(fold_dir)
 
     # learn all models in parallel
-    learner_jobs = concat_i(_delayed_learn(lconf, dconf, rconf, fold)
+    include_intra = any(intra_flags(e.decoder.flags)
+                        for e in EVALUATIONS)
+    learner_jobs = concat_i(_delayed_learn(lconf, dconf, rconf, fold,
+                                           include_intra)
                             for rconf in LEARNERS)
     _parallel(lconf)(learner_jobs)
     # run all model/decoder joblets in parallel
@@ -494,7 +496,9 @@ def _mk_combined_models(lconf, dconf):
     """
     Create global for all learners
     """
-    jobs = concat_i(_delayed_learn(lconf, dconf, learner, None)
+    include_intra = any(intra_flags(e.decoder.flags)
+                        for e in EVALUATIONS)
+    jobs = concat_i(_delayed_learn(lconf, dconf, learner, None, include_intra)
                     for learner in LEARNERS)
     _parallel(lconf)(jobs)
 

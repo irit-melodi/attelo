@@ -73,6 +73,14 @@ def censor_flags(flags):
     return [f for f in flags if not is_intra(f)]
 
 
+def intra_flags(flags):
+    """
+    Return flags that are not in the list of things the harness
+    handles by iteslf
+    """
+    return [f for f in flags if is_intra(f)]
+
+
 def is_intra(flag):
     """
     Return True if a flag corresponds to intra/intersential
