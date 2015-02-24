@@ -280,13 +280,19 @@ def mk_config((learner, decoder), global_settings):
     decoder_key = combined_key([global_settings, decoder])
     decoder_flags = decoder.flags + global_settings.flags
     non_prob_keys = [l.key for l in _BASIC_LEARNERS_NON_PROB]
+    intra_flag = [f for f in global_settings.flags if isinstance(f, IntraFlag)]
+    intra_flag = intra_flag[0] if intra_flag else None
+
+    # no need for intra/inter oracle mode if the learner already is an oracle
+    if learner.key == 'oracle' and intra_flag is not None:
+        if intra_flag.intra_oracle or intra_flag.inter_oracle:
+            return None
     # intrasential head to head mode only works with mst for now
     if decoder.key != 'mst':
-        if any(isinstance(f, IntraFlag) and f.strategy == IntraStrategy.heads
-               for f in global_settings.flags):
+        if (intra_flag is not None and
+                intra_flag.strategy == IntraStrategy.heads):
             return None
     if learner.attach.key in non_prob_keys:
-
         if '--post-label' not in global_settings.flags:
             return None
         decoder_flags += ['--non-prob-scores']
