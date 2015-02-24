@@ -380,8 +380,12 @@ def _mk_report(args, index, dconf):
 
 def _mk_model_summary(lconf, rconf, fold):
     "generate summary of best model features"
-    with InspectArgs(lconf, rconf, fold) as args:
+    with InspectArgs(lconf, rconf, fold, intra=False) as args:
         att.inspect.main_for_harness(args)
+    spaths = attelo_sent_model_paths(lconf, rconf, fold)
+    if fp.exists(spaths.attach) and fp.exists(spaths.relate):
+        with InspectArgs(lconf, rconf, fold, intra=True) as args:
+            att.inspect.main_for_harness(args)
 
 
 def _mk_fold_report(lconf, dconf, fold):

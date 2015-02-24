@@ -125,10 +125,11 @@ def report_dir_path(lconf, fold=None):
                    report_dir_basename(lconf))
 
 
-def model_info_path(lconf, rconf, fold=None):
+def model_info_path(lconf, rconf, fold=None, intra=False):
     """
     Path to the model output file
     """
-    template = "discr-features.{learner}.txt"
+    template = "discr-features{grain}.{learner}.txt"
     return fp.join(report_dir_path(lconf, fold),
-                   template.format(learner=rconf.key))
+                   template.format(grain='-sent' if intra else '',
+                                   learner=rconf.key))

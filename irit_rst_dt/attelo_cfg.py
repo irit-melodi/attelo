@@ -266,10 +266,11 @@ class ReportArgs(CliArgs):
 
 class InspectArgs(CliArgs):
     "args for attelo inspect"
-    def __init__(self, lconf, rconf, fold=None):
+    def __init__(self, lconf, rconf, fold=None, intra=False):
         self.lconf = lconf
         self.rconf = rconf
         self.fold = fold
+        self.intra = intra
         super(InspectArgs, self).__init__()
 
     def parser(self):
@@ -290,10 +291,11 @@ class InspectArgs(CliArgs):
         """
         lconf = self.lconf
         rconf = self.rconf
+        info_output = model_info_path(lconf, rconf, self.fold, self.intra)
         argv = [features_path(lconf),
                 vocab_path(lconf),
-                '--output', model_info_path(lconf, rconf, self.fold)]
-        argv.extend(_attelo_model_args(lconf, rconf, self.fold))
+                '--output', info_output]
+        argv.extend(_attelo_model_args(lconf, rconf, self.fold, self.intra))
         return argv
 
     # pylint: disable=no-member
