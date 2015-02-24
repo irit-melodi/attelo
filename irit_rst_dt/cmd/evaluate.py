@@ -40,6 +40,7 @@ from ..attelo_cfg import (attelo_doc_model_paths,
 
 from ..local import (LEARNERS,
                      EVALUATIONS,
+                     GRAPH_EVALUATIONS,
                      TRAINING_CORPORA)
 from ..path import (combined_dir_path,
                     decode_output_basename,
@@ -366,9 +367,9 @@ def _mk_fold_report(lconf, dconf, fold):
         _mk_report(args, index, dconf)
 
 
-def _mk_econf_graphs(lconf, econf, fold):
+def _mk_econf_graphs(lconf, econf, fold, diff):
     "Generate graphs for a single configuration"
-    with GraphArgs(lconf, econf, fold) as args:
+    with GraphArgs(lconf, econf, fold, diff) as args:
         att.graph.main_for_harness(args)
 
 
@@ -385,8 +386,11 @@ def _mk_graphs(lconf, dconf):
 
     with Torpor('creating graphs for fold {}'.format(fold),
                 sameline=False):
-        jobs = [delayed(_mk_econf_graphs)(lconf, econf, fold)
-                for econf in EVALUATIONS]
+        jobs = []
+        jobs.extend([delayed(_mk_econf_graphs)(lconf, econf, fold, True)
+                     for econf in GRAPH_EVALUATIONS])
+        jobs.extend([delayed(_mk_econf_graphs)(lconf, econf, fold, False)
+                     for econf in GRAPH_EVALUATIONS])
         _parallel(lconf)(jobs)
 
 

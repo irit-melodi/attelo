@@ -286,5 +286,12 @@ GRAPH_DOCS = ['wsj_1184.out']
 Set to None to graph everything
 """
 
+GRAPH_EVALUATIONS = [e for e in EVALUATIONS if
+                     'mst' in e.decoder.key or 'astar' in e.decoder.key]
+"""
+Any evalutions that we'd like graphs for.
+You could just set this to EVALUATIONS, but graphs take up disk space
+"""
+
 ATTELO_CONFIG_FILE = "attelo.config"
 """Attelo feature configuration"""

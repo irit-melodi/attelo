@@ -334,10 +334,11 @@ class GoldGraphArgs(CliArgs):
 
 class GraphArgs(CliArgs):
     'cmd line args to generate graphs (for a fold)'
-    def __init__(self, lconf, econf, fold):
+    def __init__(self, lconf, econf, fold, diff):
         self.lconf = lconf
         self.econf = econf
         self.fold = fold
+        self.diff = diff
         super(GraphArgs, self).__init__()
 
     def parser(self):
@@ -349,15 +350,27 @@ class GraphArgs(CliArgs):
         lconf = self.lconf
         econf = self.econf
         fold = self.fold
-        output_path = fp.join(report_dir_path(lconf, None),
-                              'graphs-' + fold_dir_basename(fold),
-                              econf.key)
+
         args = [edu_input_path(lconf),
-                '--predictions',
-                decode_output_path(lconf, econf, fold),
                 '--graphviz-timeout', str(15),
-                '--quiet',
-                '--output', output_path]
+                '--quiet']
+        if self.diff:
+            has_stripped = fp.exists(features_path(lconf, stripped=True))
+            output_bn_prefix = 'graphs-gold-vs-'
+            args.extend(['--gold',
+                         pairings_path(lconf),
+                         features_path(lconf, stripped=has_stripped),
+                         '--diff-to',
+                         decode_output_path(lconf, econf, fold)])
+        else:
+            output_bn_prefix = 'graphs-'
+            args.extend(['--predictions',
+                         decode_output_path(lconf, econf, fold)])
+
+        output_path = fp.join(report_dir_path(lconf, None),
+                              output_bn_prefix + fold_dir_basename(fold),
+                              econf.key)
+        args.extend(['--output', output_path])
         if GRAPH_DOCS is not None:
             args.extend(['--select'])
             args.extend(GRAPH_DOCS)
