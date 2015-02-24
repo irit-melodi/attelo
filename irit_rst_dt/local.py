@@ -9,12 +9,14 @@ In the future we may move this to a proper configuration file.
 # License: CeCILL-B (French BSD3-like)
 
 from __future__ import print_function
+from collections import namedtuple
 import itertools
 
 from attelo.harness.config import (EvaluationConfig,
                                    LearnerConfig,
                                    Learner,
                                    Variant)
+from attelo.decoding.intra import (IntraStrategy)
 
 
 LOCAL_TMP = 'TMP'
@@ -112,16 +114,34 @@ Don't forget that you can parameterise the decoders ::
             flags=["--nbest", "3"])
 """
 
+IntraFlag = namedtuple('IntraFlag',
+                       ['strategy',
+                        'intra_oracle',
+                        'inter_oracle'])
+"""
+Sort of a virtual flag for enabling intrasentential decoding
+"""
+
 _GLOBAL_DECODER_SETTINGS = [
+    Variant(key='AD.L_joint_intra_heads', name=None,
+            flags=[IntraFlag(strategy=IntraStrategy.heads,
+                             intra_oracle=False,
+                             inter_oracle=False)]),
+    Variant(key='AD.L_joint_intra_heads_sorc', name=None,
+            flags=[IntraFlag(strategy=IntraStrategy.heads,
+                             intra_oracle=True,
+                             inter_oracle=False)]),
+    Variant(key='AD.L_joint_intra_heads_dorc', name=None,
+            flags=[IntraFlag(strategy=IntraStrategy.heads,
+                             intra_oracle=False,
+                             inter_oracle=True)]),
     Variant(key='AD.L_joint', name=None,
             flags=[]),
-    Variant(key='AD.L_joint_intra_only', name=None,
-            flags=['HARNESS:intra:only']),
-    Variant(key='AD.L_joint_intra_heads', name=None,
-            flags=['HARNESS:intra:head']),
-    Variant(key='AD.L_post', name=None,
-            flags=['--post-label'])
-]
+    ]
+#   Variant(key='AD.L_joint_intra_only', name=None,
+#           flags=['HARNESS:intra:only']),
+#   Variant(key='AD.L_post', name=None,
+#           flags=['--post-label'])]
 """Variants on global settings that would generally apply
 over all decoder combos.
 
@@ -258,9 +278,10 @@ def mk_config((learner, decoder), global_settings):
     decoder_key = combined_key([global_settings, decoder])
     decoder_flags = decoder.flags + global_settings.flags
     non_prob_keys = [l.key for l in _BASIC_LEARNERS_NON_PROB]
-    # intrasential mode only works with mst for now
+    # intrasential head to head mode only works with mst for now
     if decoder.key != 'mst':
-        if any(f.startswith('HARNESS:intra') for f in global_settings.flags):
+        if any(isinstance(f, IntraFlag) and f.strategy == IntraStrategy.heads
+               for f in global_settings.flags):
             return None
     if learner.attach.key in non_prob_keys:
 

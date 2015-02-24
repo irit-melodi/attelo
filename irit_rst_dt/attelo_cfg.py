@@ -9,7 +9,8 @@ from attelo.harness.config import CliArgs
 from attelo.util import (Team)
 import attelo.cmd as att
 
-from .local import (ATTELO_CONFIG_FILE,
+from .local import (IntraFlag,
+                    ATTELO_CONFIG_FILE,
                     GRAPH_DOCS)
 from .path import (decode_output_path,
                    edu_input_path,
@@ -77,7 +78,7 @@ def is_intra(flag):
     Return True if a flag corresponds to intra/intersential
     decoding
     """
-    return flag.startswith('HARNESS:intra')
+    return isinstance(flag, IntraFlag)
 
 
 def _attelo_fold_args(lconf, fold):

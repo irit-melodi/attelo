@@ -19,12 +19,12 @@ from joblib import (Parallel, delayed)
 from attelo.args import (args_to_decoder, args_to_learners)
 from attelo.io import (load_data_pack, Torpor)
 from attelo.decoding.intra import (IntraInterPair,
-                                   IntraInterDecoder,
-                                   IntraStrategy)
+                                   IntraInterDecoder)
 from attelo.harness.report import (mk_index)
 from attelo.harness.util import\
     timestamp, call, force_symlink
 from attelo.table import (for_intra)
+from attelo.util import (Team)
 import attelo.cmd as att
 
 from ..attelo_cfg import (attelo_doc_model_paths,
@@ -117,16 +117,6 @@ def _fold_banner(lconf, fold):
 # ---------------------------------------------------------------------
 # preparation
 # ---------------------------------------------------------------------
-
-
-def _intra_strategy(flag):
-    """
-    Return an attelo intrasentential decoding strategy name
-    if it's mentioned in our flags, else None
-    """
-    len_prefix = len('HARNESS:intra:')
-    flags = [f[len_prefix:] for f in flag if is_intra(f)]
-    return IntraStrategy.from_string(flags[0]) if flags else None
 
 
 def _link_data_files(data_dir, eval_dir):
@@ -328,14 +318,23 @@ def _delayed_decode(lconf, dconf, econf, fold):
         subpack = dconf.pack.testing(dconf.folds, fold)
         doc_model_paths = attelo_doc_model_paths(lconf, econf.learner, fold)
 
-        if any(is_intra(f) for f in econf.decoder.flags):
-            strategy = _intra_strategy(econf.decoder.flags)
+        intra_flag = [f for f in econf.decoder.flags if is_intra(f)]
+        intra_flag = intra_flag[0] if intra_flag else None
+        if intra_flag is not None:
             sent_model_paths =\
                 attelo_sent_model_paths(lconf, econf.learner, fold)
-            models =\
-                IntraInterPair(intra=att.decode.load_models(sent_model_paths),
-                               inter=att.decode.load_models(doc_model_paths))
-            decoder = IntraInterDecoder(decoder, strategy)
+
+            intra_model = Team('oracle', 'oracle')\
+                if intra_flag.intra_oracle\
+                else att.decode.load_models(sent_model_paths)
+            inter_model = Team('oracle', 'oracle')\
+                if intra_flag.inter_oracle\
+                else att.decode.load_models(doc_model_paths)
+
+            models = IntraInterPair(intra=intra_model,
+                                    inter=inter_model)
+            decoder = IntraInterDecoder(decoder,
+                                        intra_flag.strategy)
         else:
             models = att.decode.load_models(doc_model_paths)
 
