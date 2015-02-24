@@ -11,7 +11,7 @@ import numpy as np
 
 from attelo.learning import (can_predict_proba)
 from attelo.report import (Count, EduCount)
-from attelo.table import (for_attachment, for_labelling,
+from attelo.table import (for_attachment, for_labelling, for_intra,
                           UNRELATED, UNLABELLED)
 from attelo.util import truncate
 from .intra import (IntraInterPair, select_subgrouping)
@@ -227,9 +227,21 @@ def decode_intra_inter(mode, decoder, dpack, models):
 
     :type models: IntraInterPair(Team(model))
     """
+    if models.intra == 'oracle':
+        # intrasentential oracle should be fed with gold sentence roots
+        dpacks = IntraInterPair(intra=for_intra(dpack),
+                                inter=dpack)
+    else:
+        # otherwise we really need to bother
+        dpacks = IntraInterPair(intra=dpack, inter=dpack)
+
     prob_distribs =\
-        IntraInterPair(intra=build_prob_distrib(mode, dpack, models.intra),
-                       inter=build_prob_distrib(mode, dpack, models.inter))
+        IntraInterPair(intra=build_prob_distrib(mode,
+                                                dpacks.intra,
+                                                models.intra),
+                       inter=build_prob_distrib(mode,
+                                                dpacks.inter,
+                                                models.inter))
     sorted_edus = get_sorted_edus(prob_distribs.inter)
 
     # launch a decoder per sentence
@@ -237,12 +249,12 @@ def decode_intra_inter(mode, decoder, dpack, models):
     for subg in subgroupings(sorted_edus):
         mini_distrib = select_subgrouping(prob_distribs.intra, subg)
         sent_predictions = decoder.decode_sentence(mini_distrib)
-        sent_parses.append(_maybe_post_label(mode, dpack, models.intra,
+        sent_parses.append(_maybe_post_label(mode, dpacks.intra, models.intra,
                                              sent_predictions))
     ##########
 
     doc_predictions = decoder.decode_document(prob_distribs.inter, sent_parses)
-    return _maybe_post_label(mode, dpack, models.inter, doc_predictions,
+    return _maybe_post_label(mode, dpacks.inter, models.inter, doc_predictions,
                              clobber=False)
 
 
