@@ -55,8 +55,10 @@ The wrappers must accept a :py:class:LearnerArgs: tuple,
 the idea being that it would pick out any parameters relevant to it
 and ignore the rest
 '''
-ATTACH_LEARNERS["constant"] = lambda _: DummyClassifier(strategy="constant",
-                                                        constant=1)
+ATTACH_LEARNERS["always"] = lambda _: DummyClassifier(strategy="constant",
+                                                      constant=1)
+ATTACH_LEARNERS["never"] = lambda _: DummyClassifier(strategy="constant",
+                                                     constant=-1)
 ATTACH_LEARNERS["sk-perceptron"] = lambda _: SkPerceptron()
 ATTACH_LEARNERS["sk-pasagg"] = lambda _: SkPassiveAggressiveClassifier()
 
