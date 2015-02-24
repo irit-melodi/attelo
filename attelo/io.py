@@ -337,13 +337,13 @@ def load_model(filename):
     """
     Load model into memory from file.
 
-    Note that we consider the filename '__oracle__' to be special.
+    Note that we consider the filename 'oracle' to be special.
     Instead of loading a model, we simply return the virtual
     oracle decoder
 
     :rtype: sklearn classifier
     """
-    if filename == '__oracle__':
+    if filename == 'oracle':
         return 'oracle'
     else:
         return joblib.load(filename)
