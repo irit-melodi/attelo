@@ -237,7 +237,7 @@ def _get_learner_jobs(args, subpacks):
     rrelate = rconf.relate or rconf.attach
     if rrelate.name == 'oracle':
         pass
-    elif rconf.relate is not None and fp.exists(args.relation_model):
+    elif fp.exists(args.relation_model):
         print("reusing %s relate model (already built)" % rrelate.key,
               file=sys.stderr)
     else:
