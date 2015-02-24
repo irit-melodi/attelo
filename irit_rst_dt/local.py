@@ -24,7 +24,9 @@ live with throwing away as needed"""
 SNAPSHOTS = 'SNAPSHOTS'
 """Results over time we are making a point of saving"""
 
-TRAINING_CORPORA = ['corpus/RSTtrees-WSJ-double-1.0']
+TRAINING_CORPORA = [
+    'corpus/RSTtrees-WSJ-double-1.0'
+]
 """Corpora for use in building/training models and running our
 incremental experiments. Later on we should consider using the
 held-out test data for something, but let's make a point of
@@ -43,14 +45,16 @@ Where to read the Penn Treebank from (should be dir corresponding to
 parsed/mrg/wsj)
 """
 
-FEATURE_SET = 'li2014'  # one of ['eyk', 'li2014']
+FEATURE_SET = 'li2014'  # one of ['dev', 'eyk', 'li2014']
 """
 Which feature set to use for feature extraction
 """
 
-_BASIC_LEARNERS_PROB =\
-    [Variant(key=x, name=x, flags=[]) for x in
-     ["maxent"]]
+_BASIC_LEARNERS_PROB = [
+    Variant(key=x, name=x, flags=[]) for x in [
+        "maxent"
+    ]
+]
 """Attelo learner algorithms to try (probabilistic).
 
 It's up to you to choose values for the key field that can distinguish
@@ -69,26 +73,36 @@ you might have something like
 
 """
 
-_BASIC_LEARNERS_NON_PROB =\
-    [Variant(key=x, name=x, flags=[]) for x in
-     ["sk-perceptron", "sk-pasagg"]]
+_BASIC_LEARNERS_NON_PROB = [
+    Variant(key=x, name=x, flags=[]) for x in [
+        "sk-perceptron",
+        "sk-pasagg"
+    ]
+]
 """
 Models that can only assign a confidence score but not a
 probability to a class
 """
 
 
-_FANCY_LEARNERS =\
-    []
-#    [Variant(key='perc-struct', name='perc-struct', flags=[])]
+_FANCY_LEARNERS = [
+    # Variant(key='perc-struct', name='perc-struct', flags=[])
+]
+
 """Attelo learners that take decoders as arguments.
 We assume that they cannot be used relation modelling
 """
 
 
-_CORE_DECODERS =\
-    [Variant(key=x, name=x, flags=[]) for x in
-     ["last", "local", "locallyGreedy", "mst", "astar"]]
+_CORE_DECODERS = [
+    Variant(key=x, name=x, flags=[]) for x in [
+        "last",
+        "local",
+        "locallyGreedy",
+        "mst",
+        "astar"
+    ]
+]
 """Attelo decoders to try in experiment
 
 Don't forget that you can parameterise the decoders ::
@@ -98,15 +112,16 @@ Don't forget that you can parameterise the decoders ::
             flags=["--nbest", "3"])
 """
 
-_GLOBAL_DECODER_SETTINGS =\
-    [Variant(key='AD.L_joint', name=None,
-             flags=[]),
-     Variant(key='AD.L_joint_intra_only', name=None,
-             flags=['HARNESS:intra:only']),
-     Variant(key='AD.L_joint_intra_heads', name=None,
-             flags=['HARNESS:intra:head']),
-     Variant(key='AD.L_post', name=None,
-             flags=['--post-label'])]
+_GLOBAL_DECODER_SETTINGS = [
+    Variant(key='AD.L_joint', name=None,
+            flags=[]),
+    Variant(key='AD.L_joint_intra_only', name=None,
+            flags=['HARNESS:intra:only']),
+    Variant(key='AD.L_joint_intra_heads', name=None,
+            flags=['HARNESS:intra:head']),
+    Variant(key='AD.L_post', name=None,
+            flags=['--post-label'])
+]
 """Variants on global settings that would generally apply
 over all decoder combos.
 
@@ -290,6 +305,7 @@ You could just set this to EVALUATIONS, but graphs take up disk space
 
 ATTELO_CONFIG_FILE = "attelo.config"
 """Attelo feature configuration"""
+
 
 def print_evaluations():
     """
