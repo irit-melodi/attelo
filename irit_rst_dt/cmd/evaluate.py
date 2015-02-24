@@ -90,11 +90,14 @@ def _eval_banner(econf, lconf, fold):
     """
     Which combo of eval parameters are we running now?
     """
-    return "\n".join(["----------" * 3,
-                      "fold %d [%s]" % (fold, lconf.dataset),
-                      "learner(s): %s" % econf.learner.key,
-                      "decoder: %s" % econf.decoder.key,
-                      "----------" * 3])
+    msg = ("Reassembling "
+           "fold {fnum} [{dset}]\t"
+           "learner(s): {learner}\t"
+           "decoder: {decoder}")
+    return msg.format(fnum=fold,
+                      dset=lconf.dataset,
+                      learner=econf.learner.key,
+                      decoder=econf.decoder.key)
 
 
 def _corpus_banner(lconf):
@@ -228,7 +231,9 @@ def _get_learner_jobs(args, subpacks):
     if rconf.attach.name == 'oracle':
         pass
     elif fp.exists(args.attachment_model):
-        print("reusing %s attach model (already built)" % rconf.attach.key,
+        print("reusing %s attach model (already built): %s" %
+              (rconf.attach.key,
+               fp.relpath(args.attachment_model, args.lconf.scratch_dir)),
               file=sys.stderr)
     else:
         learn_fn = att.learn.learn_and_save_attach
@@ -238,7 +243,9 @@ def _get_learner_jobs(args, subpacks):
     if rrelate.name == 'oracle':
         pass
     elif fp.exists(args.relation_model):
-        print("reusing %s relate model (already built)" % rrelate.key,
+        print("reusing %s relate model (already built): %s" %
+              (rrelate.key,
+               fp.relpath(args.relation_model, args.lconf.scratch_dir)),
               file=sys.stderr)
     else:
         learn_fn = att.learn.learn_and_save_relate
