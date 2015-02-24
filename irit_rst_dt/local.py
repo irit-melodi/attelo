@@ -159,9 +159,6 @@ def expanded_learners():
     """
     default_relate = Learner(key="maxent", name="maxent",
                              flags=[], decoder=None)
-    oracle = Learner(key='oracle', name='oracle',
-                     flags=[], decoder=None)
-
     simple = []
     simple.extend(LearnerConfig(attach=Learner(key=l.key,
                                                name=l.name,
@@ -169,9 +166,6 @@ def expanded_learners():
                                                decoder=None),
                                 relate=None)
                   for l in _BASIC_LEARNERS_PROB)
-
-    simple.append(LearnerConfig(attach=oracle,
-                                relate=None))
 
     # we assume for now that the non-probabilistic learners
     # need to be paired with the maxent relation learner
