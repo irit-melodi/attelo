@@ -279,14 +279,16 @@ def _delayed_learn(lconf, dconf, rconf, fold):
     return jobs
 
 
-def _say_if_decoded(lconf, econf, fold):
+def _say_if_decoded(lconf, econf, fold, stage='decoding'):
     """
     If we have already done the decoding for a given config
     and fold, say so and return True
     """
     if fp.exists(decode_output_path(lconf, econf, fold)):
-        print("skipping %s/%s (already done)" % (econf.learner.key,
-                                                 econf.decoder.key),
+        print(("skipping {stage} {learner} {decoder} "
+               "(already done)").format(stage=stage,
+                                        learner=econf.learner.key,
+                                        decoder=econf.decoder.key),
               file=sys.stderr)
         return True
     else:
@@ -298,7 +300,7 @@ def _delayed_decode(lconf, dconf, econf, fold):
     Return possible futures for decoding groups within
     this model/decoder combo for the given fold
     """
-    if _say_if_decoded(lconf, econf, fold):
+    if _say_if_decoded(lconf, econf, fold, stage='decoding'):
         return []
 
     fold_dir = fold_dir_path(lconf, fold)
@@ -328,7 +330,7 @@ def _post_decode(lconf, dconf, econf, fold):
     """
     Join together output files from this model/decoder combo
     """
-    if _say_if_decoded(lconf, econf, fold):
+    if _say_if_decoded(lconf, econf, fold, stage='reassembly'):
         return
 
     print(_eval_banner(econf, lconf, fold), file=sys.stderr)
