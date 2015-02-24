@@ -27,7 +27,9 @@ SNAPSHOTS = 'SNAPSHOTS'
 """Results over time we are making a point of saving"""
 
 TRAINING_CORPORA = [
-    'corpus/RSTtrees-WSJ-double-1.0'
+    # 'tiny',
+    # 'corpus/RSTtrees-WSJ-main-1.0/TRAINING',
+    'corpus/RSTtrees-WSJ-double-1.0',
 ]
 """Corpora for use in building/training models and running our
 incremental experiments. Later on we should consider using the
@@ -54,7 +56,7 @@ Which feature set to use for feature extraction
 
 _BASIC_LEARNERS_PROB = [
     Variant(key=x, name=x, flags=[]) for x in [
-        "maxent"
+        "maxent",
     ]
 ]
 """Attelo learner algorithms to try (probabilistic).
@@ -78,7 +80,7 @@ you might have something like
 _BASIC_LEARNERS_NON_PROB = [
     Variant(key=x, name=x, flags=[]) for x in [
         "sk-perceptron",
-        "sk-pasagg"
+        "sk-pasagg",
     ]
 ]
 """
@@ -102,7 +104,7 @@ _CORE_DECODERS = [
         "local",
         "locallyGreedy",
         "mst",
-        "astar"
+        "astar",
     ]
 ]
 """Attelo decoders to try in experiment
