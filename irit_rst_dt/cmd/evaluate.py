@@ -6,6 +6,7 @@ run an experiment
 """
 
 from __future__ import print_function
+from collections import Counter
 from os import path as fp
 import glob
 import json
@@ -191,6 +192,22 @@ def _create_eval_dirs(args, data_dir, jumpstart):
             call(["pip", "freeze"], stdout=stream)
 
         return eval_dir, scratch_dir
+
+
+def _sanity_check_config():
+    """
+    Die if there's anything odd about the config
+    """
+    conf_counts = Counter(econf.key for econf in EVALUATIONS)
+    bad_confs = [k for k, v in conf_counts.items() if v > 1]
+    if bad_confs:
+        oops = ("Sorry, there's an error in your configuration.\n"
+                "I don't dare to start evaluation until you fix it.\n"
+                "ERROR! -----------------vvvv---------------------\n"
+                "The following configurations more than once:{}\n"
+                "ERROR! -----------------^^^^^--------------------"
+                "").format("\n".join(bad_confs))
+        sys.exit(oops)
 
 # ---------------------------------------------------------------------
 # evaluation
@@ -582,6 +599,7 @@ def main(args):
     `config_argparser`
     """
     sys.setrecursionlimit(10000)
+    _sanity_check_config()
     stage = args_to_stage(args)
     data_dir = latest_tmp()
     if not os.path.exists(data_dir):
