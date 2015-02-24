@@ -313,6 +313,8 @@ GRAPH_EVALUATIONS = [e for e in EVALUATIONS if
 """
 Any evalutions that we'd like graphs for.
 You could just set this to EVALUATIONS, but graphs take up disk space
+
+HINT: set to empty list for no graphs whatsoever
 """
 
 ATTELO_CONFIG_FILE = "attelo.config"
