@@ -229,8 +229,6 @@ def expanded_learners():
 
 def learner_decoder_pairs(decoders):
     """
-    See :py:func:`learners_for_learning`
-
     Some other considerations:
 
     * in addition to decoders, there are variants on global
@@ -258,18 +256,6 @@ def learner_decoder_pairs(decoders):
     for learner in fancy:
         fancy_pairs.extend((learner(d), d) for d in decoders)
     return simple_pairs + fancy_pairs
-
-
-def learners_for_learning(decoders):
-    """
-    Return a list of learner configurations that we would want
-    to learn models for
-    """
-    simple, fancy = expanded_learners()
-    res = simple
-    for learner in fancy:
-        res.extend([learner(d) for d in decoders])
-    return res
 
 
 def mk_config((learner, decoder), global_settings):
@@ -303,9 +289,6 @@ def mk_config((learner, decoder), global_settings):
                             learner=learner,
                             decoder=decoder2)
 
-
-LEARNERS = learners_for_learning(_CORE_DECODERS)
-"""Learners that we would want to build models for"""
 
 _EVALUATIONS = [mk_config(*x) for x in
                 itertools.product(learner_decoder_pairs(_CORE_DECODERS),

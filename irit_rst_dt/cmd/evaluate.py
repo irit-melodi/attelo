@@ -8,6 +8,7 @@ run an experiment
 from __future__ import print_function
 from collections import Counter
 from os import path as fp
+import itertools as itr
 import glob
 import json
 import os
@@ -39,8 +40,7 @@ from ..attelo_cfg import (attelo_doc_model_paths,
                           GraphArgs)
 
 
-from ..local import (LEARNERS,
-                     EVALUATIONS,
+from ..local import (EVALUATIONS,
                      GRAPH_EVALUATIONS,
                      TRAINING_CORPORA)
 from ..path import (combined_dir_path,
@@ -65,6 +65,8 @@ from ..loop import (LoopConfig,
 NAME = 'evaluate'
 _DEBUG = 0
 
+LEARNERS = [list(econfs)[0].learner for g, econfs in
+            itr.groupby(EVALUATIONS, lambda e: e.learner.key)]
 
 # ---------------------------------------------------------------------
 # CODE CONVENTIONS USED HERE
@@ -78,6 +80,7 @@ _DEBUG = 0
 # ---------------------------------------------------------------------
 # user feedback
 # ---------------------------------------------------------------------
+
 
 def _exit_ungathered():
     """
