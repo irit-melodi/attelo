@@ -43,7 +43,10 @@ def _predict_attach(dpack, models):
     non-probability-capable models), confidence scores
     """
     if models.attach == 'oracle':
-        return dpack.target
+        to_prob = lambda x: 1.0 if x == 1.0 else 0.0
+        # pylint: disable=no-member
+        return np.vectorize(to_prob)(dpack.target)
+        # pylint: enable=no-member
     elif can_predict_proba(models.attach):
         attach_idx = list(models.attach.classes_).index(1)
         probs = models.attach.predict_proba(dpack.data)
