@@ -2,7 +2,6 @@
 Central interface to the learners
 """
 
-from attelo.io import Torpor
 from attelo.table import for_attachment, for_labelling
 from attelo.util import Team
 
@@ -13,31 +12,25 @@ from attelo.util import Team
 # ---------------------------------------------------------------------
 
 
-def learn_attach(learners, dpack, verbose=False):
+def learn_attach(learners, dpack):
     """
     Train attachment learner
     """
-    with Torpor("training attachment model",
-                sameline=False,  # concurrency
-                quiet=not verbose):
-        attach_pack = for_attachment(dpack)
-        return learners.attach.fit(attach_pack.data,
-                                   attach_pack.target)
+    attach_pack = for_attachment(dpack)
+    return learners.attach.fit(attach_pack.data,
+                               attach_pack.target)
 
 
-def learn_relate(learners, dpack, verbose=False):
+def learn_relate(learners, dpack):
     """
     Train relation learner
     """
-    with Torpor("training relations model",
-                sameline=False,  # concurrency
-                quiet=not verbose):
-        relate_pack = for_labelling(dpack.attached_only())
-        return learners.relate.fit(relate_pack.data,
-                                   relate_pack.target)
+    relate_pack = for_labelling(dpack.attached_only())
+    return learners.relate.fit(relate_pack.data,
+                               relate_pack.target)
 
 
-def learn(learners, dpack, verbose=False):
+def learn(learners, dpack):
     """
     Train learners for each attelo task. Return the resulting
     models
@@ -46,8 +39,8 @@ def learn(learners, dpack, verbose=False):
 
     :rtype Team(model)
     """
-    return Team(attach=learn_attach(learners, dpack, verbose),
-                relate=learn_relate(learners, dpack, verbose))
+    return Team(attach=learn_attach(learners, dpack),
+                relate=learn_relate(learners, dpack))
 
 
 def can_predict_proba(model):

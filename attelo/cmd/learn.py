@@ -95,8 +95,7 @@ def learn_and_save_relate(args, learners, dpack):
     with Torpor("training relations model {}".format(model_path),
                 sameline=False,  # concurrency
                 quiet=args.quiet):
-        model = learn_relate(learners, dpack,
-                             verbose=not args.quiet)
+        model = learn_relate(learners, dpack)
     mdir = fp.dirname(model_path)
     if not fp.exists(mdir):
         os.makedirs(mdir)
