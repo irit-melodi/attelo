@@ -8,12 +8,9 @@ subgrouping and then join the results together.
 
 from __future__ import print_function
 from collections import namedtuple
-import sys
 
 from ..edu import (FAKE_ROOT_ID)
 from ..util import (ArgparserEnum, concat_l)
-from .util import (get_sorted_edus,
-                   subgroupings)
 
 # pylint: disable=too-few-public-methods
 
@@ -174,5 +171,3 @@ class IntraInterDecoder(object):
             return _zip_sentences(concat_l, sent_parses)
         elif self._strategy == IntraStrategy.heads:
             return concat_l(_zip_sentences(decode_head, sent_parses))
-
-
