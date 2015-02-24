@@ -69,7 +69,7 @@ def model_basename(lconf, rconf, mtype, ext):
         rsubconf = rconf.relate or rconf.attach
 
     if rsubconf.key == 'oracle':
-        return '__oracle__'
+        return 'oracle'
     else:
         template = '{dataset}.{learner}.{task}.{ext}'
         return template.format(dataset=lconf.dataset,
@@ -86,7 +86,7 @@ def eval_model_path(lconf, rconf, fold, mtype):
         parent_dir = fold_dir_path(lconf, fold)
 
     bname = model_basename(lconf, rconf, mtype, 'model')
-    if bname == '__oracle__':
+    if bname == 'oracle':
         return bname
     else:
         return fp.join(parent_dir, bname)
