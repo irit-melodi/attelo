@@ -10,7 +10,8 @@ from __future__ import print_function
 from collections import namedtuple
 
 from ..edu import (FAKE_ROOT_ID)
-from ..util import (ArgparserEnum, concat_l)
+from ..table import (UNRELATED)
+from ..util import (ArgparserEnum, concat_i, concat_l)
 
 # pylint: disable=too-few-public-methods
 
@@ -22,9 +23,13 @@ class IntraStrategy(ArgparserEnum):
         * only: (mostly for debugging), do not attach
           sentences together at all
         * heads: attach heads of sentences to each other
+        * soft: pass all nodes through to decoder, but
+          assign intrasentential links from the sentence
+          level decoder a probability of 1
     """
     only = 1
     heads = 2
+    soft = 3
 
 
 class IntraInterPair(namedtuple("IntraInterPair",
@@ -167,7 +172,21 @@ class IntraInterDecoder(object):
             rlinks = self._decoder.decode(doc_distrib)
             return rlinks + blinks
 
+        def decode_soft(sent_edges):
+            "soft decoding - pass sentence edges through the prob dist"
+            intra_links = [(e1, e2) for e1, e2, rel in
+                           concat_i(_rootless(e) for e in sent_edges)
+                           if rel != UNRELATED]
+            doc_distrib = []
+            for edu1, edu2, prob, rel in prob_distrib:
+                prob2 = 1.0 if ((edu1.id, edu2.id) in intra_links
+                                and rel != UNRELATED) else prob
+                doc_distrib.append((edu1, edu2, prob2, rel))
+            return self._decoder.decode(doc_distrib)
+
         if self._strategy == IntraStrategy.only:
             return _zip_sentences(concat_l, sent_parses)
         elif self._strategy == IntraStrategy.heads:
             return concat_l(_zip_sentences(decode_head, sent_parses))
+        elif self._strategy == IntraStrategy.soft:
+            return concat_l(_zip_sentences(decode_soft, sent_parses))
