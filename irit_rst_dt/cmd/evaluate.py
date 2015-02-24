@@ -171,7 +171,7 @@ def _create_eval_dirs(args, data_dir, jumpstart):
             _link_data_files(data_dir, eval_dir)
             force_symlink(fp.basename(eval_dir), eval_current)
         elif not _DEBUG:
-            sys.exit("Try again in literally one second")
+            sys.exit("Try again in one minute")
 
         scratch_dir = fp.join(data_dir, "scratch-" + tstamp)
         if not fp.exists(scratch_dir):
