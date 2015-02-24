@@ -8,6 +8,7 @@ In the future we may move this to a proper configuration file.
 # Author: Eric Kow
 # License: CeCILL-B (French BSD3-like)
 
+from __future__ import print_function
 import itertools
 
 from attelo.harness.config import (EvaluationConfig,
@@ -295,3 +296,15 @@ You could just set this to EVALUATIONS, but graphs take up disk space
 
 ATTELO_CONFIG_FILE = "attelo.config"
 """Attelo feature configuration"""
+
+def print_evaluations():
+    """
+    Print out the name of each evaluation in our config
+    """
+    for econf in EVALUATIONS:
+        print(econf)
+        print()
+    print("\n".join(econf.key for econf in EVALUATIONS))
+
+if __name__ == '__main__':
+    print_evaluations()
