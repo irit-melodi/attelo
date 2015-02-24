@@ -281,35 +281,31 @@ def for_intra(pack):
     edu is a subgrouping head (if it has no parents other than than
     'ROOT' within its subgrouping).
 
-    Note: we assume that subgroupings are contiguous in this code
-
     This should be done before either :pyfunc:`for_labelling` or
     pyfunc:`for_attachment`
 
     :rtype: :py:class:`DataPack`
     '''
-    def _reset():
-        "return new local control values"
-        return set(), set([FAKE_ROOT_ID]), {}
-    all_heads = []
-    subgrouping = None
-    local_heads, ruled_out, indices = _reset()
-    for i, (edu1, edu2) in enumerate(pack.pairings):
-        new_subgrouping = edu1.subgrouping or edu2.subgrouping
-        if new_subgrouping != subgrouping:
-            all_heads.extend(indices[x] for x in local_heads)
-            local_heads, ruled_out, indices = _reset()
-            subgrouping = new_subgrouping
 
+    local_heads = defaultdict(set)
+    ruled_out = defaultdict(set)
+    indices = {}
+    for i, (edu1, edu2) in enumerate(pack.pairings):
+        subgrouping = edu1.subgrouping or edu2.subgrouping
         if edu1.id == FAKE_ROOT_ID:
-            if edu2.id not in ruled_out:
-                local_heads.add(edu2.id)
+            if edu2.id not in ruled_out[subgrouping]:
+                local_heads[subgrouping].add(edu2.id)
                 indices[edu2.id] = i
         else:
             # any child edu is necessarily ruled out
-            ruled_out.add(edu2.id)
-            if edu2.id in local_heads:
-                local_heads.remove(edu2.id)
+            ruled_out[subgrouping].add(edu2.id)
+            if edu2.id in local_heads[subgrouping]:
+                local_heads[subgrouping].remove(edu2.id)
+
+    all_heads = []
+    for subgrouping, heads in local_heads.items():
+        all_heads.extend(indices[x] for x in heads
+                         if x not in ruled_out[subgrouping])
 
     # pylint: disable=no-member
     new_target = numpy.copy(pack.target)
