@@ -36,10 +36,9 @@ from ..attelo_cfg import (attelo_doc_model_paths,
                           DecodeArgs,
                           ReportArgs,
                           InspectArgs,
+                          GraphDiffMode,
                           GoldGraphArgs,
                           GraphArgs)
-
-
 from ..local import (EVALUATIONS,
                      GRAPH_EVALUATIONS,
                      TRAINING_CORPORA)
@@ -418,10 +417,9 @@ def _mk_graphs(lconf, dconf):
     with Torpor('creating graphs for fold {}'.format(fold),
                 sameline=False):
         jobs = []
-        jobs.extend([delayed(_mk_econf_graphs)(lconf, econf, fold, True)
-                     for econf in GRAPH_EVALUATIONS])
-        jobs.extend([delayed(_mk_econf_graphs)(lconf, econf, fold, False)
-                     for econf in GRAPH_EVALUATIONS])
+        for mode in GraphDiffMode:
+            jobs.extend([delayed(_mk_econf_graphs)(lconf, econf, fold, mode)
+                         for econf in GRAPH_EVALUATIONS])
         _parallel(lconf)(jobs)
 
 

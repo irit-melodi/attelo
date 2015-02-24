@@ -2,6 +2,7 @@
 Attelo command configuration
 """
 
+from enum import Enum
 from os import path as fp
 import argparse
 
@@ -343,13 +344,20 @@ class GoldGraphArgs(CliArgs):
         return args
 
 
+class GraphDiffMode(Enum):
+    "what sort of graph output to make"
+    solo = 1
+    diff = 2
+    diff_intra = 3
+
+
 class GraphArgs(CliArgs):
     'cmd line args to generate graphs (for a fold)'
-    def __init__(self, lconf, econf, fold, diff):
+    def __init__(self, lconf, econf, fold, diffmode):
         self.lconf = lconf
         self.econf = econf
         self.fold = fold
-        self.diff = diff
+        self.diffmode = diffmode
         super(GraphArgs, self).__init__()
 
     def parser(self):
@@ -365,7 +373,12 @@ class GraphArgs(CliArgs):
         args = [edu_input_path(lconf),
                 '--graphviz-timeout', str(15),
                 '--quiet']
-        if self.diff:
+
+        if self.diffmode == GraphDiffMode.solo:
+            output_bn_prefix = 'graphs-'
+            args.extend(['--predictions',
+                         decode_output_path(lconf, econf, fold)])
+        else:
             has_stripped = fp.exists(features_path(lconf, stripped=True))
             output_bn_prefix = 'graphs-gold-vs-'
             args.extend(['--gold',
@@ -373,10 +386,10 @@ class GraphArgs(CliArgs):
                          features_path(lconf, stripped=has_stripped),
                          '--diff-to',
                          decode_output_path(lconf, econf, fold)])
-        else:
-            output_bn_prefix = 'graphs-'
-            args.extend(['--predictions',
-                         decode_output_path(lconf, econf, fold)])
+
+        if self.diffmode == GraphDiffMode.diff_intra:
+            output_bn_prefix = 'graphs-sent-gold-vs-'
+            args.extend(['--intra'])
 
         output_path = fp.join(report_dir_path(lconf, None),
                               output_bn_prefix + fold_dir_basename(fold),
