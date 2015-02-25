@@ -273,6 +273,20 @@ def for_labelling(pack):
     return pack
 
 
+def _select_intrasentential(pack):
+    """
+    Retain only the pairings from a datapack which correspond to
+    EDUs in the same sentence
+    """
+    retain = []
+    for i, (edu1, edu2) in enumerate(pack.pairings):
+        if edu1.id == FAKE_ROOT_ID:
+            continue
+        if edu1.subgrouping == edu2.subgrouping:
+            retain.append(i)
+    return pack.selected(retain)
+
+
 def for_intra(pack):
     '''
     Adapt a datapack to intrasentential decoding. An intrasenential
@@ -286,7 +300,7 @@ def for_intra(pack):
 
     :rtype: :py:class:`DataPack`
     '''
-
+    pack = _select_intrasentential(pack)
     local_heads = defaultdict(set)
     ruled_out = defaultdict(set)
     indices = {}
