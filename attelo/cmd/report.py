@@ -18,6 +18,7 @@ from ..decoding import (count_correct_edges, count_correct_edus)
 from ..io import load_predictions, Torpor
 from ..report import (CombinedReport, Report,
                       show_confusion_matrix)
+from ..table import (UNRELATED)
 from .util import (load_args_data_pack,
                    get_output_dir, announce_output_dir)
 
@@ -211,6 +212,27 @@ def score_outputs(dpack, fold_dict, index):
     reports = CombinedReport({k: Report(v, params=NullParams(dummy=None))
                               for k, v in evals.items()})
     return reports, confusion
+
+
+def score_predictions_by_label(dpack, predict_file):
+    """
+    Return a single label-by-label scoring report for a given
+    predictions file
+    """
+    predictions = load_predictions(predict_file)
+    unrelated = dpack.label_number(UNRELATED)
+
+    for target in dpack.target:
+        if target == unrelated:
+            continue
+        label = dpack.get_label(target)
+        # pylint: disable=no-member
+        r_indices = numpy.where(dpack.target == target)[0]
+        # pylint: disable=no-member
+        r_dpack = dpack.selected(r_indices)
+        r_predictions = [(e1, e2, r) for (e1, e2, r) in predictions
+                         if r == label]
+        yield label, count_correct_edges(r_dpack, r_predictions)
 
 
 def _key_filename(output_dir, prefix, key):
