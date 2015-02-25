@@ -220,6 +220,8 @@ def score_predictions_by_label(dpack, predict_file):
     predictions file
     """
     predictions = load_predictions(predict_file)
+    predictions = [(e1, e2, r) for (e1, e2, r) in predictions
+                   if r != UNRELATED]
     unrelated = dpack.label_number(UNRELATED)
 
     for target in dpack.target:
