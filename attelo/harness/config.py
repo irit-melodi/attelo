@@ -127,31 +127,15 @@ class LearnerConfig(Team):
 
 
 class EvaluationConfig(namedtuple("EvaluationConfig",
-                                  "key learner decoder")):
+                                  "key settings_key learner decoder")):
     """
     Combination of learners and decoders for an attelo
     evaluation
 
+    :type settings_key: string
     :type learner: LearnerConfig
     :type decoder: Variant
     """
-    def for_json(self, predictions):
-        """
-        (see the documentation on index files mentioned in
-        :doc:`report`)
-
-        :param predictions: relative filename for predictions
-                            that would be generated for this
-                            configuration
-        """
-        res = {}
-        res['attach-learner'] = self.learner.attach.key
-        if self.learner.relate is not None:
-            res['relate-learner'] = self.learner.relate.key
-        res['decoder'] = self.decoder.key
-        res['predictions'] = predictions
-        return res
-
     @classmethod
     def simple_key(cls, learner, decoder):
         """

@@ -7,27 +7,154 @@ Helpers for result reporting
 
 # pylint: disable=too-few-public-methods
 
+from __future__ import print_function
+from collections import (namedtuple, defaultdict)
+from os import path as fp
 
-def mk_index(folds, configurations):
+from .util import makedirs
+from ..report import (EdgeReport,
+                      EduReport,
+                      CombinedReport,
+                      show_confusion_matrix)
+from ..score import (empty_confusion_matrix,
+                     build_confusion_matrix,
+                     score_edges,
+                     score_edges_by_label,
+                     score_edus)
+
+
+class ReportPack(namedtuple('ReportPack',
+                            ['edge',
+                             'edge_by_label',
+                             'edu',
+                             'confusion',
+                             'confusion_labels'])):
     """
-    Generate an index file for attelo report (see :doc:`report`)
+    Collection of reports of various sorts
 
-    :param folds: mapping of folds to relative path for data
-                  associated with that fold (eg. `{3:'fold-3'}`)
-    :type folds: [(int, string)]
+    Missing reports can be set to None (but confusion_labels
+    should be set if confusion is set)
 
-    :param configurations: mapping of configurations to relative
-                           path to outputs for that config
-    :type configurations: [(:py:class:`EvaluationConfig`, string)]
-
-    :rtype: dict (for json)
+    :type edge_by_label: dict(string, CombinedReport)
+    :type confusion: dict(string, array)
     """
-    res = {'folds': [],
-           'configurations': []}
 
-    for fold_num, path in folds:
-        res['folds'].append({'number': fold_num,
-                             'path':  path})
-    for config, path in configurations:
-        res['configurations'].append(config.for_json(path))
-    return res
+    def dump(self, output_dir):
+        """
+        Save reports to an output directory
+        """
+        makedirs(output_dir)
+        if self.edge is not None:
+            # edgewise scores
+            ofilename = fp.join(output_dir, 'scores.txt')
+            with open(ofilename, 'w') as ostream:
+                print(self.edge.table(), file=ostream)
+
+        if self.edu is not None:
+            # edu scores
+            ofilename = fp.join(output_dir, 'edu-scores.txt')
+            with open(ofilename, 'w') as ostream:
+                print(self.edu.table(), file=ostream)
+
+        if self.edge_by_label is not None:
+            label_dir = fp.join(output_dir, 'label-scores')
+            makedirs(label_dir)
+            for key, report in self.edge_by_label.items():
+                ofilename = fp.join(label_dir, '-'.join(key))
+                with open(ofilename, 'w') as ostream:
+                    print(report.table(), file=ostream)
+
+        if self.confusion is not None:
+            confusion_dir = fp.join(output_dir, 'confusion')
+            makedirs(confusion_dir)
+            for key, matrix in self.confusion.items():
+                ofilename = fp.join(confusion_dir, '-'.join(key))
+                with open(ofilename, 'w') as ostream:
+                    print(show_confusion_matrix(self.confusion_labels, matrix),
+                          file=ostream)
+
+
+class Slice(namedtuple('Slice',
+                       ['fold',
+                        'configuration',
+                        'predictions',
+                        'enable_details'])):
+    '''
+    A piece of the full report that we would like to build.
+    See :pyfunc:`full_report`
+
+    :type fold: int
+
+    :param configuration: arbitrary strings to identify individual
+                          configuration; we'd typically expect the
+                          a configuration to appear over multiple
+                          folds
+    :type configuration: (string, string...)
+
+    :param predictions: list of edges as you'd get in attelo decode
+
+    :param enable_details: True if we want to enable potentially slower
+                         more expensive detailed reporting
+
+    :type enable_details: bool
+    '''
+    pass
+
+
+# pylint: disable=too-many-locals
+# it's a bit hard to write this sort score accumulation code
+# local help
+def full_report(dpack, fold_dict, slices):
+    """
+    Generate a report across a set of folds and configurations.
+
+    This is a bit tricky as the the idea is that we have to acculumate
+    per-configuration results over the folds.
+
+    Here configurations are just arbitrary strings
+
+    :param slices: the predictions for each configuration, for each fold.
+                   Folds should be contiguous for maximum efficiency.
+                   It may be worthwhile to generate this lazily
+    :type: slices: iterable(:pyclass:`Slice`)
+    """
+    edge_count = defaultdict(list)
+    edge_lab_count = defaultdict(lambda: defaultdict(list))
+    edu_reports = defaultdict(EduReport)
+    cmatrix = empty_confusion_matrix(dpack)
+    confusion = defaultdict(lambda: cmatrix)
+
+    fold = None
+    fpack = dpack
+
+    for slc in slices:
+        if slc.fold != fold:
+            fpack = dpack.testing(fold_dict, slc.fold)
+            fold = slc.fold
+        key = slc.configuration
+        # accumulate scores
+        edge_count[key].append(score_edges(fpack, slc.predictions))
+        edu_reports[key].add(score_edus(fpack, slc.predictions))
+        confusion[key] += build_confusion_matrix(fpack, slc.predictions)
+        if slc.enable_details:
+            details = score_edges_by_label(fpack, slc.predictions)
+            for label, lab_count in details:
+                edge_lab_count[key][label].append(lab_count)
+
+    edge_report = CombinedReport(EdgeReport,
+                                 {k: EdgeReport(v)
+                                  for k, v in edge_count.items()})
+    # combine
+    edge_by_label_report = {}
+    for key, counts in edge_lab_count.items():
+        report = CombinedReport(EdgeReport,
+                                {(label,): EdgeReport(vs)
+                                 for label, vs in counts.items()})
+        edge_by_label_report[key] = report
+
+    return ReportPack(edge=edge_report,
+                      edge_by_label=edge_by_label_report or None,
+                      edu=CombinedReport(EduReport, edu_reports),
+                      confusion=confusion,
+                      confusion_labels=dpack.labels)
+# pylint: enable=too-many-locals

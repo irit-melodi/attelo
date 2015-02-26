@@ -1,45 +1,23 @@
 "combine counts into a single report"
 
 from __future__ import print_function
-from collections import defaultdict, namedtuple
 from functools import wraps
 from os import path as fp
 import argparse
-import csv
 import json
-import os
 import sys
 
-import numpy
-from sklearn.metrics import confusion_matrix
-
 from ..args import add_common_args, add_report_args
-from ..decoding import (count_correct_edges, count_correct_edus)
-from ..io import load_predictions, Torpor
-from ..report import (CombinedReport, EdgeReport, EduReport,
-                      show_confusion_matrix)
-from ..table import (UNRELATED)
+from ..io import (load_predictions)
+from ..score import (score_edges, score_edus,
+                     score_edges_by_label,
+                     build_confusion_matrix)
+from ..report import (CombinedReport, EdgeReport, EduReport)
+from ..harness.report import (ReportPack)
 from .util import (load_args_data_pack,
                    get_output_dir, announce_output_dir)
 
-
-EXPECTED_KEYS = ["config", "fold", "counts_file"]
-
-# ---------------------------------------------------------------------
-# helpers
-# ---------------------------------------------------------------------
-
-
-def _read_index_file(fstream):
-    "read the index file into a simple dict"
-    reader = csv.DictReader(fstream, fieldnames=EXPECTED_KEYS)
-    header_row = reader.next()
-    header = [header_row[k] for k in EXPECTED_KEYS]
-    if header != EXPECTED_KEYS:
-        sys.exit("Malformed index file (expected keys: %s, got: %s)"
-                 % (EXPECTED_KEYS, header))
-    return list(reader)
-
+# pylint: disable=too-few-public-methods
 
 # ---------------------------------------------------------------------
 # main
@@ -51,11 +29,9 @@ def config_argparser(psr):
 
     add_common_args(psr)
     add_report_args(psr)
-    input_grp = psr.add_mutually_exclusive_group(required=True)
-    input_grp.add_argument("--index", metavar="FILE",
-                           help="json index file (see doc)")
-    input_grp.add_argument("--predictions", metavar="FILE",
-                           help="single predictions")
+    psr.add_argument("--predictions", metavar="FILE",
+                     help="single predictions",
+                     required=True)
     psr.add_argument("--fold-file", metavar="FILE",
                      type=argparse.FileType('r'),
                      help="read folds from this file")
@@ -100,187 +76,33 @@ def _validate_report_args(wrapped):
     return inner
 
 
-# TODO: we need to revist the question of params in the reporting code
-NullParams = namedtuple("NullParams", "dummy")
-
-
-def _make_relative_wrt(index_file, path):
-    """return modified path, treating relative paths as relative
-    to the directory that the index file is in
-
-    if the parent dir is absolute, this resulting path will be
-    absolute; otherwise it will merely be relative in the same
-    way that the parent dir is
-    """
-    dname = fp.dirname(index_file)
-    return path if fp.isabs(path) else fp.join(dname, path)
-
-
-def _config_key(item):
-    """return an attelo report table key"""
-    learner = item['attach-learner']
-    if 'relate-learner' in item:
-        learner += ':' + item['relate-learner']
-    return (learner, item['decoder'])
-
-
-def read_index(master_index):
-    """read master index and nested fold index files;
-    and return result as a single combined dictionary
-    """
-    with open(master_index, 'r') as index_stream:
-        index = json.load(index_stream)
-        for fold in index['folds']:
-            fold['path'] = _make_relative_wrt(master_index, fold['path'])
-    return index
-
-
-def fake_index(predictions_file, fold):
-    """return a fake index dictionary for a
-    single prediction file
-    """
-    return {'folds': [{'number': fold,
-                       'path': fp.dirname(predictions_file)}],
-            'configurations': [{'attach-learner': 'x',
-                                'decoder': 'x',
-                                'predictions': fp.basename(predictions_file)}]}
-
-
-def build_confusion_matrix(dpack, predictions):
-    """return a confusion matrix show predictions vs desired labels
-    """
-    pred_target = [dpack.label_number(label) for _, _, label in predictions]
-    # we want the confusion matrices to have the same shape regardless
-    # of what labels happen to be used in the particular fold
-    # pylint: disable=no-member
-    labels = numpy.arange(1, len(dpack.labels) + 1)
-    # pylint: enable=no-member
-    return confusion_matrix(dpack.target, pred_target, labels)
-
-
-def score_predictions(dpack, predict_file):
-    """score the given predictions against the data pack,
-    returning counts and a confusion matrix
-    """
-    predictions = load_predictions(predict_file)
-    # score
-    evals = count_correct_edges(dpack, predictions)
-    edu_counts = count_correct_edus(dpack, predictions)
-    cmatrix = build_confusion_matrix(dpack, predictions)
-    return evals, edu_counts, cmatrix
-
-
-def _prediction_file(fold, config):
-    "predictions file for a given config within a fold"
-    return fp.join(fold['path'], config['predictions'])
-
-
-def score_outputs(dpack, fold_dict, index):
-    """read outputs mentioned in the index files and score them
-    against the reference pack
-
-    Return a single combined report
-    """
-    edge_evals = defaultdict(list)
-    edu_reports = defaultdict(EduReport)
-    confusion = {}
-    for fold in index['folds']:
-        fold_num = fold['number']
-        with Torpor('scoring fold {}'.format(fold_num)):
-            fold_num = fold['number']
-            fpack = dpack.testing(fold_dict, fold_num)
-            for config in index['configurations']:
-                key = _config_key(config)
-                counts, ecounts, cmatrix =\
-                    score_predictions(fpack, _prediction_file(fold, config))
-                # score
-                edge_evals[key].append(counts)
-                edu_reports[key].add(ecounts)
-                # we store a separate confusion matrix for each config,
-                # accumulating results across the folds (this should be
-                # safe to do as the matrices have been forced to the
-                # same shape regardless of what labels actually appear
-                # in the fold)
-                if key in confusion:
-                    confusion[key] += cmatrix
-                else:
-                    confusion[key] = cmatrix
-    edge_reports = CombinedReport(EdgeReport,
-                                  {k: EdgeReport(v, params=NullParams(dummy=None))
-                                   for k, v in edge_evals.items()})
-    edu_reports = CombinedReport(EduReport, edu_reports)
-
-    return edge_reports, edu_reports, confusion
-
-
-def score_predictions_by_label(dpack, predict_file):
-    """
-    Return (as a generator) a list of pairs associating each
-    label with scores for that label.
-
-    If you are scoring mutiple folds you could loop over the
-    folds, combining pre-existing scores for each label within
-    the fold with its counterpart in the other folds
-    """
-    predictions = load_predictions(predict_file)
-    predictions = [(e1, e2, r) for (e1, e2, r) in predictions
-                   if r != UNRELATED]
-    unrelated = dpack.label_number(UNRELATED)
-
-    for target in dpack.target:
-        if target == unrelated:
-            continue
-        label = dpack.get_label(target)
-        # pylint: disable=no-member
-        r_indices = numpy.where(dpack.target == target)[0]
-        # pylint: disable=no-member
-        r_dpack = dpack.selected(r_indices)
-        r_predictions = [(e1, e2, r) for (e1, e2, r) in predictions
-                         if r == label]
-        yield label, count_correct_edges(r_dpack, r_predictions)
-
-
-def _key_filename(output_dir, prefix, key):
-    'from config key to filename'
-    bname = '-'.join([prefix] + list(key))
-    return fp.join(output_dir, bname)
-
-
-def main_for_harness(args, dpack, output_dir):
-    "main for direct calls via test harness"
-    if args.index is not None:
-        index = read_index(args.index)
-        fold_dict = json.load(args.fold_file)
-    elif args.fold is not None:
-        index = fake_index(args.predictions, args.fold)
-        fold_dict = json.load(args.fold_file)
-    else:
-        index = fake_index(args.predictions, 0)
-        fold_dict = {k: 0 for k in dpack.groupings()}
-    edge_reports, edu_reports, confusion =\
-        score_outputs(dpack, fold_dict, index)
-    if not fp.exists(output_dir):
-        os.makedirs(output_dir)
-    # edgewise scores
-    ofilename = fp.join(output_dir, 'scores.txt')
-    with open(ofilename, 'w') as ostream:
-        print(edge_reports.table(), file=ostream)
-    # edu scores
-    ofilename = fp.join(output_dir, 'edu-scores.txt')
-    with open(ofilename, 'w') as ostream:
-        print(edu_reports.table(), file=ostream)
-    # confusion matrices
-    for key, matrix in confusion.items():
-        ofilename = _key_filename(output_dir, 'confusion', key)
-        with open(ofilename, 'w') as ostream:
-            print(show_confusion_matrix(dpack.labels, matrix),
-                  file=ostream)
-
-
 @_validate_report_args
 def main(args):
     "subcommand main (invoked from outer script)"
     output_dir = get_output_dir(args)
     dpack = load_args_data_pack(args)
-    main_for_harness(args, dpack, output_dir)
+    if args.fold is not None:
+        fold_dict = json.load(args.fold_file)
+        dpack = dpack.testing(fold_dict, args.fold)
+
+    predictions = load_predictions(args.predictions)
+    edge_counts = score_edges(dpack, predictions)
+    edge_label_counts = score_edges_by_label(dpack, predictions)
+    edu_counts = score_edus(dpack, predictions)
+    cmatrix = build_confusion_matrix(dpack, predictions)
+
+    rel_report = CombinedReport(EdgeReport,
+                                {(k,): EdgeReport([v])
+                                 for k, v in edge_label_counts})
+
+    key = fp.basename(args.prediction)
+
+    rpack = ReportPack(edge=CombinedReport(EdgeReport,
+                                           {key: edge_counts}),
+                       edu=CombinedReport(EduReport,
+                                          {key: edu_counts}),
+                       edge_by_rel=rel_report,
+                       confusion=cmatrix,
+                       confusion_labels=dpack.labels)
+    rpack.dump(output_dir)
     announce_output_dir(output_dir)

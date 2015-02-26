@@ -9,6 +9,8 @@ import sys
 
 from tabulate import tabulate
 
+from .score import (Count, EduCount)
+
 # pylint: disable=too-few-public-methods
 
 try:
@@ -40,76 +42,6 @@ def _f1_score(prec, recall):
     """
     return 2 * _sloppy_div(prec * recall, prec + recall)
 
-
-class Count(namedtuple('Count',
-                       ['tpos_attach',
-                        'tpos_label',
-                        'tpos_fpos',
-                        'tpos_fneg'])):
-    """
-    Things we would count during the scoring process
-    """
-    @classmethod
-    def sum(cls, counts):
-        """
-        Count made of the total of all counts
-        """
-        return cls(sum(x.tpos_attach for x in counts),
-                   sum(x.tpos_label for x in counts),
-                   sum(x.tpos_fpos for x in counts),
-                   sum(x.tpos_fneg for x in counts))
-
-    def score_attach(self, correction=1.0):
-        """
-        Compute the attachment precision, recall, etc based on this count
-        """
-        return Score(_sloppy_div(self.tpos_attach, self.tpos_fpos),
-                     _sloppy_div(self.tpos_attach, self.tpos_fneg),
-                     correction)
-
-    def score_label(self, correction=1.0):
-        """
-        Compute the labeling precision, recall, etc based on this count
-        """
-        return Score(_sloppy_div(self.tpos_label, self.tpos_fpos),
-                     _sloppy_div(self.tpos_label, self.tpos_fneg),
-                     correction)
-
-
-class EduCount(namedtuple('EduCount',
-                          ['correct_attach',
-                           'correct_label',
-                           'total'])):
-    """
-    Things we would count during the scoring process
-    """
-    @classmethod
-    def sum(cls, counts):
-        """
-        Count made of the total of all counts
-        """
-        return cls(sum(x.correct_attach for x in counts),
-                   sum(x.correct_label for x in counts),
-                   sum(x.total for x in counts))
-
-    def __add__(self, other):
-        return EduCount(self.correct_attach + other.correct_attach,
-                        self.correct_label + other.correct_label,
-                        self.total + other.total)
-
-    def score_attach(self):
-        """
-        Compute the attachment precision, recall, etc based on this count
-        """
-        return EduScore(_sloppy_div(self.correct_attach, self.total))
-
-    def score_label(self):
-        """
-        Compute the labeling precision, recall, etc based on this count
-        """
-        return EduScore(_sloppy_div(self.correct_label, self.total))
-
-
 ScoreConfig = namedtuple("ScoreConfig", "correction prefix")
 
 DEFAULT_SCORE_CONFIG = ScoreConfig(correction=1.0,
@@ -135,6 +67,35 @@ class Score(object):
         else:
             self.f1_corr = None
             self.recall_corr = None
+
+    @classmethod
+    def score(cls, tpos, tpos_fpos, tpos_fneg, correction):
+        """
+        From counts to precision/recall scores
+        """
+        return cls(_sloppy_div(tpos, tpos_fpos),
+                   _sloppy_div(tpos, tpos_fneg),
+                   correction)
+
+    @classmethod
+    def score_attach(cls, count, correction):
+        """
+        From counts to precision/recall scores
+        """
+        return cls.score(count.tpos_attach,
+                         count.tpos_fpos,
+                         count.tpos_fneg,
+                         correction)
+
+    @classmethod
+    def score_label(cls, count, correction):
+        """
+        From counts to precision/recall scores
+        """
+        return cls.score(count.tpos_label,
+                         count.tpos_fpos,
+                         count.tpos_fneg,
+                         correction)
 
     def for_json(self):
         """
@@ -186,6 +147,27 @@ class EduScore(object):
     """
     def __init__(self, accuracy):
         self.accuracy = accuracy
+
+    @classmethod
+    def score(cls, correct, total):
+        """
+        Compute the attachment precision, recall, etc based on this count
+        """
+        return cls(_sloppy_div(correct, total))
+
+    @classmethod
+    def score_attach(cls, count):
+        """
+        Compute the attachment accurracy
+        """
+        return cls.score(count.correct_attach, count.total)
+
+    @classmethod
+    def score_label(cls, count):
+        """
+        Compute the labeling accuracy
+        """
+        return cls.score(count.correct_label, count.total)
 
     def for_json(self):
         """
@@ -337,10 +319,10 @@ class EdgeReport(object):
         self.config = ScoreConfig(prefix=None,
                                   correction=correction)
         self.attach =\
-            Multiscore.create(lambda x: x.score_attach(correction),
+            Multiscore.create(lambda x: Score.score_attach(x, correction),
                               totals, evals)
         self.label =\
-            Multiscore.create(lambda x: x.score_label(correction),
+            Multiscore.create(lambda x: Score.score_label(x, correction),
                               totals, evals)
         self.params = params if params is not None else {}
 
@@ -395,14 +377,14 @@ class EduReport(object):
     """
     def __init__(self):
         self.totals = EduCount(0, 0, 0)
-        self.attach = self.totals.score_attach()
-        self.label = self.totals.score_label()
+        self.attach = EduScore(0)
+        self.label = EduScore(0)
 
     def add(self, new_eval):
         "add new EDU level counts to current total"
         self.totals += new_eval
-        self.attach = self.totals.score_attach()
-        self.label = self.totals.score_label()
+        self.attach = EduScore.score_attach(self.totals)
+        self.label = EduScore.score_label(self.totals)
 
     def for_json(self):
         """
