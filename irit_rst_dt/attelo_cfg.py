@@ -18,10 +18,8 @@ from .path import (decode_output_path,
                    eval_model_path,
                    features_path,
                    fold_dir_basename,
-                   model_info_path,
                    pairings_path,
-                   report_dir_path,
-                   vocab_path)
+                   report_dir_path)
 
 # pylint: disable=too-few-public-methods
 
@@ -181,41 +179,6 @@ class DecodeArgs(CliArgs):
                      "--output", decode_output_path(lconf, econf, fold)])
         args.extend(censor_flags(econf.decoder.flags))
         return args
-
-
-class InspectArgs(CliArgs):
-    "args for attelo inspect"
-    def __init__(self, lconf, rconf, fold=None, intra=False):
-        self.lconf = lconf
-        self.rconf = rconf
-        self.fold = fold
-        self.intra = intra
-        super(InspectArgs, self).__init__()
-
-    def parser(self):
-        """
-        The argparser that would be called on context manager
-        entry
-        """
-        psr = argparse.ArgumentParser()
-        att.inspect.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        """
-        Command line arguments that would correspond to this
-        configuration
-
-        :rtype: `[String]`
-        """
-        lconf = self.lconf
-        rconf = self.rconf
-        info_output = model_info_path(lconf, rconf, self.fold, self.intra)
-        argv = [features_path(lconf),
-                vocab_path(lconf),
-                '--output', info_output]
-        argv.extend(_attelo_model_args(lconf, rconf, self.fold, self.intra))
-        return argv
 # pylint: enable=too-many-instance-attributes
 
 

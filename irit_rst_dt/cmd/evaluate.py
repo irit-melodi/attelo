@@ -8,6 +8,7 @@ run an experiment
 from __future__ import print_function
 from collections import Counter
 from os import path as fp
+import codecs
 import itertools as itr
 import glob
 import os
@@ -19,6 +20,7 @@ from joblib import (Parallel, delayed)
 from attelo.args import (args_to_decoder, args_to_learners)
 from attelo.io import (load_data_pack, load_predictions,
                        load_fold_dict, save_fold_dict,
+                       load_model, load_vocab,
                        Torpor)
 from attelo.decoding.intra import (IntraInterPair,
                                    IntraInterDecoder)
@@ -29,13 +31,14 @@ from attelo.table import (for_intra)
 from attelo.util import (Team, mk_rng)
 import attelo.cmd as att
 import attelo.fold
+import attelo.score
+import attelo.report
 
 from ..attelo_cfg import (attelo_doc_model_paths,
                           attelo_sent_model_paths,
                           intra_flags,
                           LearnArgs,
                           DecodeArgs,
-                          InspectArgs,
                           GraphDiffMode,
                           GoldGraphArgs,
                           GraphArgs)
@@ -48,9 +51,11 @@ from ..path import (combined_dir_path,
                     eval_model_path,
                     features_path,
                     fold_dir_path,
+                    model_info_path,
                     pairings_path,
                     report_dir_basename,
-                    report_dir_path)
+                    report_dir_path,
+                    vocab_path)
 from ..util import (concat_i,
                     latest_tmp,
                     md5sum_file)
@@ -396,17 +401,36 @@ def _mk_report(lconf, dconf, slices, fold):
         elif rconf.relate is not None and rconf.relate.name == 'oracle':
             pass
         else:
-            _mk_model_summary(lconf, rconf, fold)
+            _mk_model_summary(lconf, dconf, rconf, fold)
 
 
-def _mk_model_summary(lconf, rconf, fold):
+def _mk_model_summary(lconf, dconf, rconf, fold):
     "generate summary of best model features"
-    with InspectArgs(lconf, rconf, fold, intra=False) as args:
-        att.inspect.main_for_harness(args)
+    _top_n = 3
+
+    def _write_discr(discr, intra):
+        "write discriminating features to disk"
+        output = model_info_path(lconf, rconf, fold, intra)
+        with codecs.open(output, 'wb', 'utf-8') as fout:
+            print(attelo.report.show_discriminating_features(discr),
+                  file=fout)
+
+    labels = dconf.pack.labels
+    vocab = load_vocab(vocab_path(lconf))
+    # doc level discriminating features
+    if True:
+        models = attelo_doc_model_paths(lconf, rconf, fold).fmap(load_model)
+        discr = attelo.score.discriminating_features(models, labels, vocab,
+                                                     _top_n)
+        _write_discr(discr, False)
+
+    # sentence-level
     spaths = attelo_sent_model_paths(lconf, rconf, fold)
     if fp.exists(spaths.attach) and fp.exists(spaths.relate):
-        with InspectArgs(lconf, rconf, fold, intra=True) as args:
-            att.inspect.main_for_harness(args)
+        models = spaths.fmap(load_model)
+        discr = attelo.score.discriminating_features(models, labels, vocab,
+                                                     _top_n)
+        _write_discr(discr, True)
 
 
 def _mk_econf_graphs(lconf, econf, fold, diff):
