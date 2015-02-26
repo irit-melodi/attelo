@@ -49,7 +49,12 @@ class Team(namedtuple("Team", "attach relate")):
     Any collection where we have the same thing but duplicated
     for each attelo subtask (eg. models, learners,)
     """
-    pass
+    def fmap(self, func):
+        """
+        Apply a function to each member of the collection
+        """
+        return Team(attach=func(self.attach),
+                    relate=func(self.relate))
 
 
 def truncate(text, width):
