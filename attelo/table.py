@@ -300,7 +300,7 @@ def for_intra(pack):
 
     :rtype: :py:class:`DataPack`
     '''
-    pack = _select_intrasentential(pack)
+    # pack = _select_intrasentential(pack)
     local_heads = defaultdict(set)
     ruled_out = defaultdict(set)
     indices = {}
