@@ -5,11 +5,13 @@ Experiment results
 from __future__ import print_function
 from collections import namedtuple
 import itertools
+import six
 import sys
 
 from tabulate import tabulate
 
 from .score import (Count, EduCount)
+from .util import (concat_l)
 
 # pylint: disable=too-few-public-methods
 
@@ -443,6 +445,10 @@ class CombinedReport(object):
         return {k: v.for_json() for k, v in self.reports.items()}
 
 
+# ---------------------------------------------------------------------
+# confusion matrix
+# ---------------------------------------------------------------------
+
 def _mk_confusion_row(ignore, row):
     '''
     Given a list of numbers, replace the zeros by '.'.
@@ -472,3 +478,78 @@ def show_confusion_matrix(labels, matrix):
     for rnum, (label, row) in enumerate(zip(labels, matrix.tolist())):
         body.append([label] + _mk_confusion_row(rnum, row))
     return tabulate(headers + body)
+
+# ---------------------------------------------------------------------
+# discriminating features
+# ---------------------------------------------------------------------
+
+
+def _condense_cell(old, new):
+    """
+    Maximise readability of the new cell given that it's sitting
+    below the old one in a 2D table
+    """
+    if isinstance(new, six.string_types):
+        is_eqish = lambda (x, y): x == y and '=' not in [x, y]
+        zipped = list(itertools.izip_longest(old, new))
+        prefix = itertools.takewhile(is_eqish, zipped)
+        suffix = itertools.dropwhile(is_eqish, zipped)
+        return ''.join(['.' for _ in prefix] +
+                       [n if n is not None else '' for _, n in suffix])
+    else:
+        return '{:.2f}'.format(new)
+
+
+def _condense_table(rows):
+    """
+    Make a table more readable by replacing identical columns in
+    subsequent rows by "
+    """
+    if not rows:
+        return rows
+    results = []
+    current_row = ['' for _ in rows[0]]
+    for row in rows:
+        new_row = [row[0]]
+        new_row.extend(_condense_cell(old, new)
+                       for old, new in zip(current_row[1:], row[1:]))
+        results.append(new_row)
+        current_row = row
+    return results
+
+
+def _sort_table(rows):
+    """
+    Return rows in the following order
+
+    * UNRELATED always comes first
+    * otherwise, sort by the names of top N features
+
+    The hope is that this would visually group together the same
+    features so you can see a natural separation
+    """
+    label_value = {'UNRELATED': -2}
+
+    def ordering_key(row):
+        "tweaked version of list of sorting"
+        label = label_value.get(row[0], 0)
+        rest = row[1::2]
+        return (label, rest)
+
+    return sorted(rows, key=ordering_key)
+
+
+def show_discriminating_features(listing):
+    """
+    Given a list of discriminating features for each label,
+    return a string containing a hopefully friendly 2D table
+    visualisation
+
+    :param feats: a list of (label, features) pair; the features
+    are themselves a list of (feature, weight) pairs
+
+    :type feats: [ (string, [(string, float)]) ]
+    """
+    rows = [[label] + concat_l(feats) for
+            label, feats in listing]
+    return tabulate(_condense_table(_sort_table(rows)))

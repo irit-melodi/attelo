@@ -7,7 +7,7 @@ from collections import (defaultdict, namedtuple)
 import numpy
 from sklearn.metrics import confusion_matrix
 
-from .table import (UNRELATED)
+from .table import (UNRELATED, get_label_string)
 
 # pylint: disable=too-few-public-methods
 
@@ -171,3 +171,45 @@ def empty_confusion_matrix(dpack):
     # pylint: disable=no-member
     return numpy.zeros((llen, llen))
     # pylint: disable=no-member
+
+
+def _best_feature_indices(vocab, model, class_index, top_n):
+    """
+    Return a list of strings representing the best features in
+    a model for a given class index
+    """
+    weights = model.coef_[class_index]   # higher is better?
+    # pylint: disable=no-member
+    best_idxes = numpy.argsort(weights)[-top_n:][::-1]
+    best_weights = numpy.take(weights, best_idxes)
+    # pylint: enable=no-member
+    return [(vocab[j], w)
+            for j, w in zip(best_idxes, best_weights)]
+
+
+def discriminating_features(models, labels, vocab, top_n):
+    """return the most discriminating features (and their weights)
+    for each label in the models
+
+    See :pyfunc:`attelo.report.show_discriminating_features`
+
+    :param top_n number of features to return
+    :type top_n: int
+
+    :type models: Team(model)
+
+    :type labels: [string]
+
+    :param sequence of string labels, ie. one for each possible feature
+    :type vocab: [string]
+
+    :rtype: [(string, [(string, float)])]
+    """
+    best_idxes = lambda m, i: _best_feature_indices(vocab, m, i, top_n)
+
+    rows = []
+    rows.append((UNRELATED, best_idxes(models.attach, 0)))
+    for i, class_ in enumerate(models.relate.classes_):
+        label = get_label_string(labels, class_)
+        rows.append((label, best_idxes(models.relate, i)))
+    return rows
