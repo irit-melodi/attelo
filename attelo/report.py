@@ -328,14 +328,6 @@ class Multiscore(object):
         return Score.table_header(config=config)
 
 
-def fmt_num_row(row):
-    'make rows a bit more readable'
-    if all(r == 0 for r in row):
-        return ['-' for r in row]
-    else:
-        return ['{:.3f}'.format(r) for r in row]
-
-
 class Report(object):
     """
     Experimental results and some basic statistical tests on them
@@ -437,11 +429,11 @@ class CombinedReport(object):
         2D tabular output
         """
         keys = sorted(self.reports.keys())
-        rows = [list(k) + fmt_num_row(self.reports[k].edge_table_row())
+        rows = [list(k) + self.reports[k].edge_table_row()
                 for k in keys]
         return tabulate(rows,
                         headers=Report.edge_table_header(),
-                        stralign='right')
+                        floatfmt=".3f")
 
     def edu_table(self):
         """
