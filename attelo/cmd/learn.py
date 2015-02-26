@@ -2,7 +2,6 @@
 
 from __future__ import print_function
 from os import path as fp
-import json
 import os
 
 from joblib import (Parallel, delayed)
@@ -12,7 +11,7 @@ from ..args import\
      add_learner_args, validate_learner_args,
      add_fold_choice_args, validate_fold_choice_args,
      args_to_decoder, args_to_learners)
-from ..io import (Torpor, save_model)
+from ..io import (Torpor, save_model, load_fold_dict)
 from ..learning import (learn_attach, learn_relate)
 from ..table import (for_intra)
 from .util import load_args_data_pack
@@ -35,7 +34,7 @@ def _load_and_select_data(args):
         return dpack
     else:
         # load data pack *AFTER* fold dict (fail faster)
-        fold_dict = json.load(args.fold_file)
+        fold_dict = load_fold_dict(args.fold_file)
         dpack = load_args_data_pack(args)
         return dpack.training(fold_dict, args.fold)
 

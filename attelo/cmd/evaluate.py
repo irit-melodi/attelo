@@ -4,19 +4,18 @@ from __future__ import print_function
 import itertools
 import sys
 
-from ..args import\
-    (add_common_args,
-     add_learner_args, validate_learner_args,
-     add_report_args,
-     args_to_decoder,
-     args_to_decoding_mode,
-     args_to_learners,
-     args_to_rng)
+from ..args import (add_common_args,
+                    add_learner_args, validate_learner_args,
+                    add_report_args,
+                    args_to_decoder,
+                    args_to_decoding_mode,
+                    args_to_learners)
 from ..decoding import (decode)
 from ..learning import (learn)
 from ..fold import make_n_fold
 from ..report import EdgeReport
 from ..score import (score_edges)
+from ..util import (mk_rng)
 from .util import load_args_data_pack
 
 
@@ -97,7 +96,7 @@ def main(args):
     learners = args_to_learners(decoder, args)
 
     fold_dict = make_n_fold(dpack, args.nfold,
-                            args_to_rng(args))
+                            mk_rng(args.shuffle))
 
     evals = []
     # --- fold level -- to be refactored

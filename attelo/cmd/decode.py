@@ -2,7 +2,6 @@
 
 from __future__ import print_function
 from os import path as fp
-import json
 import os
 
 from joblib import (Parallel, delayed)
@@ -11,7 +10,8 @@ from ..args import (add_common_args, add_decoder_args,
                     add_model_read_args,
                     add_fold_choice_args, validate_fold_choice_args,
                     args_to_decoder, args_to_decoding_mode)
-from ..io import (load_model, append_predictions_output)
+from ..io import (load_model, load_fold_dict,
+                  append_predictions_output)
 from ..decoding import (DecoderException, decode)
 from ..util import Team
 from .util import load_args_data_pack
@@ -33,7 +33,7 @@ def _load_and_select_data(args):
         # load fold dictionary before data pack
         # this way, if it fails we find out sooner
         # instead of waiting for the data pack
-        fold_dict = json.load(args.fold_file)
+        fold_dict = load_fold_dict(args.fold_file)
         dpack = load_args_data_pack(args)
         return dpack.testing(fold_dict, args.fold)
 

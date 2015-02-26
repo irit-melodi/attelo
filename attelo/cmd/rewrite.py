@@ -1,23 +1,13 @@
 "save input tables in other handy formats"
 
 from __future__ import print_function
-from itertools import groupby
 from os import path as fp
-import argparse
-import codecs
-import itertools
-import json
-import os
-import sys
 
 from .util import (get_output_dir, announce_output_dir,
                    load_args_data_pack)
 from ..args import add_common_args
-from ..edu import FAKE_ROOT_ID
-from ..io import (load_edus, load_predictions,
+from ..io import (load_fold_dict,
                   start_predictions_output, append_predictions_output)
-from ..table import UNRELATED
-from attelo.harness.util import makedirs
 
 
 def config_argparser(psr):
@@ -25,7 +15,6 @@ def config_argparser(psr):
 
     add_common_args(psr)
     psr.add_argument("fold_file", metavar="FILE",
-                     type=argparse.FileType('r'),
                      help="read folds from this file")
     psr.add_argument("--output", metavar="DIR",
                      help="output directory for graphs")
@@ -51,7 +40,7 @@ def main_for_harness(args):
     """
     output_dir = get_output_dir(args)
     dpack = load_args_data_pack(args)
-    fold_dict = json.load(args.fold_file)
+    fold_dict = load_fold_dict(args.fold_file)
     for fold in set(fold_dict.values()):
         fpack = dpack.testing(fold_dict, fold)
         filename = fp.join(output_dir, "gold-" + str(fold))

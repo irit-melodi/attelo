@@ -3,12 +3,10 @@
 from __future__ import print_function
 from functools import wraps
 from os import path as fp
-import argparse
-import json
 import sys
 
 from ..args import add_common_args, add_report_args
-from ..io import (load_predictions)
+from ..io import (load_predictions, load_fold_dict)
 from ..score import (score_edges, score_edus,
                      score_edges_by_label,
                      build_confusion_matrix)
@@ -33,7 +31,6 @@ def config_argparser(psr):
                      help="single predictions",
                      required=True)
     psr.add_argument("--fold-file", metavar="FILE",
-                     type=argparse.FileType('r'),
                      help="read folds from this file")
     psr.add_argument("--fold", metavar="INT",
                      type=int,
@@ -82,7 +79,7 @@ def main(args):
     output_dir = get_output_dir(args)
     dpack = load_args_data_pack(args)
     if args.fold is not None:
-        fold_dict = json.load(args.fold_file)
+        fold_dict = load_fold_dict(args.fold_file)
         dpack = dpack.testing(fold_dict, args.fold)
 
     predictions = load_predictions(args.predictions)
@@ -95,8 +92,7 @@ def main(args):
                                 {(k,): EdgeReport([v])
                                  for k, v in edge_label_counts})
 
-    key = fp.basename(args.prediction)
-
+    key = (fp.basename(args.prediction),)
     rpack = ReportPack(edge=CombinedReport(EdgeReport,
                                            {key: edge_counts}),
                        edu=CombinedReport(EduReport,

@@ -6,7 +6,10 @@ from argparse import ArgumentTypeError
 from collections import namedtuple
 import enum
 import itertools
+import random
 # pylint: disable=too-few-public-methods
+
+RNG_SEED = "just an illusion"
 
 
 class ArgparserEnum(enum.Enum):
@@ -68,3 +71,19 @@ def concat_l(iters):
     Merge an iterable of iterables into a list
     """
     return list(concat_i(iters))
+
+
+def mk_rng(shuffle=False, default_seed=None):
+    """
+    Return a random number generator instance, hard-seeded
+    unless we ask for shuffling to be enabled
+
+    (note: if shuffle mode is enable, the rng in question
+    will just be the system generator)
+    """
+    if shuffle:
+        return random
+    else:
+        rng = random.Random()
+        rng.seed(default_seed or RNG_SEED)
+        return rng

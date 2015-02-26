@@ -8,6 +8,7 @@ from os import path as fp
 import codecs
 import copy
 import csv
+import json
 import os
 import sys
 import time
@@ -356,3 +357,24 @@ def save_model(filename, model):
     :type: model: sklearn classifier
     """
     joblib.dump(model, filename)
+
+
+# ---------------------------------------------------------------------
+# folds
+# ---------------------------------------------------------------------
+
+
+def load_fold_dict(filename):
+    """
+    Load fold dictionary into memory from file
+    """
+    with open(filename, 'r') as stream:
+        return json.load(stream)
+
+
+def save_fold_dict(fold_dict, filename):
+    """
+    Dump fold dictionary to a file
+    """
+    with open(filename, 'w') as stream:
+        json.dump(fold_dict, stream, indent=2)

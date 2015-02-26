@@ -1,12 +1,11 @@
 "split data into folds"
 
 from __future__ import print_function
-import argparse
-import json
-import sys
 
-from ..args import (add_common_args, args_to_rng, DEFAULT_NFOLD)
+from ..args import (add_common_args, DEFAULT_NFOLD)
 from ..fold import make_n_fold
+from ..io import (save_fold_dict)
+from ..util import (mk_rng)
 from .util import load_args_data_pack
 
 
@@ -24,27 +23,14 @@ def config_argparser(psr):
                      help="if set, ensure a different cross-validation "
                      "of files is done, otherwise, the same file "
                      "splitting is done everytime")
-    psr.add_argument("--output", type=argparse.FileType('w'),
-                     help="save folds to a json file")
-
-
-def main_for_harness(args, dpack):
-    """
-    main function core that you can hook into if writing your own
-    harness
-
-    You have to supply the data yourself
-    """
-    rng = args_to_rng(args)
-    fold_struct = make_n_fold(dpack, args.nfold, rng)
-    json_output = args.output or sys.stdout
-    json.dump(fold_struct, json_output, indent=2)
+    psr.add_argument("--output", metavar='FILE',
+                     help="save folds to a json file",
+                     required=True)
 
 
 def main(args):
     "subcommand main (called from mother script)"
-
     dpack = load_args_data_pack(args)
-    main_for_harness(args, dpack)
-    if args.output is None:
-        print("")
+    rng = mk_rng(args.shuffle)
+    fold_struct = make_n_fold(dpack, args.nfold, rng)
+    save_fold_dict(fold_struct, args.output)

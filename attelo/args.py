@@ -5,8 +5,6 @@ Managing command line arguments
 from __future__ import print_function
 from argparse import ArgumentTypeError
 from functools import wraps
-import argparse
-import random
 import sys
 
 # pylint: disable=no-name-in-module
@@ -59,24 +57,6 @@ DEFAULT_NFOLD = 10
 
 # these are just dummy values (we just want the keys here)
 KNOWN_DECODERS = DECODERS.keys()
-
-RNG_SEED = "just an illusion"
-
-
-def args_to_rng(args):
-    """
-    Return a random number generator instance, hard-seeded
-    unless we ask for shuffling to be enabled
-
-    (note: if shuffle mode is enable, the rng in question
-    will just be the system generator)
-    """
-    if args.shuffle:
-        return random
-    else:
-        rng = random.Random()
-        rng.seed(RNG_SEED)
-        return rng
 
 
 def args_to_decoder(args):
@@ -213,7 +193,6 @@ def add_fold_choice_args(psr):
 
     fold_grp = psr.add_argument_group('fold selection')
     fold_grp.add_argument("--fold-file", metavar="FILE",
-                          type=argparse.FileType('r'),
                           help="read folds from this file")
     fold_grp.add_argument("--fold", metavar="INT",
                           type=int,
