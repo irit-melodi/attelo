@@ -103,41 +103,6 @@ def _attelo_fold_args(lconf, fold):
                 "--fold-file", lconf.fold_file]
 
 
-class EnfoldArgs(CliArgs):
-    """
-    cmdline args for attelo enfold
-    """
-    def __init__(self, lconf):
-        self.lconf = lconf
-        super(EnfoldArgs, self).__init__()
-
-    def parser(self):
-        psr = argparse.ArgumentParser()
-        att.enfold.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        """
-        Command line arguments that would correspond to this
-        configuration
-
-        :rtype: `[String]`
-        """
-        lconf = self.lconf
-        args = []
-        args.extend(_attelo_dpack_args(lconf))
-        args.extend(_ATTELO_CONFIG_ARGS)
-        args.extend(["--output", lconf.fold_file])
-        return args
-
-    # pylint: disable=no-member
-    def __exit__(self, ctype, value, traceback):
-        "Tidy up any open file handles, etc"
-        self.output.close()
-        super(EnfoldArgs, self).__exit__(ctype, value, traceback)
-    # pylint: enable=no-member
-
-
 class LearnArgs(CliArgs):
     """
     cmdline args for attelo learn
@@ -186,13 +151,6 @@ class LearnArgs(CliArgs):
             args.extend(["--intrasentential"])
         return args
 
-    # pylint: disable=no-member
-    def __exit__(self, ctype, value, traceback):
-        "Tidy up any open file handles, etc"
-        if self.fold_file is not None:
-            self.fold_file.close()
-    # pylint: enable=no-member
-
 
 class DecodeArgs(CliArgs):
     """
@@ -223,13 +181,6 @@ class DecodeArgs(CliArgs):
                      "--output", decode_output_path(lconf, econf, fold)])
         args.extend(censor_flags(econf.decoder.flags))
         return args
-
-    # pylint: disable=no-member
-    def __exit__(self, ctype, value, traceback):
-        "Tidy up any open file handles, etc"
-        if self.fold_file is not None:
-            self.fold_file.close()
-    # pylint: enable=no-member
 
 
 class InspectArgs(CliArgs):
@@ -265,12 +216,6 @@ class InspectArgs(CliArgs):
                 '--output', info_output]
         argv.extend(_attelo_model_args(lconf, rconf, self.fold, self.intra))
         return argv
-
-    # pylint: disable=no-member
-    def __exit__(self, ctype, value, traceback):
-        "Tidy up any open file handles, etc"
-        super(InspectArgs, self).__exit__(ctype, value, traceback)
-    # pylint: enable=no-member
 # pylint: enable=too-many-instance-attributes
 
 

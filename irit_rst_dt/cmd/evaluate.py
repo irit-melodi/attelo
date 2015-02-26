@@ -10,7 +10,6 @@ from collections import Counter
 from os import path as fp
 import itertools as itr
 import glob
-import json
 import os
 import shutil
 import sys
@@ -19,6 +18,7 @@ from joblib import (Parallel, delayed)
 
 from attelo.args import (args_to_decoder, args_to_learners)
 from attelo.io import (load_data_pack, load_predictions,
+                       load_fold_dict, save_fold_dict,
                        Torpor)
 from attelo.decoding.intra import (IntraInterPair,
                                    IntraInterDecoder)
@@ -26,13 +26,13 @@ from attelo.harness.report import (Slice, full_report)
 from attelo.harness.util import\
     timestamp, call, force_symlink
 from attelo.table import (for_intra)
-from attelo.util import (Team)
+from attelo.util import (Team, mk_rng)
 import attelo.cmd as att
+import attelo.fold
 
 from ..attelo_cfg import (attelo_doc_model_paths,
                           attelo_sent_model_paths,
                           intra_flags,
-                          EnfoldArgs,
                           LearnArgs,
                           DecodeArgs,
                           InspectArgs,
@@ -359,8 +359,9 @@ def _generate_fold_file(lconf, dpack):
     """
     Generate the folds file
     """
-    with EnfoldArgs(lconf) as args:
-        att.enfold.main_for_harness(args, dpack)
+    rng = mk_rng()
+    fold_dict = attelo.fold.make_n_fold(dpack, 10, rng)
+    save_fold_dict(fold_dict, lconf.fold_file)
 
 
 def _fold_report_slices(lconf, fold):
@@ -537,9 +538,8 @@ def _do_corpus(lconf):
     if _is_standalone_or(lconf, ClusterStage.start):
         _generate_fold_file(lconf, dpack)
 
-    with open(lconf.fold_file) as f_in:
-        dconf = DataConfig(pack=dpack,
-                           folds=json.load(f_in))
+    dconf = DataConfig(pack=dpack,
+                       folds=load_fold_dict(lconf.fold_file))
 
     if _is_standalone_or(lconf, ClusterStage.main):
         foldset = lconf.folds if lconf.folds is not None\
