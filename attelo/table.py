@@ -281,7 +281,7 @@ def _select_intrasentential(pack):
     retain = []
     for i, (edu1, edu2) in enumerate(pack.pairings):
         if edu1.id == FAKE_ROOT_ID:
-            continue
+            retain.append(i)
         if edu1.subgrouping == edu2.subgrouping:
             retain.append(i)
     return pack.selected(retain)
