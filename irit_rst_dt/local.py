@@ -279,6 +279,7 @@ def mk_config((learner, decoder), global_settings):
                        name=decoder.name,
                        flags=decoder_flags)
     return EvaluationConfig(key=combined_key([learner, decoder2]),
+                            settings_key=global_settings.key,
                             learner=learner,
                             decoder=decoder2)
 
@@ -301,11 +302,12 @@ GRAPH_DOCS = ['wsj_1184.out']
 Set to None to graph everything
 """
 
-GRAPH_EVALUATIONS = [e for e in EVALUATIONS if
-                     'mst' in e.decoder.key or 'astar' in e.decoder.key]
+DETAILED_EVALUATIONS = [e for e in EVALUATIONS if
+                        'mst' in e.decoder.key or 'astar' in e.decoder.key]
 """
-Any evalutions that we'd like graphs for.
-You could just set this to EVALUATIONS, but graphs take up disk space
+Any evalutions that we'd like full reports and graphs for.
+You could just set this to EVALUATIONS, but this sort of
+thing (mostly the graphs) takes time and space to build
 
 HINT: set to empty list for no graphs whatsoever
 """

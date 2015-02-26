@@ -18,10 +18,11 @@ import sys
 from joblib import (Parallel, delayed)
 
 from attelo.args import (args_to_decoder, args_to_learners)
-from attelo.io import (load_data_pack, Torpor)
+from attelo.io import (load_data_pack, load_predictions,
+                       Torpor)
 from attelo.decoding.intra import (IntraInterPair,
                                    IntraInterDecoder)
-from attelo.harness.report import (mk_index)
+from attelo.harness.report import (Slice, full_report)
 from attelo.harness.util import\
     timestamp, call, force_symlink
 from attelo.table import (for_intra)
@@ -34,24 +35,22 @@ from ..attelo_cfg import (attelo_doc_model_paths,
                           EnfoldArgs,
                           LearnArgs,
                           DecodeArgs,
-                          ReportArgs,
                           InspectArgs,
                           GraphDiffMode,
                           GoldGraphArgs,
                           GraphArgs)
 from ..local import (EVALUATIONS,
-                     GRAPH_EVALUATIONS,
+                     DETAILED_EVALUATIONS,
                      TRAINING_CORPORA)
 from ..path import (combined_dir_path,
-                    decode_output_basename,
                     decode_output_path,
                     edu_input_path,
                     eval_model_path,
                     features_path,
-                    fold_dir_basename,
                     fold_dir_path,
                     pairings_path,
-                    report_dir_basename)
+                    report_dir_basename,
+                    report_dir_path)
 from ..util import (concat_i,
                     latest_tmp,
                     md5sum_file)
@@ -364,18 +363,37 @@ def _generate_fold_file(lconf, dpack):
         att.enfold.main_for_harness(args, dpack)
 
 
-def _mk_report(args, index, dconf):
-    "helper for report generation"
-    with open(args.index, 'w') as ostream:
-        json.dump(index, ostream)
-    att.report.main_for_harness(args, dconf.pack, args.output)
+def _fold_report_slices(lconf, fold):
+    """
+    Report slices for a given fold
+    """
+    dkeys = [econf.key for econf in DETAILED_EVALUATIONS]
+    for econf in EVALUATIONS:
+        p_path = decode_output_path(lconf, econf, fold)
+        enable_details = econf.key in dkeys
+        stripped_decoder_key = econf.decoder.key[len(econf.settings_key) + 1:]
+        config = (econf.learner.key,
+                  econf.settings_key,
+                  stripped_decoder_key)
+        yield Slice(fold, config,
+                    load_predictions(p_path),
+                    enable_details)
+
+
+def _mk_report(lconf, dconf, slices, fold):
+    """helper for report generation
+
+    :type fold: int or None
+    """
+    rpack = full_report(dconf.pack, dconf.folds, slices)
+    rpack.dump(report_dir_path(lconf, fold))
     for rconf in LEARNERS:
         if rconf.attach.name == 'oracle':
             pass
         elif rconf.relate is not None and rconf.relate.name == 'oracle':
             pass
         else:
-            _mk_model_summary(args.lconf, rconf, args.fold)
+            _mk_model_summary(lconf, rconf, fold)
 
 
 def _mk_model_summary(lconf, rconf, fold):
@@ -386,15 +404,6 @@ def _mk_model_summary(lconf, rconf, fold):
     if fp.exists(spaths.attach) and fp.exists(spaths.relate):
         with InspectArgs(lconf, rconf, fold, intra=True) as args:
             att.inspect.main_for_harness(args)
-
-
-def _mk_fold_report(lconf, dconf, fold):
-    "Generate reports for scores"
-    configurations = [(econf, decode_output_basename(econf))
-                      for econf in EVALUATIONS]
-    index = mk_index([(fold, '.')], configurations)
-    with ReportArgs(lconf, fold) as args:
-        _mk_report(args, index, dconf)
 
 
 def _mk_econf_graphs(lconf, econf, fold, diff):
@@ -419,7 +428,7 @@ def _mk_graphs(lconf, dconf):
         jobs = []
         for mode in GraphDiffMode:
             jobs.extend([delayed(_mk_econf_graphs)(lconf, econf, fold, mode)
-                         for econf in GRAPH_EVALUATIONS])
+                         for econf in DETAILED_EVALUATIONS])
         _parallel(lconf)(jobs)
 
 
@@ -444,20 +453,18 @@ def _mk_hashfile(parent_dir, lconf, dconf):
 
 def _mk_global_report(lconf, dconf):
     "Generate reports for all folds"
-    folds = [(f, fold_dir_basename(f))
-             for f in frozenset(dconf.folds.values())]
-    configurations = [(econf, decode_output_basename(econf))
-                      for econf in EVALUATIONS]
-    index = mk_index(folds, configurations)
+    slices = itr.chain.from_iterable(_fold_report_slices(lconf, f)
+                                     for f in frozenset(dconf.folds.values()))
+    _mk_report(lconf, dconf, slices, None)
+
+    report_dir = report_dir_path(lconf, None)
     final_report_dir = fp.join(lconf.eval_dir,
                                report_dir_basename(lconf))
-    with ReportArgs(lconf, None) as args:
-        _mk_report(args, index, dconf)
-        _mk_graphs(lconf, dconf)
-        _mk_hashfile(args.output, args.lconf, dconf)
-        if fp.exists(final_report_dir):
-            shutil.rmtree(final_report_dir)
-        shutil.copytree(args.output, final_report_dir)
+    _mk_graphs(lconf, dconf)
+    _mk_hashfile(report_dir, lconf, dconf)
+    if fp.exists(final_report_dir):
+        shutil.rmtree(final_report_dir)
+    shutil.copytree(report_dir, final_report_dir)
     # this can happen if resuming a report; better copy
     # it again
     print('Report saved in ', final_report_dir,
@@ -487,7 +494,8 @@ def _do_fold(lconf, dconf, fold):
     for econf in EVALUATIONS:
         _post_decode(lconf, dconf, econf, fold)
     fold_dir = fold_dir_path(lconf, fold)
-    _mk_fold_report(lconf, dconf, fold)
+    slices = _fold_report_slices(lconf, fold)
+    _mk_report(lconf, dconf, slices, fold)
 
 
 def _mk_combined_models(lconf, dconf):

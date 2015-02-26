@@ -21,8 +21,9 @@ from .path import (decode_output_path,
                    model_info_path,
                    pairings_path,
                    report_dir_path,
-                   report_parent_dir_path,
                    vocab_path)
+
+# pylint: disable=too-few-public-methods
 
 
 def _attelo_dpack_args(lconf):
@@ -229,49 +230,6 @@ class DecodeArgs(CliArgs):
         if self.fold_file is not None:
             self.fold_file.close()
     # pylint: enable=no-member
-
-
-class ReportArgs(CliArgs):
-    "args for attelo report"
-    def __init__(self, lconf, fold):
-        self.lconf = lconf
-        self.fold = fold
-        super(ReportArgs, self).__init__()
-
-    def parser(self):
-        """
-        The argparser that would be called on context manager
-        entry
-        """
-        psr = argparse.ArgumentParser()
-        att.report.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        """
-        Command line arguments that would correspond to this
-        configuration
-
-        :rtype: `[String]`
-        """
-        lconf = self.lconf
-        index_path = fp.join(report_parent_dir_path(lconf, self.fold),
-                             'index.json')
-        args = []
-        args.extend(_attelo_dpack_args(lconf))
-        args.extend(_ATTELO_CONFIG_ARGS)
-        args.extend(["--index", index_path,
-                     "--fold-file", lconf.fold_file,
-                     "--output", report_dir_path(lconf, self.fold)])
-        return args
-
-    # pylint: disable=no-member
-    def __exit__(self, ctype, value, traceback):
-        "Tidy up any open file handles, etc"
-        self.fold_file.close()
-        super(ReportArgs, self).__exit__(ctype, value, traceback)
-    # pylint: enable=no-member
-# pylint: enable=too-many-instance-attributes
 
 
 class InspectArgs(CliArgs):
