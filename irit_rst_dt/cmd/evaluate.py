@@ -367,6 +367,8 @@ def _fold_report_slices(lconf, fold):
     """
     Report slices for a given fold
     """
+    print('Scoring fold {}...'.format(fold),
+          file=sys.stderr)
     dkeys = [econf.key for econf in DETAILED_EVALUATIONS]
     for econf in EVALUATIONS:
         p_path = decode_output_path(lconf, econf, fold)
