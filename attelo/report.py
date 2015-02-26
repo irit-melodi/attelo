@@ -373,6 +373,39 @@ class EdgeReport(object):
             Multiscore.table_header(config_l)
 
 
+class LabelReport(object):
+    """
+    Weight and pr/rec/f1 on labels
+
+    No distinction between attach/label needed because it's
+    the same
+    """
+    def __init__(self, evals, correction=1.0):
+        totals = Count.sum(evals)
+        self.score = Score.score_label(totals, correction)
+        self.count = totals.tpos_fneg
+
+    def for_json(self):
+        """
+        Return a JSON-serialisable dictionary representing the scores
+        for this run
+        """
+        return {"score": self.score.for_json(),
+                "count": self.count}
+
+    def table_row(self):
+        "Scores as a tabulate table row"
+        return [self.count] + self.score.table_row()
+
+    @classmethod
+    def table_header(cls, config=None):
+        "Scores as a tabulate table row"
+        config = config or DEFAULT_SCORE_CONFIG
+        config_l = ScoreConfig(correction=config.correction,
+                               prefix="LABEL")
+        return ["count"] + Score.table_header(config_l)
+
+
 class EduReport(object):
     """
     EDU-level results
@@ -426,11 +459,18 @@ class CombinedReport(object):
         "dictionary from config name (string) to Report"
     # pylint: enable=pointless-string-statement
 
-    def table(self):
+    def table(self, sortkey=None):
         """
         2D tabular output
+
+        :type sortkey: k, v -> a
         """
-        keys = sorted(self.reports.keys())
+        if sortkey is None:
+            keys = sorted(self.reports.keys())
+        else:
+            keys = [k for k, _ in
+                    sorted(self.reports.items(), key=sortkey)]
+
         rows = [list(k) + self.reports[k].table_row()
                 for k in keys]
         return tabulate(rows,

@@ -13,6 +13,7 @@ from os import path as fp
 
 from .util import makedirs
 from ..report import (EdgeReport,
+                      LabelReport,
                       EduReport,
                       CombinedReport,
                       show_confusion_matrix)
@@ -62,7 +63,8 @@ class ReportPack(namedtuple('ReportPack',
             for key, report in self.edge_by_label.items():
                 ofilename = fp.join(label_dir, '-'.join(key))
                 with open(ofilename, 'w') as ostream:
-                    print(report.table(), file=ostream)
+                    print(report.table(sortkey=lambda (_, v): 0 - v.count),
+                          file=ostream)
 
         if self.confusion is not None:
             confusion_dir = fp.join(output_dir, 'confusion')
@@ -147,8 +149,8 @@ def full_report(dpack, fold_dict, slices):
     # combine
     edge_by_label_report = {}
     for key, counts in edge_lab_count.items():
-        report = CombinedReport(EdgeReport,
-                                {(label,): EdgeReport(vs)
+        report = CombinedReport(LabelReport,
+                                {(label,): LabelReport(vs)
                                  for label, vs in counts.items()})
         edge_by_label_report[key] = report
 

@@ -10,7 +10,10 @@ from ..io import (load_predictions, load_fold_dict)
 from ..score import (score_edges, score_edus,
                      score_edges_by_label,
                      build_confusion_matrix)
-from ..report import (CombinedReport, EdgeReport, EduReport)
+from ..report import (CombinedReport,
+                      EdgeReport,
+                      EduReport,
+                      LabelReport)
 from ..harness.report import (ReportPack)
 from .util import (load_args_data_pack,
                    get_output_dir, announce_output_dir)
@@ -88,8 +91,8 @@ def main(args):
     edu_counts = score_edus(dpack, predictions)
     cmatrix = build_confusion_matrix(dpack, predictions)
 
-    rel_report = CombinedReport(EdgeReport,
-                                {(k,): EdgeReport([v])
+    rel_report = CombinedReport(LabelReport,
+                                {(k,): LabelReport([v])
                                  for k, v in edge_label_counts})
 
     key = (fp.basename(args.prediction),)
