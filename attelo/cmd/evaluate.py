@@ -12,10 +12,10 @@ from ..args import\
      args_to_decoding_mode,
      args_to_learners,
      args_to_rng)
-from ..decoding import (decode, count_correct_edges, count_correct_edus)
+from ..decoding import (decode, count_correct_edges)
 from ..learning import (learn)
 from ..fold import make_n_fold
-from ..report import Report
+from ..report import EdgeReport
 from .util import load_args_data_pack
 
 
@@ -63,8 +63,7 @@ def _decode_group(mode, decoder, dpack, models):
     '''
     predictions = decode(mode, decoder, dpack, models)
     best = best_prediction(dpack, predictions)
-    return (count_correct_edges(dpack, best),
-            count_correct_edus(dpack, best))
+    return count_correct_edges(dpack, best)
 
 
 def _decode_fold(mode, decoder, dpack, models):
@@ -110,15 +109,15 @@ def main(args):
                                   decoder,
                                   dpack.testing(fold_dict, fold),
                                   models)
-        fold_report = Report(fold_evals,
-                             params=args,
-                             correction=args.correction)
+        fold_report = EdgeReport(fold_evals,
+                                 params=args,
+                                 correction=args.correction)
         print("Fold eval:", fold_report.summary())
         evals.append(fold_evals)
         # --end of file level
     # --- end of fold level
     # end of test for a set of parameter
-    report = Report(list(itertools.chain.from_iterable(evals)),
-                    params=args,
-                    correction=args.correction)
+    report = EdgeReport(list(itertools.chain.from_iterable(evals)),
+                        params=args,
+                        correction=args.correction)
     print(">>> FINAL EVAL:", report.summary())

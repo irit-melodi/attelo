@@ -16,7 +16,7 @@ from sklearn.metrics import confusion_matrix
 from ..args import add_common_args, add_report_args
 from ..decoding import (count_correct_edges, count_correct_edus)
 from ..io import load_predictions, Torpor
-from ..report import (CombinedReport, Report,
+from ..report import (CombinedReport, EdgeReport, EduReport,
                       show_confusion_matrix)
 from ..table import (UNRELATED)
 from .util import (load_args_data_pack,
@@ -175,31 +175,27 @@ def _prediction_file(fold, config):
     return fp.join(fold['path'], config['predictions'])
 
 
-def _score_fold(dpack, fold_dict, index, fold):
-    "scores for all configs within a fold"
-    fold_num = fold['number']
-    fpack = dpack.testing(fold_dict, fold_num)
-    return [score_predictions(fpack, _prediction_file(fold, c))
-            for c in index['configurations']]
-
-
 def score_outputs(dpack, fold_dict, index):
     """read outputs mentioned in the index files and score them
     against the reference pack
 
     Return a single combined report
     """
-    evals = defaultdict(list)
+    edge_evals = defaultdict(list)
+    edu_reports = defaultdict(EduReport)
     confusion = {}
-    configs = index['configurations']
     for fold in index['folds']:
         fold_num = fold['number']
         with Torpor('scoring fold {}'.format(fold_num)):
-            scores = _score_fold(dpack, fold_dict, index, fold)
-            for config, (counts, ecounts, cmatrix) in zip(configs, scores):
+            fold_num = fold['number']
+            fpack = dpack.testing(fold_dict, fold_num)
+            for config in index['configurations']:
                 key = _config_key(config)
+                counts, ecounts, cmatrix =\
+                    score_predictions(fpack, _prediction_file(fold, config))
                 # score
-                evals[key].append((counts, ecounts))
+                edge_evals[key].append(counts)
+                edu_reports[key].add(ecounts)
                 # we store a separate confusion matrix for each config,
                 # accumulating results across the folds (this should be
                 # safe to do as the matrices have been forced to the
@@ -209,15 +205,22 @@ def score_outputs(dpack, fold_dict, index):
                     confusion[key] += cmatrix
                 else:
                     confusion[key] = cmatrix
-    reports = CombinedReport({k: Report(v, params=NullParams(dummy=None))
-                              for k, v in evals.items()})
-    return reports, confusion
+    edge_reports = CombinedReport(EdgeReport,
+                                  {k: EdgeReport(v, params=NullParams(dummy=None))
+                                   for k, v in edge_evals.items()})
+    edu_reports = CombinedReport(EduReport, edu_reports)
+
+    return edge_reports, edu_reports, confusion
 
 
 def score_predictions_by_label(dpack, predict_file):
     """
-    Return a single label-by-label scoring report for a given
-    predictions file
+    Return (as a generator) a list of pairs associating each
+    label with scores for that label.
+
+    If you are scoring mutiple folds you could loop over the
+    folds, combining pre-existing scores for each label within
+    the fold with its counterpart in the other folds
     """
     predictions = load_predictions(predict_file)
     predictions = [(e1, e2, r) for (e1, e2, r) in predictions
@@ -254,17 +257,18 @@ def main_for_harness(args, dpack, output_dir):
     else:
         index = fake_index(args.predictions, 0)
         fold_dict = {k: 0 for k in dpack.groupings()}
-    reports, confusion = score_outputs(dpack, fold_dict, index)
+    edge_reports, edu_reports, confusion =\
+        score_outputs(dpack, fold_dict, index)
     if not fp.exists(output_dir):
         os.makedirs(output_dir)
     # edgewise scores
     ofilename = fp.join(output_dir, 'scores.txt')
     with open(ofilename, 'w') as ostream:
-        print(reports.edge_table(), file=ostream)
+        print(edge_reports.table(), file=ostream)
     # edu scores
     ofilename = fp.join(output_dir, 'edu-scores.txt')
     with open(ofilename, 'w') as ostream:
-        print(reports.edu_table(), file=ostream)
+        print(edu_reports.table(), file=ostream)
     # confusion matrices
     for key, matrix in confusion.items():
         ofilename = _key_filename(output_dir, 'confusion', key)
