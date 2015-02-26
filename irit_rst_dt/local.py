@@ -303,7 +303,10 @@ Set to None to graph everything
 """
 
 DETAILED_EVALUATIONS = [e for e in EVALUATIONS if
-                        'mst' in e.decoder.key or 'astar' in e.decoder.key]
+                        'maxent' in e.learner.key and
+                        ('mst' in e.decoder.key or 'astar' in e.decoder.key)
+                        and 'joint' in e.settings_key
+                        and 'orc' not in e.settings_key]
 """
 Any evalutions that we'd like full reports and graphs for.
 You could just set this to EVALUATIONS, but this sort of
