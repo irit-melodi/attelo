@@ -100,6 +100,18 @@ class Variant(namedtuple("Variant", "key name flags")):
         return cls(name, name, [])
 
 
+class Keyed(namedtuple('Keyed', 'key payload')):
+    '''
+    A keyed object is just any object that is attached with a
+    short unique (mnemonic) identifier.
+
+    Keys often appear in filenames so it's best to avoid
+    whitespace, fancy characters, and for portability reasons,
+    anything non-ASCII.
+    '''
+    pass
+
+
 class Learner(namedtuple("Learner", "key name flags decoder")):
     """
     Unique combination of settings for a learner.
@@ -133,8 +145,8 @@ class EvaluationConfig(namedtuple("EvaluationConfig",
     evaluation
 
     :type settings_key: string
-    :type learner: LearnerConfig
-    :type decoder: Variant
+    :type learner: Keyed (Team learner)
+    :type decoder: Keyed (Decoder, DecodingMode)
     """
     @classmethod
     def simple_key(cls, learner, decoder):
