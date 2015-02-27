@@ -189,7 +189,8 @@ def _best_feature_indices(vocab, model, class_index, top_n):
 
 def discriminating_features(models, labels, vocab, top_n):
     """return the most discriminating features (and their weights)
-    for each label in the models
+    for each label in the models; or None if the model does not
+    support this sort of query
 
     See :pyfunc:`attelo.report.show_discriminating_features`
 
@@ -203,10 +204,11 @@ def discriminating_features(models, labels, vocab, top_n):
     :param sequence of string labels, ie. one for each possible feature
     :type vocab: [string]
 
-    :rtype: [(string, [(string, float)])]
+    :rtype: [(string, [(string, float)])] or None
     """
     best_idxes = lambda m, i: _best_feature_indices(vocab, m, i, top_n)
-
+    if not hasattr(models.relate, 'coef_'):
+        return None
     rows = []
     rows.append((UNRELATED, best_idxes(models.attach, 0)))
     for i, class_ in enumerate(models.relate.classes_):
