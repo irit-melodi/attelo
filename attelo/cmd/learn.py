@@ -2,7 +2,6 @@
 
 from __future__ import print_function
 from os import path as fp
-import os
 
 from joblib import (Parallel, delayed)
 
@@ -11,6 +10,7 @@ from ..args import\
      add_learner_args, validate_learner_args,
      add_fold_choice_args, validate_fold_choice_args,
      args_to_decoder, args_to_learners)
+from ..harness.util import (makedirs)
 from ..io import (Torpor, save_model, load_fold_dict)
 from ..learning import (learn_attach, learn_relate)
 from ..table import (for_intra)
@@ -31,12 +31,17 @@ def _load_and_select_data(args):
     """
     if args.fold is None:
         dpack = load_args_data_pack(args)
-        return dpack
     else:
         # load data pack *AFTER* fold dict (fail faster)
         fold_dict = load_fold_dict(args.fold_file)
         dpack = load_args_data_pack(args)
-        return dpack.training(fold_dict, args.fold)
+        dpack = dpack.training(fold_dict, args.fold)
+
+    if args.intrasentential:
+        dpack = for_intra(dpack)
+
+    return dpack
+
 
 # ---------------------------------------------------------------------
 # main
@@ -71,35 +76,35 @@ def main_for_harness(args, dpack):
     Parallel(n_jobs=-1)(delayed_main_for_harness(args, dpack))
 
 
-def _learn_and_save(args, dpack,
-                    task, learn_fn, model_path):
+def _announce(task, model_path, quiet=True):
+    'return a Torpor context manager to bracket a learning job'
+    msg = ("training {task} model {path}"
+           "").format(task=task,
+                      path=fp.basename(model_path))
+    return Torpor(msg, sameline=False, quiet=quiet)
+
+
+def _learn_and_save(dpack, learn_fn, model_path):
     'learn and write the model'
-    if args.intrasentential:
-        dpack = for_intra(dpack)
-    with Torpor("training {} model {}".format(task, model_path),
-                sameline=False,  # concurrency
-                quiet=args.quiet):
-        model = learn_fn(dpack)
-    mdir = fp.dirname(model_path)
-    if not fp.exists(mdir):
-        os.makedirs(mdir)
+    model = learn_fn(dpack)
+    makedirs(fp.dirname(model_path))
     save_model(model_path, model)
 
 
 def learn_and_save_attach(args, learners, dpack):
     'learn and write the attachment model'
-    _learn_and_save(args, dpack,
-                    'attachment',
-                    lambda x: learn_attach(learners, x),
-                    args.attachment_model)
+    path = args.attachment_model
+    learn_fn = lambda x: learn_attach(learners, x)
+    with _announce('attachment', path, args.quiet):
+        _learn_and_save(dpack, learn_fn, path)
 
 
 def learn_and_save_relate(args, learners, dpack):
     'learn and write the relation model'
-    _learn_and_save(args, dpack,
-                    'relation',
-                    lambda x: learn_relate(learners, x),
-                    args.relation_model)
+    path = args.relation_model
+    learn_fn = lambda x: learn_relate(learners, x)
+    with _announce('relation', path, args.quiet):
+        _learn_and_save(dpack, learn_fn, path)
 
 
 def delayed_main_for_harness(args, dpack):

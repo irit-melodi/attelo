@@ -58,18 +58,6 @@ def config_argparser(psr):
     psr.set_defaults(func=main)
 
 
-def load_models(paths):
-    '''
-    Load model specified on the command line
-
-    :type: paths: Team(string)
-
-    :rtype :py:class:Team:
-    '''
-    return Team(attach=load_model(paths.attach),
-                relate=load_model(paths.relate))
-
-
 def _decode_group(mode, output, decoder, dpack, models):
     '''
     decode a single group and write its output
@@ -155,7 +143,8 @@ def main_for_harness(args, decoder, dpack, models):
 def main(args):
     "subcommand main"
     dpack = _load_and_select_data(args)
-    models = load_models(Team(attach=args.attachment_model,
-                              relate=args.relation_model))
+    model_paths = Team(attach=args.attachment_model,
+                       relate=args.relation_model)
+    models = model_paths.fmap(load_model)
     decoder = args_to_decoder(args)
     main_for_harness(args, decoder, dpack, models)
