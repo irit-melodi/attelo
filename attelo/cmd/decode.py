@@ -11,7 +11,7 @@ from ..args import (add_common_args, add_decoder_args,
                     add_fold_choice_args, validate_fold_choice_args,
                     args_to_decoder, args_to_decoding_mode)
 from ..io import (load_model, load_fold_dict,
-                  append_predictions_output)
+                  write_predictions_output)
 from ..decoding import (DecoderException, decode)
 from ..util import Team
 from .util import load_args_data_pack
@@ -84,7 +84,7 @@ def _decode_group(mode, output, decoder, dpack, models):
 
     # we trust the decoder to select what it thinks is its best prediction
     first_prediction = predictions[0]
-    append_predictions_output(dpack, first_prediction, output)
+    write_predictions_output(dpack, first_prediction, output)
 
 
 def tmp_output_filename(path, suffix):

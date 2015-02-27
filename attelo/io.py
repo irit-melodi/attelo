@@ -4,12 +4,10 @@ Saving and loading data or models
 
 from __future__ import print_function
 from itertools import chain
-from os import path as fp
 import codecs
 import copy
 import csv
 import json
-import os
 import sys
 import time
 import traceback
@@ -250,23 +248,10 @@ def load_vocab(filename):
 # ---------------------------------------------------------------------
 
 
-def start_predictions_output(filename):
+def write_predictions_output(dpack, predicted, filename):
     """
-    Initialise any output files that are to be appended to rather
-    than written separately
-    """
-    dname = fp.dirname(filename)
-    if not fp.exists(dname):
-        os.makedirs(dname)
-    open(filename, 'wb').close()
-
-
-def append_predictions_output(dpack, predicted, filename):
-    """
-    Append the predictions to a CONLL like output file documented in
-    :doc:`../output`
-
-    See also :py:func:`start_predictions_output`
+    Write predictions to an output file whose format
+    is documented in :doc:`../output`
     """
     links = {}
     for edu1, edu2, label in predicted:
@@ -280,7 +265,7 @@ def append_predictions_output(dpack, predicted, filename):
                 edu2_id,
                 links.get((edu1_id, edu2_id), UNRELATED)]
 
-    with open(filename, 'a') as fout:
+    with open(filename, 'wb') as fout:
         writer = csv.writer(fout, dialect=csv.excel_tab)
         # by convention the zeroth edu is the root node
         for edu1, edu2 in dpack.pairings:

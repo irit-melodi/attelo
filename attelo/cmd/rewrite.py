@@ -6,8 +6,7 @@ from os import path as fp
 from .util import (get_output_dir, announce_output_dir,
                    load_args_data_pack)
 from ..args import add_common_args
-from ..io import (load_fold_dict,
-                  start_predictions_output, append_predictions_output)
+from ..io import (load_fold_dict, write_predictions_output)
 
 
 def config_argparser(psr):
@@ -44,8 +43,7 @@ def main_for_harness(args):
     for fold in set(fold_dict.values()):
         fpack = dpack.testing(fold_dict, fold)
         filename = fp.join(output_dir, "gold-" + str(fold))
-        start_predictions_output(filename)
-        append_predictions_output(fpack, gold_predictions(fpack), filename)
+        write_predictions_output(fpack, gold_predictions(fpack), filename)
     announce_output_dir(output_dir)
 
 
