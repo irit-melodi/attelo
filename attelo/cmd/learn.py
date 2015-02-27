@@ -71,34 +71,35 @@ def main_for_harness(args, dpack):
     Parallel(n_jobs=-1)(delayed_main_for_harness(args, dpack))
 
 
-def learn_and_save_attach(args, learners, dpack):
-    'learn and write the attachment model'
+def _learn_and_save(args, dpack,
+                    task, learn_fn, model_path):
+    'learn and write the model'
     if args.intrasentential:
         dpack = for_intra(dpack)
-    model_path = args.attachment_model
-    with Torpor("training attachment model {}".format(model_path),
+    with Torpor("training {} model {}".format(task, model_path),
                 sameline=False,  # concurrency
                 quiet=args.quiet):
-        model = learn_attach(learners, dpack)
+        model = learn_fn(dpack)
     mdir = fp.dirname(model_path)
     if not fp.exists(mdir):
         os.makedirs(mdir)
     save_model(model_path, model)
+
+
+def learn_and_save_attach(args, learners, dpack):
+    'learn and write the attachment model'
+    _learn_and_save(args, dpack,
+                    'attachment',
+                    lambda x: learn_attach(learners, x),
+                    args.attachment_model)
 
 
 def learn_and_save_relate(args, learners, dpack):
     'learn and write the relation model'
-    if args.intrasentential:
-        dpack = for_intra(dpack)
-    model_path = args.relation_model
-    with Torpor("training relations model {}".format(model_path),
-                sameline=False,  # concurrency
-                quiet=args.quiet):
-        model = learn_relate(learners, dpack)
-    mdir = fp.dirname(model_path)
-    if not fp.exists(mdir):
-        os.makedirs(mdir)
-    save_model(model_path, model)
+    _learn_and_save(args, dpack,
+                    'relation',
+                    lambda x: learn_relate(learners, x),
+                    args.relation_model)
 
 
 def delayed_main_for_harness(args, dpack):
