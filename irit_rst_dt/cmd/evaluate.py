@@ -380,8 +380,8 @@ def _fold_report_slices(lconf, fold):
         enable_details = econf.key in dkeys
         stripped_decoder_key = econf.decoder.key[len(econf.settings_key) + 1:]
         config = (econf.learner.key,
-                  econf.settings_key,
-                  stripped_decoder_key)
+                  stripped_decoder_key,
+                  econf.settings_key)
         yield Slice(fold, config,
                     load_predictions(p_path),
                     enable_details)
