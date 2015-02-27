@@ -68,8 +68,7 @@ from ..loop import (LoopConfig,
 NAME = 'evaluate'
 _DEBUG = 0
 
-LEARNERS = [list(econfs)[0].learner for g, econfs in
-            itr.groupby(EVALUATIONS, lambda e: e.learner.key)]
+LEARNERS = {e.learner.key: e.learner for e in EVALUATIONS}.values()
 
 # ---------------------------------------------------------------------
 # CODE CONVENTIONS USED HERE
