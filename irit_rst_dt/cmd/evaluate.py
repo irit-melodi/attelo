@@ -410,6 +410,12 @@ def _mk_model_summary(lconf, dconf, rconf, fold):
 
     def _write_discr(discr, intra):
         "write discriminating features to disk"
+        if discr is None:
+            print(('No discriminating features for {name} {grain} model'
+                   '').format(name=rconf.key,
+                              grain='sent' if intra else 'doc'),
+                  file=sys.stderr)
+            return
         output = model_info_path(lconf, rconf, fold, intra)
         with codecs.open(output, 'wb', 'utf-8') as fout:
             print(attelo.report.show_discriminating_features(discr),
