@@ -15,9 +15,9 @@ from sklearn.linear_model import (LogisticRegression,
                                   SkPassiveAggressiveClassifier)
 from sklearn.svm import SVC
 
-from .control import (learn,
-                      learn_attach,
-                      learn_relate,
+from .control import (Task,
+                      learn,
+                      learn_task,
                       can_predict_proba)
 from .perceptron import (PerceptronArgs,
                          Perceptron,

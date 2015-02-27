@@ -2,6 +2,8 @@
 Central interface to the learners
 """
 
+from enum import Enum
+
 from attelo.table import for_attachment, for_labelling
 from attelo.util import Team
 
@@ -12,22 +14,28 @@ from attelo.util import Team
 # ---------------------------------------------------------------------
 
 
-def learn_attach(dpack, learners):
+class Task(Enum):
+    '''
+    Learning tasks for a model.
+    '''
+    attach = 1
+    relate = 2
+
+
+def learn_task(dpack, learners, task):
     """
     Train attachment learner
     """
-    attach_pack = for_attachment(dpack)
-    return learners.attach.fit(attach_pack.data,
-                               attach_pack.target)
+    if task == Task.attach:
+        dpack = for_attachment(dpack)
+        learner = learners.attach
+    elif task == Task.relate:
+        dpack = for_labelling(dpack.attached_only())
+        learner = learners.relate
+    else:
+        raise ValueError('Unknown learning task: {}'.format(task))
 
-
-def learn_relate(dpack, learners):
-    """
-    Train relation learner
-    """
-    relate_pack = for_labelling(dpack.attached_only())
-    return learners.relate.fit(relate_pack.data,
-                               relate_pack.target)
+    return learner.fit(dpack.data, dpack.target)
 
 
 def learn(dpack, learners):
@@ -39,8 +47,8 @@ def learn(dpack, learners):
 
     :rtype Team(model)
     """
-    return Team(attach=learn_attach(dpack, learners),
-                relate=learn_relate(dpack, learners))
+    return Team(attach=learn_task(dpack, learners, Task.attach),
+                relate=learn_task(dpack, learners, Task.relate))
 
 
 def can_predict_proba(model):
