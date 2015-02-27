@@ -402,7 +402,7 @@ class LabelReport(object):
         "Scores as a tabulate table row"
         config = config or DEFAULT_SCORE_CONFIG
         config_l = ScoreConfig(correction=config.correction,
-                               prefix="LABEL")
+                               prefix="ATT/LAB")
         return ["count"] + Score.table_header(config_l)
 
 
