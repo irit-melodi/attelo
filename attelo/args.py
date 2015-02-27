@@ -31,9 +31,10 @@ def _is_perceptron_learner_name(learner_name):
     return learner_name in ["perc", "struc_perc"]
 
 # default values for perceptron learner
+DEFAULT_USE_PROB = True
 DEFAULT_PERCEPTRON_ARGS = PerceptronArgs(iterations=20,
                                          averaging=True,
-                                         use_prob=True,
+                                         use_prob=DEFAULT_USE_PROB,
                                          aggressiveness=inf)
 
 DEFAULT_MST_ROOT = MstRootStrategy.fake_root
@@ -274,6 +275,10 @@ def _add_decoder_args(psr):
                              help="decoders for attachment; " +
                              "default: %s " % DEFAULT_DECODER +
                              "(cf also heuristics for astar)")
+    decoder_grp.add_argument("--non-prob-scores",
+                             default=not DEFAULT_USE_PROB,
+                             action="store_true",
+                             help="do NOT treat scores as probabilities")
 
     mst_grp = psr.add_argument_group("MST/MSDAG decoder arguments")
     mst_grp.add_argument("--mst-root-strategy",
@@ -308,10 +313,6 @@ def _add_decoder_args(psr):
                            "default: 1-best = simple astar")
 
     perc_grp = psr.add_argument_group('perceptron arguments')
-    perc_grp.add_argument("--non-prob-scores",
-                          default=not DEFAULT_PERCEPTRON_ARGS.use_prob,
-                          action="store_true",
-                          help="do NOT treat scores as probabilities")
 
     # harness prefs (shared between eval)
     psr.add_argument("--post-label", "-p",
