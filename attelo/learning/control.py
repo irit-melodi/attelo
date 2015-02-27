@@ -12,7 +12,7 @@ from attelo.util import Team
 # ---------------------------------------------------------------------
 
 
-def learn_attach(learners, dpack):
+def learn_attach(dpack, learners):
     """
     Train attachment learner
     """
@@ -21,7 +21,7 @@ def learn_attach(learners, dpack):
                                attach_pack.target)
 
 
-def learn_relate(learners, dpack):
+def learn_relate(dpack, learners):
     """
     Train relation learner
     """
@@ -30,7 +30,7 @@ def learn_relate(learners, dpack):
                                relate_pack.target)
 
 
-def learn(learners, dpack):
+def learn(dpack, learners):
     """
     Train learners for each attelo task. Return the resulting
     models
@@ -39,8 +39,8 @@ def learn(learners, dpack):
 
     :rtype Team(model)
     """
-    return Team(attach=learn_attach(learners, dpack),
-                relate=learn_relate(learners, dpack))
+    return Team(attach=learn_attach(dpack, learners),
+                relate=learn_relate(dpack, learners))
 
 
 def can_predict_proba(model):

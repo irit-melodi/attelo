@@ -10,7 +10,7 @@ import numpy as np
 
 from attelo.learning import (can_predict_proba)
 from attelo.table import (for_attachment, for_labelling, for_intra,
-                          UNRELATED, UNLABELLED)
+                          UNLABELLED)
 from attelo.util import truncate
 from .intra import (IntraInterPair, select_subgrouping)
 from .util import (DecoderException,
@@ -147,7 +147,7 @@ def _add_labels(dpack, models, predictions, clobber=True):
 # ---------------------------------------------------------------------
 
 
-def build_prob_distrib(mode, dpack, models):
+def build_prob_distrib(dpack, models, mode):
     """
     Extract a decoder probability distribution from the models
     for all instances in the datapack
@@ -175,8 +175,8 @@ def build_prob_distrib(mode, dpack, models):
                 (id1, id2), conf in zip(pairings, confidence)]
 
 
-def _maybe_post_label(mode, dpack, models, predictions,
-                      clobber=True):
+def _maybe_post_label(dpack, models, predictions,
+                      mode, clobber=True):
     """
     If post labelling mode is enabled, apply the best label from
     our relation model to all links in the prediction
@@ -187,7 +187,7 @@ def _maybe_post_label(mode, dpack, models, predictions,
         return predictions
 
 
-def decode(mode, decoder, dpack, models):
+def decode(dpack, models, decoder, mode):
     """
     Decode every instance in the attachment table (predicting
     relations too if we have the data/model for it).
@@ -205,10 +205,10 @@ def decode(mode, decoder, dpack, models):
         func = decode_intra_inter
     else:
         func = decode_vanilla
-    return func(mode, decoder, dpack, models)
+    return func(dpack, models, decoder, mode)
 
 
-def decode_vanilla(mode, decoder, dpack, models):
+def decode_vanilla(dpack, models, decoder, mode):
     """
     Decode every instance in the attachment table (predicting
     relations too if we have the data/model for it).
@@ -216,12 +216,12 @@ def decode_vanilla(mode, decoder, dpack, models):
 
     :type models: Team(model)
     """
-    prob_distrib = build_prob_distrib(mode, dpack, models)
+    prob_distrib = build_prob_distrib(dpack, models, mode)
     predictions = decoder.decode(prob_distrib)
-    return _maybe_post_label(mode, dpack, models, predictions)
+    return _maybe_post_label(dpack, models, predictions, mode)
 
 
-def decode_intra_inter(mode, decoder, dpack, models):
+def decode_intra_inter(dpack, models, decoder, mode):
     """
     Variant of `decode` which uses an IntraInterDecoder rather than
     a normal decoder
@@ -237,12 +237,12 @@ def decode_intra_inter(mode, decoder, dpack, models):
         dpacks = IntraInterPair(intra=dpack, inter=dpack)
 
     prob_distribs =\
-        IntraInterPair(intra=build_prob_distrib(mode,
-                                                dpacks.intra,
-                                                models.intra),
-                       inter=build_prob_distrib(mode,
-                                                dpacks.inter,
-                                                models.inter))
+        IntraInterPair(intra=build_prob_distrib(dpacks.intra,
+                                                models.intra,
+                                                mode),
+                       inter=build_prob_distrib(dpacks.inter,
+                                                models.inter,
+                                                mode))
     sorted_edus = get_sorted_edus(prob_distribs.inter)
 
     # launch a decoder per sentence
@@ -250,10 +250,11 @@ def decode_intra_inter(mode, decoder, dpack, models):
     for subg in subgroupings(sorted_edus):
         mini_distrib = select_subgrouping(prob_distribs.intra, subg)
         sent_predictions = decoder.decode_sentence(mini_distrib)
-        sent_parses.append(_maybe_post_label(mode, dpacks.intra, models.intra,
-                                             sent_predictions))
+        sent_parses.append(_maybe_post_label(dpacks.intra, models.intra,
+                                             sent_predictions, mode))
     ##########
 
     doc_predictions = decoder.decode_document(prob_distribs.inter, sent_parses)
-    return _maybe_post_label(mode, dpacks.inter, models.inter, doc_predictions,
+    return _maybe_post_label(dpacks.inter, models.inter,
+                             doc_predictions, mode,
                              clobber=False)

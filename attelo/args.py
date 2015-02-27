@@ -142,6 +142,16 @@ def _get_learner_set(args):
                 relate=relate_learner)
 
 
+def _mk_learner_cfg_args(decoder, args):
+    ':rtype: LearnerArgs'
+    perc_args = PerceptronArgs(iterations=args.nit,
+                               averaging=args.averaging,
+                               use_prob=not args.non_prob_scores,
+                               aggressiveness=args.aggressiveness)
+    return LearnerArgs(decoder=decoder,
+                       perc_args=perc_args)
+
+
 def args_to_learners(decoder, args):
     """
     Given the (parsed) command line arguments, return a
@@ -154,17 +164,29 @@ def args_to_learners(decoder, args):
 
     :rtype Team(learner)
     """
-
-    perc_args = PerceptronArgs(iterations=args.nit,
-                               averaging=args.averaging,
-                               use_prob=not args.non_prob_scores,
-                               aggressiveness=args.aggressiveness)
-    learner_args = LearnerArgs(decoder=decoder,
-                               perc_args=perc_args)
-
+    learner_args = _mk_learner_cfg_args(decoder, args)
     wrappers = _get_learner_set(args)
     return Team(attach=wrappers.attach(learner_args),
                 relate=wrappers.relate(learner_args))
+
+
+def args_to_learner_harness(decoder, args, is_for_attach):
+    """
+    Given the (parsed) command line arguments, return a
+    single learner.
+
+    This is only meant for use within an experimental
+    test harness
+
+    Note that we don't use the distinction between the
+
+    :rtype learner
+    """
+    learner_args = _mk_learner_cfg_args(decoder, args)
+    factory = _get_learner(args.learner,
+                           is_for_attach=is_for_attach)
+    return factory(learner_args)
+
 
 # ---------------------------------------------------------------------
 # argparse

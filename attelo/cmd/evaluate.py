@@ -55,18 +55,18 @@ def config_argparser(psr):
                      "prediction is made with relations")
 
 
-def _decode_group(mode, decoder, dpack, models):
+def _decode_group(dpack, models, decoder, mode):
     '''
     decode and score a single group
 
     :rtype Count
     '''
-    predictions = decode(mode, decoder, dpack, models)
+    predictions = decode(dpack, models, decoder, mode)
     best = best_prediction(dpack, predictions)
     return score_edges(dpack, best)
 
 
-def _decode_fold(mode, decoder, dpack, models):
+def _decode_fold(dpack, models, decoder, mode):
     '''
     decode and score all groups in the pack
     (pack should be whittled down to test set for
@@ -78,7 +78,7 @@ def _decode_fold(mode, decoder, dpack, models):
     for onedoc, indices in dpack.groupings().items():
         print("decoding on file : ", onedoc, file=sys.stderr)
         onepack = dpack.selected(indices)
-        score = _decode_group(mode, decoder, onepack, models)
+        score = _decode_group(onepack, models, decoder, mode)
         scores.append(score)
     return scores
 
@@ -104,11 +104,11 @@ def main(args):
         print(">>> doing fold ", fold + 1, file=sys.stderr)
         print(">>> training ... ", file=sys.stderr)
 
-        models = learn(learners, dpack.training(fold_dict, fold))
-        fold_evals = _decode_fold(decoding_mode,
-                                  decoder,
-                                  dpack.testing(fold_dict, fold),
-                                  models)
+        models = learn(dpack.training(fold_dict, fold),
+                       learners)
+        fold_evals = _decode_fold(dpack.testing(fold_dict, fold),
+                                  models, decoder,
+                                  decoding_mode)
         fold_report = EdgeReport(fold_evals,
                                  params=args,
                                  correction=args.correction)

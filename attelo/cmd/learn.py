@@ -94,7 +94,7 @@ def _learn_and_save(dpack, learn_fn, model_path):
 def learn_and_save_attach(args, learners, dpack):
     'learn and write the attachment model'
     path = args.attachment_model
-    learn_fn = lambda x: learn_attach(learners, x)
+    learn_fn = lambda x: learn_attach(x, learners)
     with _announce('attachment', path, args.quiet):
         _learn_and_save(dpack, learn_fn, path)
 
@@ -102,7 +102,7 @@ def learn_and_save_attach(args, learners, dpack):
 def learn_and_save_relate(args, learners, dpack):
     'learn and write the relation model'
     path = args.relation_model
-    learn_fn = lambda x: learn_relate(learners, x)
+    learn_fn = lambda x: learn_relate(x, learners)
     with _announce('relation', path, args.quiet):
         _learn_and_save(dpack, learn_fn, path)
 
