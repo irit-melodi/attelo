@@ -33,4 +33,5 @@ def jobs(dpack, learners, tasks, quiet=False):
     :type tasks: dict(Task, filepath)
     """
     return [delayed(learn)(dpack, learners, task, path, quiet)
-            for task, path in tasks]
+            for task, path in tasks
+            if task != 'oracle']
