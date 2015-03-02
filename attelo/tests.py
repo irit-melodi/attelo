@@ -16,7 +16,6 @@ import unittest
 import scipy.sparse
 import numpy
 
-from attelo.harness.config import CliArgs
 import attelo
 
 from .edu import EDU, FAKE_ROOT
@@ -214,7 +213,7 @@ class TmpDir(object):
     # pylint: enable=unused-argument
 
 
-class TestArgs(CliArgs):
+class TestArgs(object):
     "arguments in test harness"
 
     def __init__(self, tmpdir):
@@ -248,8 +247,10 @@ class TestArgs(CliArgs):
     @classmethod
     def run(cls, *args, **kwargs):
         "run the attelo command that goes with these args"
-        with cls(*args, **kwargs) as cli_args:
-            cls.module().main(cli_args)
+        cli_args = cls(*args, **kwargs)
+        psr=cli_args.parser()
+        args = psr.parse_args(cli_args.argv())
+        cls.module().main(args)
 
 
 class EvaluateArgs(TestArgs):
