@@ -73,12 +73,12 @@ def select_links(edus, links, settings):
     subgroupings = {edu.id: edu.subgrouping for edu in edus}
     edu_ids = subgroupings.keys()
 
-    if settings.hide == 'inter':
+    if settings.hide == 'intra':
         slinks = [(subgroupings.get(e1, FAKE_ROOT_ID),
                    subgroupings.get(e2, FAKE_ROOT_ID), l)
                   for e1, e2, l in links]
         return [(s1, s2, l) for (s1, s2, l) in slinks if s1 != s2]
-    elif settings.hide == 'intra':
+    elif settings.hide == 'inter':
         return [(e1, e2, l) for e1, e2, l in links
                 if (e1 in edu_ids or e2 in edu_ids)
                 and subgroupings.get(e1) == subgroupings.get(e2)]
