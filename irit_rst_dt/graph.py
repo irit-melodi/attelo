@@ -31,7 +31,7 @@ def to_predictions(dpack):
     """
     Convert a datapack to a list of predictions
     """
-    return [(x1, x2, dpack.get_label(t))
+    return [(x1.id, x2.id, dpack.get_label(t))
             for ((x1, x2), t) in zip(dpack.pairings,
                                      dpack.target)]
 
