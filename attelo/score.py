@@ -136,14 +136,13 @@ def score_edges_by_label(dpack, predictions):
     """
     predictions = [(e1, e2, r) for (e1, e2, r) in predictions
                    if r != UNRELATED]
-    unrelated = dpack.label_number(UNRELATED)
 
-    for target in dpack.target:
-        if target == unrelated:
+    for label in dpack.labels:
+        if label == UNRELATED:
             continue
-        label = dpack.get_label(target)
+        label_num = dpack.label_number(label)
         # pylint: disable=no-member
-        r_indices = numpy.where(dpack.target == target)[0]
+        r_indices = numpy.where(dpack.target == label_num)[0]
         # pylint: disable=no-member
         r_dpack = dpack.selected(r_indices)
         r_predictions = [(e1, e2, r) for (e1, e2, r) in predictions
