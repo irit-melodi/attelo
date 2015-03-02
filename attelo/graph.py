@@ -1,8 +1,9 @@
 "graph visualisation"
 
 from __future__ import print_function
-from collections import defaultdict
+from collections import (defaultdict, namedtuple)
 from os import path as fp
+import itertools as itr
 import codecs
 import signal
 import subprocess
@@ -14,6 +15,7 @@ from .edu import FAKE_ROOT_ID
 from .harness.util import makedirs
 from .table import UNRELATED
 
+# pylint: disable=too-few-public-methods
 
 DEFAULT_TIMEOUT = 30
 
@@ -30,7 +32,36 @@ def alarm_handler(_, frame):
 # pylint: enable=unused-argument
 
 
-def select_links(edus, links, intra=False, inter=False):
+class GraphSettings(namedtuple('GraphSettings',
+                               ['hide',
+                                'select',
+                                'unrelated',
+                                'timeout',
+                                'quiet'])):
+    '''
+    :param hide: 'intra' to hide links between EDUs in the
+                 same subgrouping; 'inter' to hide links
+                 across subgroupings; None to show all links
+    :type hide: string or None
+
+    :param select: EDU groupings to graph (if None,
+                   all groupings will be graphed unless)
+    :type select: [string] or None
+
+    :param unrelated: show unrelated links
+    :type unrelated: bool
+
+    :param timeout: number of seconds to allow graphviz
+                    to run before it times out
+    :type timeout: int
+
+    :param quiet: suppress informational messages
+    :type quiet: bool
+    '''
+    pass
+
+
+def select_links(edus, links, settings):
     """
     Given a set of edus and of edu id pairs, return only the pairs
     whose ids appear in the edu list
@@ -41,15 +72,19 @@ def select_links(edus, links, intra=False, inter=False):
     """
     subgroupings = {edu.id: edu.subgrouping for edu in edus}
     edu_ids = subgroupings.keys()
-    if inter:
+
+    if settings.hide == 'inter':
         slinks = [(subgroupings.get(e1, FAKE_ROOT_ID),
                    subgroupings.get(e2, FAKE_ROOT_ID), l)
                   for e1, e2, l in links]
         return [(s1, s2, l) for (s1, s2, l) in slinks if s1 != s2]
-    else:
+    elif settings.hide == 'intra':
         return [(e1, e2, l) for e1, e2, l in links
                 if (e1 in edu_ids or e2 in edu_ids)
-                and (not intra or subgroupings.get(e1) == subgroupings.get(e2))]
+                and subgroupings.get(e1) == subgroupings.get(e2)]
+    else:
+        return [(e1, e2, l) for e1, e2, l in links
+                if e1 in edu_ids or e2 in edu_ids]
 
 
 def write_dot_graph(filename, dot_graph,
@@ -164,12 +199,10 @@ def _diff_links(src_links, tgt_links):
     return both, src_only, tgt_only, neither
 
 
-def to_graph(title, edus, links,
-             unrelated=False,
-             tgt_links=None,
-             inter=False):
+def mk_diff_graph(title, edus, src_links, tgt_links, settings):
     """
-    Convert attelo predictions to a graph.
+    Convert attelo predictions to a graphviz graph diplaying
+    differences between two predictions
 
     Predictions here consist of an EDU followed by a list of
     (parent name, relation label) tuples
@@ -179,11 +212,11 @@ def to_graph(title, edus, links,
                       links and tgt_links (by highlighting
                       links that only occur in one or the
                       other)
-
-    :type edulinks: [(EDU, [(string, string)])
     """
-    graph = _build_core_graph(title, edus, inter=inter)
-    both, src_only, tgt_only, neither = _diff_links(links, tgt_links or [])
+    graph = _build_core_graph(title, edus,
+                              inter=settings.hide == 'intra')
+    both, src_only, tgt_only, neither = _diff_links(src_links,
+                                                    tgt_links or [])
     if tgt_links is None:
         both = src_only
         src_only = []
@@ -209,10 +242,65 @@ def to_graph(title, edus, links,
         graph.add_edge(pydot.Edge(parent, child, **attrs))
 
     # neither - unrelated
-    if unrelated:
+    if settings.unrelated:
         for parent, child, label in neither:
             attrs = {'style': 'dashed',
                      'color': 'grey'}
             graph.add_edge(pydot.Edge(parent, child, **attrs))
     return graph
 # pylint: enable=star-args
+
+
+def mk_single_graph(title, edus, links, settings):
+    """
+    Convert single set of attelo predictions to a graphviz
+    graph
+    """
+    return mk_diff_graph(title, edus, links, None, settings)
+
+
+def diff_all(edus,
+             src_predictions,
+             tgt_predictions,
+             settings,
+             output_dir):
+    """
+    Generate graphs for all the given predictions.
+    Each grouping will have its own graph, saved in the
+    output directory
+    """
+    for group, subedus_ in itr.groupby(edus, lambda x: x.grouping):
+        if settings.select is not None and group not in settings.select:
+            continue
+        subedus = list(subedus_)
+        src_sublinks = select_links(subedus, src_predictions, settings)
+        if not src_sublinks:  # not in fold
+            continue
+        # skip any groups that are not in diff target (envisioned
+        # use case, diffing gold against an output)
+        if tgt_predictions is None:
+            tgt_sublinks = None
+        else:
+            tgt_sublinks = select_links(subedus, tgt_predictions, settings)
+            if not tgt_sublinks:
+                continue
+        graph = mk_diff_graph(group, subedus,
+                              src_sublinks,
+                              tgt_sublinks,
+                              settings=settings)
+        ofilename = fp.join(output_dir, group)
+        write_dot_graph(ofilename, graph,
+                        quiet=settings.quiet,
+                        timeout=settings.timeout)
+
+
+def graph_all(edus,
+              predictions,
+              settings,
+              output_dir):
+    """
+    Generate graphs for all the given predictions.
+    Each grouping will have its own graph, saved in the
+    output directory
+    """
+    diff_all(edus, predictions, None, settings, output_dir)
