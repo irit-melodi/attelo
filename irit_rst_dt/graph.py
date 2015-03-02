@@ -33,7 +33,7 @@ def to_predictions(dpack):
     """
     return [(x1, x2, dpack.get_label(t))
             for ((x1, x2), t) in zip(dpack.pairings,
-                                     dpack.targets)]
+                                     dpack.target)]
 
 
 def _mk_econf_graphs(lconf, dconf, econf, fold, diffmode):

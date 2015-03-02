@@ -27,7 +27,8 @@ from attelo.harness.util import\
 from attelo.learning import (Task)
 from attelo.table import (for_intra)
 from attelo.util import (Team, mk_rng)
-import attelo.harness as ath
+import attelo.harness.learn as ath_learn
+import attelo.harness.decode as ath_decode
 import attelo.fold
 import attelo.score
 import attelo.report
@@ -247,7 +248,7 @@ def _get_learn_job(lconf, rconf, subpack, paths, task):
                           path=fp.relpath(output_path, lconf.scratch_dir)),
               file=sys.stderr)
     else:
-        learn_fn = ath.learn.learn
+        learn_fn = ath_learn.learn
         learners = Team(attach=rconf.attach,
                         relate=rconf.relate or rconf.attach)
         learners = learners.fmap(lambda x: x.payload)
@@ -331,7 +332,7 @@ def _delayed_decode(lconf, dconf, econf, fold):
     else:
         models = doc_model_paths.fmap(load_model)
 
-    return ath.decode.jobs(subpack, models,
+    return ath_decode.jobs(subpack, models,
                            econf.decoder.payload,
                            econf.settings.mode,
                            decode_output_path(lconf, econf, fold))
@@ -346,7 +347,7 @@ def _post_decode(lconf, dconf, econf, fold):
 
     print(_eval_banner(econf, lconf, fold), file=sys.stderr)
     subpack = dconf.pack.testing(dconf.folds, fold)
-    ath.decode.concatenate_outputs(subpack,
+    ath_decode.concatenate_outputs(subpack,
                                    decode_output_path(lconf, econf, fold))
 
 
