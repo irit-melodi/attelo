@@ -5,52 +5,19 @@ graphing output from the harness
 from __future__ import print_function
 from enum import Enum
 from os import path as fp
-import argparse
-import sys
 
-from attelo.harness.config import CliArgs
-from attelo.io import Torpor
+from attelo.graph import (diff_all, graph_all,
+                          GraphSettings)
+from attelo.io import (Torpor, load_predictions)
 from joblib import (Parallel, delayed)
-import attelo.cmd.graph
 
 from .local import (GRAPH_DOCS,
                     DETAILED_EVALUATIONS)
 from .path import (decode_output_path,
-                   edu_input_path,
-                   features_path,
                    fold_dir_basename,
-                   pairings_path,
                    report_dir_path)
 
 # pylint: disable=too-few-public-methods
-
-
-class GoldGraphArgs(CliArgs):
-    'cmd line args to generate graphs (gold set)'
-    def __init__(self, lconf):
-        self.lconf = lconf
-        super(GoldGraphArgs, self).__init__()
-
-    def parser(self):
-        psr = argparse.ArgumentParser()
-        attelo.cmd.graph.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        lconf = self.lconf
-        has_stripped = fp.exists(features_path(lconf, stripped=True))
-        args = [edu_input_path(lconf),
-                '--quiet',
-                '--gold',
-                pairings_path(lconf),
-                features_path(lconf, stripped=has_stripped),
-                '--output',
-                fp.join(report_dir_path(lconf, None),
-                        'graphs-gold')]
-        if GRAPH_DOCS is not None:
-            args.extend(['--select'])
-            args.extend(GRAPH_DOCS)
-        return args
 
 
 class GraphDiffMode(Enum):
@@ -60,77 +27,80 @@ class GraphDiffMode(Enum):
     diff_intra = 3
 
 
-class GraphArgs(CliArgs):
-    'cmd line args to generate graphs (for a fold)'
-    def __init__(self, lconf, econf, fold, diffmode):
-        self.lconf = lconf
-        self.econf = econf
-        self.fold = fold
-        self.diffmode = diffmode
-        super(GraphArgs, self).__init__()
-
-    def parser(self):
-        psr = argparse.ArgumentParser()
-        attelo.cmd.graph.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        lconf = self.lconf
-        econf = self.econf
-        fold = self.fold
-
-        args = [edu_input_path(lconf),
-                '--graphviz-timeout', str(15),
-                '--quiet']
-
-        if self.diffmode == GraphDiffMode.solo:
-            output_bn_prefix = 'graphs-'
-            args.extend(['--predictions',
-                         decode_output_path(lconf, econf, fold)])
-        else:
-            has_stripped = fp.exists(features_path(lconf, stripped=True))
-            output_bn_prefix = 'graphs-gold-vs-'
-            args.extend(['--gold',
-                         pairings_path(lconf),
-                         features_path(lconf, stripped=has_stripped),
-                         '--diff-to',
-                         decode_output_path(lconf, econf, fold)])
-
-        if self.diffmode == GraphDiffMode.diff_intra:
-            output_bn_prefix = 'graphs-sent-gold-vs-'
-            args.extend(['--intra'])
-
-        output_path = fp.join(report_dir_path(lconf, None),
-                              output_bn_prefix + fold_dir_basename(fold),
-                              econf.key)
-        args.extend(['--output', output_path])
-        if GRAPH_DOCS is not None:
-            args.extend(['--select'])
-            args.extend(GRAPH_DOCS)
-        return args
+def to_predictions(dpack):
+    """
+    Convert a datapack to a list of predictions
+    """
+    return [(x1, x2, dpack.get_label(t))
+            for ((x1, x2), t) in zip(dpack.pairings,
+                                     dpack.targets)]
 
 
-def _mk_econf_graphs(lconf, econf, fold, diff):
+def _mk_econf_graphs(lconf, dconf, econf, fold, diffmode):
     "Generate graphs for a single configuration"
-    with GraphArgs(lconf, econf, fold, diff) as args:
-        attelo.cmd.graph.main_for_harness(args)
+    # output path
+    if diffmode == GraphDiffMode.solo:
+        output_bn_prefix = 'graphs-'
+    elif diffmode == GraphDiffMode.diff:
+        output_bn_prefix = 'graphs-gold-vs-'
+    elif diffmode == GraphDiffMode.diff_intra:
+        output_bn_prefix = 'graphs-sent-gold-vs-'
+    else:
+        raise Exception('Unknown diff mode {}'.format(diffmode))
+    output_dir = fp.join(report_dir_path(lconf, None),
+                         output_bn_prefix + fold_dir_basename(fold),
+                         econf.key)
+
+    # settings
+    to_hide = 'inter' if diffmode == GraphDiffMode.diff_intra else None
+    settings =\
+        GraphSettings(hide=to_hide,
+                      select=GRAPH_DOCS,
+                      unrelated=False,
+                      timeout=15,
+                      quiet=False)
+
+    predictions = load_predictions(decode_output_path(lconf, econf, fold))
+    if diffmode == GraphDiffMode.solo:
+        graph_all(dconf.pack.edus, predictions, settings, output_dir)
+    else:
+        diff_all(dconf.pack.edus,
+                 to_predictions(dconf.pack),  # gold
+                 predictions,
+                 settings, output_dir)
+
+
+def _mk_gold_graphs(lconf, dconf):
+    "Generate graphs for a single configuration"
+    # output path
+    output_dir = fp.join(report_dir_path(lconf, None),
+                         'graphs-gold')
+
+    settings =\
+        GraphSettings(hide=None,
+                      select=GRAPH_DOCS,
+                      unrelated=False,
+                      timeout=15,
+                      quiet=False)
+
+    predictions = to_predictions(dconf.pack)
+    graph_all(dconf.pack.edus, predictions, settings, output_dir)
 
 
 def mk_graphs(lconf, dconf):
     "Generate graphs for the gold data and for one of the folds"
-    with GoldGraphArgs(lconf) as args:
-        if fp.exists(args.output):
-            print("skipping gold graphs (already done)",
-                  file=sys.stderr)
-        else:
-            with Torpor('creating gold graphs'):
-                attelo.cmd.graph.main_for_harness(args)
+    with Torpor('creating gold graphs'):
+        _mk_gold_graphs(lconf, dconf)
     fold = sorted(set(dconf.folds.values()))[0]
 
     with Torpor('creating graphs for fold {}'.format(fold),
                 sameline=False):
         jobs = []
         for mode in GraphDiffMode:
-            jobs.extend([delayed(_mk_econf_graphs)(lconf, econf, fold, mode)
+            jobs.extend([delayed(_mk_econf_graphs)(lconf,
+                                                   dconf,
+                                                   econf,
+                                                   fold,
+                                                   mode)
                          for econf in DETAILED_EVALUATIONS])
         Parallel(n_jobs=-1)(jobs)
