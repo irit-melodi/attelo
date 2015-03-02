@@ -86,10 +86,10 @@ _LOCAL_LEARNERS = [
                   relate=None),
     LearnerConfig(attach=LEARNER_MAXENT,
                   relate=None),
-    LearnerConfig(attach=Keyed('sk-perceptron', SkPerceptron()),
-                  relate=LEARNER_MAXENT),
-    LearnerConfig(attach=Keyed('sk-pasagg', SkPassiveAggressiveClassifier()),
-                  relate=LEARNER_MAXENT),
+#    LearnerConfig(attach=Keyed('sk-perceptron', SkPerceptron()),
+#                  relate=LEARNER_MAXENT),
+#    LearnerConfig(attach=Keyed('sk-pasagg', SkPassiveAggressiveClassifier()),
+#                  relate=LEARNER_MAXENT),
 ]
 """Straightforward attelo learner algorithms to try
 
