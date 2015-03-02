@@ -36,38 +36,43 @@ def to_predictions(dpack):
                                      dpack.target)]
 
 
-def _mk_econf_graphs(lconf, dconf, econf, fold, diffmode):
-    "Generate graphs for a single configuration"
-    # output path
-    if diffmode == GraphDiffMode.solo:
-        output_bn_prefix = 'graphs-'
-    elif diffmode == GraphDiffMode.diff:
-        output_bn_prefix = 'graphs-gold-vs-'
-    elif diffmode == GraphDiffMode.diff_intra:
-        output_bn_prefix = 'graphs-sent-gold-vs-'
-    else:
-        raise Exception('Unknown diff mode {}'.format(diffmode))
-    output_dir = fp.join(report_dir_path(lconf, None),
-                         output_bn_prefix + fold_dir_basename(fold),
-                         econf.key)
-
-    # settings
-    to_hide = 'inter' if diffmode == GraphDiffMode.diff_intra else None
-    settings =\
-        GraphSettings(hide=to_hide,
-                      select=GRAPH_DOCS,
-                      unrelated=False,
-                      timeout=15,
-                      quiet=False)
-
+def _mk_econf_graphs(lconf, edus, gold, econf, fold):
+    "Return jobs generating graphs for a single configuration"
     predictions = load_predictions(decode_output_path(lconf, econf, fold))
-    if diffmode == GraphDiffMode.solo:
-        graph_all(dconf.pack.edus, predictions, settings, output_dir)
-    else:
-        diff_all(dconf.pack.edus,
-                 to_predictions(dconf.pack),  # gold
-                 predictions,
-                 settings, output_dir)
+    for diffmode in GraphDiffMode:
+        # output path
+        if diffmode == GraphDiffMode.solo:
+            output_bn_prefix = 'graphs-'
+        elif diffmode == GraphDiffMode.diff:
+            output_bn_prefix = 'graphs-gold-vs-'
+        elif diffmode == GraphDiffMode.diff_intra:
+            output_bn_prefix = 'graphs-sent-gold-vs-'
+        else:
+            raise Exception('Unknown diff mode {}'.format(diffmode))
+        output_dir = fp.join(report_dir_path(lconf, None),
+                             output_bn_prefix + fold_dir_basename(fold),
+                             econf.key)
+
+        # settings
+        to_hide = 'inter' if diffmode == GraphDiffMode.diff_intra else None
+        settings =\
+            GraphSettings(hide=to_hide,
+                          select=GRAPH_DOCS,
+                          unrelated=False,
+                          timeout=15,
+                          quiet=False)
+
+        if diffmode == GraphDiffMode.solo:
+            yield delayed(graph_all)(edus,
+                                     predictions,
+                                     settings,
+                                     output_dir)
+        else:
+            yield delayed(diff_all)(edus,
+                                    gold,
+                                    predictions,
+                                    settings,
+                                    output_dir)
 
 
 def _mk_gold_graphs(lconf, dconf):
@@ -81,7 +86,7 @@ def _mk_gold_graphs(lconf, dconf):
                       select=GRAPH_DOCS,
                       unrelated=False,
                       timeout=15,
-                      quiet=False)
+                      quiet=True)
 
     predictions = to_predictions(dconf.pack)
     graph_all(dconf.pack.edus, predictions, settings, output_dir)
@@ -95,12 +100,9 @@ def mk_graphs(lconf, dconf):
 
     with Torpor('creating graphs for fold {}'.format(fold),
                 sameline=False):
+        pack = dconf.pack.testing(dconf.folds, fold)
+        gold = to_predictions(pack)
         jobs = []
-        for mode in GraphDiffMode:
-            jobs.extend([delayed(_mk_econf_graphs)(lconf,
-                                                   dconf,
-                                                   econf,
-                                                   fold,
-                                                   mode)
-                         for econf in DETAILED_EVALUATIONS])
+        for econf in DETAILED_EVALUATIONS:
+            jobs.extend(_mk_econf_graphs(lconf, pack.edus, gold, econf, fold))
         Parallel(n_jobs=-1)(jobs)
