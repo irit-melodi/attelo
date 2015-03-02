@@ -9,15 +9,27 @@ In the future we may move this to a proper configuration file.
 # License: CeCILL-B (French BSD3-like)
 
 from __future__ import print_function
-from collections import namedtuple
-import itertools
+import itertools as itr
 
 from attelo.harness.config import (EvaluationConfig,
                                    LearnerConfig,
-                                   Learner,
-                                   Variant)
-from attelo.decoding.intra import (IntraStrategy)
+                                   Keyed)
 
+from attelo.decoding import (DecodingMode)
+from attelo.decoding.baseline import (LocalBaseline)
+from attelo.decoding.mst import (MstDecoder, MstRootStrategy)
+from attelo.decoding.intra import (IntraInterDecoder, IntraStrategy)
+from attelo.learning import (can_predict_proba)
+from sklearn.linear_model import (LogisticRegression,
+                                  Perceptron as SkPerceptron,
+                                  PassiveAggressiveClassifier as
+                                  SkPassiveAggressiveClassifier)
+from .attelo_cfg import (combined_key,
+                         Settings,
+                         KeyedDecoder,
+                         IntraFlag)
+
+# PATHS
 
 LOCAL_TMP = 'TMP'
 """Things we may want to hold on to (eg. for weeks), but could
@@ -54,54 +66,40 @@ FEATURE_SET = 'li2014'  # one of ['dev', 'eyk', 'li2014']
 Which feature set to use for feature extraction
 """
 
-_BASIC_LEARNERS_PROB = [
-    LearnerConfig(attach=Learner(key=x, name=x, flags=[], decoder=None),
-                  relate=None) for x in
-    [
-        "maxent",
-    ]] + [\
-    LearnerConfig(attach=Learner(key=x, name=x, flags=[], decoder=None),
-                  relate=Learner(key='oracle', name='oracle',
-                                 flags=[], decoder=None)) for x in
-    [
-        #"always",
-        #"never",
-    ]]
-"""Attelo learner algorithms to try (probabilistic).
+
+def decoder_local(settings):
+    "our instantiation of the local baseline decoder"
+    use_prob = settings.mode == DecodingMode.post_label
+    return LocalBaseline(0.5, use_prob)
+
+
+def decoder_mst(settings):
+    "our instantiation of the local baseline decoder"
+    use_prob = settings.mode == DecodingMode.post_label
+    return MstDecoder(MstRootStrategy.fake_root,
+                      use_prob)
+
+LEARNER_MAXENT = Keyed('maxent', LogisticRegression())
+
+_LOCAL_LEARNERS = [
+    LearnerConfig(attach=Keyed('oracle', 'oracle'),
+                  relate=None),
+    LearnerConfig(attach=LEARNER_MAXENT,
+                  relate=None),
+    LearnerConfig(attach=Keyed('sk-perceptron', SkPerceptron()),
+                  relate=LEARNER_MAXENT),
+    LearnerConfig(attach=Keyed('sk-pasagg', SkPassiveAggressiveClassifier()),
+                  relate=LEARNER_MAXENT),
+]
+"""Straightforward attelo learner algorithms to try
 
 It's up to you to choose values for the key field that can distinguish
-between different configurations of your learners.  For example,
-you might have something like
-
-::
-
-    Learner(key="perceptron-very-frob",
-            name="perceptron",
-            flags=["--frobnication", "0.9"]),
-
-    Learner(key="perceptron-not-so-frob",
-            name="perceptron",
-            flags=["--frobnication", "0.4"])
-
+between different configurations of your learners.
 """
 
-_BASIC_LEARNERS_NON_PROB = [
-    LearnerConfig(attach=Learner(key=x, name=x, flags=[], decoder=None),
-                  relate=Learner(key='maxent', name='maxent',
-                                 flags=[], decoder=None)) for x in
-    [
-        #"sk-perceptron",
-        #"sk-pasagg",
-    ]
-]
-"""
-Models that can only assign a confidence score but not a
-probability to a class.
-"""
-
-
-_FANCY_LEARNERS = [
-    # Variant(key='perc-struct', name='perc-struct', flags=[])
+_STRUCTURED_LEARNERS = [
+    # lambda d: LearnerConfig(attach=Keyed('pd-perceptron', Perceptron(d)),
+    #                        relate=_MAXENT),
 ]
 
 """Attelo learners that take decoders as arguments.
@@ -110,51 +108,41 @@ We assume that they cannot be used relation modelling
 
 
 _CORE_DECODERS = [
-    Variant(key=x, name=x, flags=[]) for x in [
-        "last",
-        "local",
-        "locallyGreedy",
-        "mst",
-        "astar",
-    ]
+    Keyed('local', decoder_local),
+    Keyed('mst', decoder_mst)
 ]
+
 """Attelo decoders to try in experiment
 
 Don't forget that you can parameterise the decoders ::
 
-    Variant(key="astar-3-best",
-            name="astar",
-            flags=["--nbest", "3"])
+    Keyed('astar-3-best' decoder_astar(nbest=3))
 """
 
-IntraFlag = namedtuple('IntraFlag',
-                       ['strategy',
-                        'intra_oracle',
-                        'inter_oracle'])
-"""
-Sort of a virtual flag for enabling intrasentential decoding
-"""
 
-_GLOBAL_DECODER_SETTINGS = [
-    Variant(key='AD.L_joint_intra_heads', name=None,
-            flags=[IntraFlag(strategy=IntraStrategy.heads,
+_SETTINGS = [
+    Settings(key='AD.L_joint_intra_soft',
+             mode=DecodingMode.joint,
+             intra=IntraFlag(strategy=IntraStrategy.soft,
                              intra_oracle=False,
-                             inter_oracle=False)]),
-    Variant(key='AD.L_joint_intra_heads_sorc', name=None,
-            flags=[IntraFlag(strategy=IntraStrategy.heads,
-                             intra_oracle=True,
-                             inter_oracle=False)]),
-    Variant(key='AD.L_joint_intra_heads_dorc', name=None,
-            flags=[IntraFlag(strategy=IntraStrategy.heads,
+                             inter_oracle=False)),
+    Settings(key='AD.L_joint_intra_heads',
+             mode=DecodingMode.joint,
+             intra=IntraFlag(strategy=IntraStrategy.heads,
                              intra_oracle=False,
-                             inter_oracle=True)]),
-    Variant(key='AD.L_joint', name=None,
-            flags=[]),
+                             inter_oracle=False)),
+    Settings(key='AD.L_joint_intra_only',
+             mode=DecodingMode.joint,
+             intra=IntraFlag(strategy=IntraStrategy.only,
+                             intra_oracle=False,
+                             inter_oracle=False)),
+    Settings(key='AD.L_joint',
+             mode=DecodingMode.joint,
+             intra=None),
+    Settings(key='AD.L_post',
+             mode=DecodingMode.post_label,
+             intra=None),
     ]
-#   Variant(key='AD.L_joint_intra_only', name=None,
-#           flags=['HARNESS:intra:only']),
-#   Variant(key='AD.L_post', name=None,
-#           flags=['--post-label'])]
 """Variants on global settings that would generally apply
 over all decoder combos.
 
@@ -174,22 +162,51 @@ possibilities
 """
 
 
-def combined_key(variants):
-    """return a key from a list of objects that have a
-    `key` field each"""
-    return '-'.join(v.key for v in variants)
+def _is_junk(klearner, kdecoder):
+    """
+    Any configuration for which this function returns True
+    will be silently discarded
+    """
+    # intrasential head to head mode only works with mst for now
+    intra_flag = kdecoder.settings.intra
+    if kdecoder.key != 'mst':
+        if (intra_flag is not None and
+                intra_flag.strategy == IntraStrategy.heads):
+            return True
+
+    # no need for intra/inter oracle mode if the learner already
+    # is an oracle
+    if klearner.key == 'oracle' and intra_flag is not None:
+        if intra_flag.intra_oracle or intra_flag.inter_oracle:
+            return True
+
+    # skip any config which tries to use a non-prob learner with
+    if not can_predict_proba(klearner.attach.payload):
+        if kdecoder.settings.mode != DecodingMode.post_label:
+            return True
+
+    return False
 
 
-def expanded_learners():
+def _mk_keyed_decoder(kdecoder, settings):
+    """construct a decoder from the settings
+
+    :type k_decoder: Keyed(Settings -> Decoder)
+
+    :rtype: KeyedDecoder
+    """
+    decoder_key = combined_key([kdecoder, settings])
+    decoder = kdecoder.payload(settings)
+    if settings.intra:
+        decoder = IntraInterDecoder(decoder, settings.intra.strategy)
+    return KeyedDecoder(key=decoder_key,
+                        payload=decoder,
+                        settings=settings)
+
+
+def _mk_evaluations():
     """
     Some things we're trying to capture here:
-
-    * in the basic case, you are using the same learner for
-      the attachment and relation task
-
-    * but some learners can't straightforwardly be used for
-      multi-class classification so you have to use a
-      different relation learner for them
 
     * some (fancy) learners are parameterised by decoders
 
@@ -200,29 +217,6 @@ def expanded_learners():
         maxent (no parameterisation with decoders)
         struct-perceptron-mst
         struct-perceptron-astar
-
-
-    Return a list of simple learners, and a list of decoder
-    parameterised learners (as a functions)
-    """
-    default_relate = Learner(key='maxent', name='maxent',
-                             flags=[], decoder=None)
-    simple = _BASIC_LEARNERS_PROB + _BASIC_LEARNERS_NON_PROB
-    # pylint: disable=cell-var-from-loop
-    fancy = [lambda d:
-             LearnerConfig(attach=Learner(key=learner.key,
-                                          name=learner.name,
-                                          flags=learner.flags,
-                                          decoder=d),
-                           relate=default_relate)
-             for learner in _FANCY_LEARNERS]
-    # pylint: enable=cell-var-from-loop
-    return (simple, fancy)
-
-
-def learner_decoder_pairs(decoders):
-    """
-    Some other considerations:
 
     * in addition to decoders, there are variants on global
       decoder settings that we want to expand out; however,
@@ -242,52 +236,30 @@ def learner_decoder_pairs(decoders):
       bother, eh?
 
     This would be so much easier with static typing
+
+    :rtype [(Keyed(learner), KeyedDecoder)]
     """
-    simple, fancy = expanded_learners()
-    simple_pairs = list(itertools.product(simple, decoders))
-    fancy_pairs = []
-    for learner in fancy:
-        fancy_pairs.extend((learner(d), d) for d in decoders)
-    return simple_pairs + fancy_pairs
+
+    kdecoders = [_mk_keyed_decoder(d, s)
+                 for d, s in itr.product(_CORE_DECODERS, _SETTINGS)]
+    kdecoders = [k for k in kdecoders if k is not None]
+
+    # all learner/decoder pairs
+    pairs = []
+    pairs.extend(itr.product(_LOCAL_LEARNERS, kdecoders))
+    for klearner in _STRUCTURED_LEARNERS:
+        pairs.extend((klearner(d.core), d) for d in kdecoders)
+
+    # boxing this up a little bit more conveniently
+    return [EvaluationConfig(key=combined_key([klearner, kdecoder]),
+                             settings=kdecoder.settings,
+                             learner=klearner,
+                             decoder=kdecoder)
+            for klearner, kdecoder in pairs
+            if not _is_junk(klearner, kdecoder)]
 
 
-def mk_config((learner, decoder), global_settings):
-    """given a decoder and some global decoder settings,
-    return an 'augmented' decoder reflecting these
-    settings
-    """
-    decoder_key = combined_key([global_settings, decoder])
-    decoder_flags = decoder.flags + global_settings.flags
-    non_prob_keys = [l.attach.key for l in _BASIC_LEARNERS_NON_PROB]
-    intra_flag = [f for f in global_settings.flags if isinstance(f, IntraFlag)]
-    intra_flag = intra_flag[0] if intra_flag else None
-
-    # no need for intra/inter oracle mode if the learner already is an oracle
-    if learner.key == 'oracle' and intra_flag is not None:
-        if intra_flag.intra_oracle or intra_flag.inter_oracle:
-            return None
-    # intrasential head to head mode only works with mst for now
-    if decoder.key != 'mst':
-        if (intra_flag is not None and
-                intra_flag.strategy == IntraStrategy.heads):
-            return None
-    if learner.attach.key in non_prob_keys:
-        if '--post-label' not in global_settings.flags:
-            return None
-        decoder_flags += ['--non-prob-scores']
-    decoder2 = Variant(key=decoder_key,
-                       name=decoder.name,
-                       flags=decoder_flags)
-    return EvaluationConfig(key=combined_key([learner, decoder2]),
-                            settings_key=global_settings.key,
-                            learner=learner,
-                            decoder=decoder2)
-
-
-_EVALUATIONS = [mk_config(*x) for x in
-                itertools.product(learner_decoder_pairs(_CORE_DECODERS),
-                                  _GLOBAL_DECODER_SETTINGS)]
-EVALUATIONS = [e for e in _EVALUATIONS if e is not None]
+EVALUATIONS = _mk_evaluations()
 """Learners and decoders that are associated with each other.
 The idea her is that if multiple decoders have a learner in
 common, we will avoid rebuilding the model associated with
@@ -297,7 +269,10 @@ their decoder, and cannot be shared
 """
 
 
-GRAPH_DOCS = ['wsj_1184.out']
+GRAPH_DOCS = [
+    'wsj_1184.out',
+    'wsj_1120.out',
+    ]
 """Just the documents that you want to graph.
 Set to None to graph everything
 """
@@ -305,8 +280,8 @@ Set to None to graph everything
 DETAILED_EVALUATIONS = [e for e in EVALUATIONS if
                         'maxent' in e.learner.key and
                         ('mst' in e.decoder.key or 'astar' in e.decoder.key)
-                        and 'joint' in e.settings_key
-                        and 'orc' not in e.settings_key]
+                        and 'joint' in e.settings.key
+                        and 'orc' not in e.settings.key]
 """
 Any evalutions that we'd like full reports and graphs for.
 You could just set this to EVALUATIONS, but this sort of
@@ -314,9 +289,6 @@ thing (mostly the graphs) takes time and space to build
 
 HINT: set to empty list for no graphs whatsoever
 """
-
-ATTELO_CONFIG_FILE = "attelo.config"
-"""Attelo feature configuration"""
 
 
 def print_evaluations():

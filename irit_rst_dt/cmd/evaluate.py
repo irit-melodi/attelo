@@ -17,35 +17,28 @@ import sys
 
 from joblib import (Parallel, delayed)
 
-from attelo.args import (args_to_decoder, args_to_learners)
 from attelo.io import (load_data_pack, load_predictions,
                        load_fold_dict, save_fold_dict,
-                       load_model, load_vocab,
-                       Torpor)
-from attelo.decoding.intra import (IntraInterPair,
-                                   IntraInterDecoder)
+                       load_model, load_vocab)
+from attelo.decoding.intra import (IntraInterPair)
 from attelo.harness.report import (Slice, full_report)
 from attelo.harness.util import\
     timestamp, call, force_symlink
+from attelo.learning import (Task)
 from attelo.table import (for_intra)
 from attelo.util import (Team, mk_rng)
-import attelo.cmd as att
+import attelo.harness as ath
 import attelo.fold
 import attelo.score
 import attelo.report
 
-from ..attelo_cfg import (attelo_doc_model_paths,
-                          attelo_sent_model_paths,
-                          intra_flags,
-                          LearnArgs,
-                          DecodeArgs,
-                          GraphDiffMode,
-                          GoldGraphArgs,
-                          GraphArgs)
+from ..graph import (mk_graphs)
 from ..local import (EVALUATIONS,
                      DETAILED_EVALUATIONS,
                      TRAINING_CORPORA)
-from ..path import (combined_dir_path,
+from ..path import (attelo_doc_model_paths,
+                    attelo_sent_model_paths,
+                    combined_dir_path,
                     decode_output_path,
                     edu_input_path,
                     eval_model_path,
@@ -233,35 +226,33 @@ def _parallel(lconf, n_jobs=None, verbose=None):
         return Parallel(n_jobs=n_jobs, verbose=verbose)
 
 
-def _get_learner_jobs(args, subpack):
-    "return model learning jobs unless the models already exist"
-    decoder = args_to_decoder(args)
-    learners = args_to_learners(decoder, args)
-    jobs = []
-    rconf = args.rconf
-    if rconf.attach.name == 'oracle':
-        pass
-    elif fp.exists(args.attachment_model):
-        print("reusing %s attach model (already built): %s" %
-              (rconf.attach.key,
-               fp.relpath(args.attachment_model, args.lconf.scratch_dir)),
-              file=sys.stderr)
-    else:
-        learn_fn = att.learn.learn_and_save_attach
-        jobs.append(delayed(learn_fn)(args, learners, subpack))
+def _get_learn_job(lconf, rconf, subpack, paths, task):
+    'learn a model and write it to the given output path'
 
-    rrelate = rconf.relate or rconf.attach
-    if rrelate.name == 'oracle':
-        pass
-    elif fp.exists(args.relation_model):
-        print("reusing %s relate model (already built): %s" %
-              (rrelate.key,
-               fp.relpath(args.relation_model, args.lconf.scratch_dir)),
+    if task == Task.attach:
+        sub_rconf = rconf.attach
+        output_path = paths.attach
+    elif task == Task.relate:
+        sub_rconf = rconf.relate or rconf.attach
+        output_path = paths.relate
+    else:
+        raise ValueError('Unknown learning task: {}'.format(task))
+
+    if sub_rconf.key == 'oracle':
+        return None
+    elif fp.exists(output_path):
+        print(("reusing {key} {task} model (already built): {path}"
+               "").format(key=sub_rconf.key,
+                          task=task.name,
+                          path=fp.relpath(output_path, lconf.scratch_dir)),
               file=sys.stderr)
     else:
-        learn_fn = att.learn.learn_and_save_relate
-        jobs.append(delayed(learn_fn)(args, learners, subpack))
-    return jobs
+        learn_fn = ath.learn.learn
+        learners = Team(attach=rconf.attach,
+                        relate=rconf.relate or rconf.attach)
+        learners = learners.fmap(lambda x: x.payload)
+        return delayed(learn_fn)(subpack, learners, task, output_path,
+                                 quiet=False)
 
 
 def _delayed_learn(lconf, dconf, rconf, fold, include_intra):
@@ -280,14 +271,17 @@ def _delayed_learn(lconf, dconf, rconf, fold, include_intra):
         os.makedirs(parent_dir)
 
     jobs = []
-    with LearnArgs(lconf, rconf, fold) as args:
+    if True:
         subpack = get_subpack(dconf.pack)
-        jobs.extend(_get_learner_jobs(args, subpack))
+        paths = attelo_doc_model_paths(lconf, rconf, fold)
+        jobs.append(_get_learn_job(lconf, rconf, subpack, paths, Task.attach))
+        jobs.append(_get_learn_job(lconf, rconf, subpack, paths, Task.relate))
     if include_intra:
-        with LearnArgs(lconf, rconf, fold, intra=True) as args:
-            subpack = get_subpack(for_intra(dconf.pack))
-            jobs.extend(_get_learner_jobs(args, subpack))
-    return jobs
+        subpack = for_intra(get_subpack(dconf.pack))
+        paths = attelo_sent_model_paths(lconf, rconf, fold)
+        jobs.append(_get_learn_job(lconf, rconf, subpack, paths, Task.attach))
+        jobs.append(_get_learn_job(lconf, rconf, subpack, paths, Task.relate))
+    return [j for j in jobs if j is not None]
 
 
 def _say_if_decoded(lconf, econf, fold, stage='decoding'):
@@ -317,33 +311,30 @@ def _delayed_decode(lconf, dconf, econf, fold):
     fold_dir = fold_dir_path(lconf, fold)
     if not os.path.exists(fold_dir):
         os.makedirs(fold_dir)
-    with DecodeArgs(lconf, econf, fold) as args:
-        decoder = args_to_decoder(args)
-        subpack = dconf.pack.testing(dconf.folds, fold)
-        doc_model_paths = attelo_doc_model_paths(lconf, econf.learner, fold)
 
-        intra_flag = intra_flags(econf.decoder.flags)
-        intra_flag = intra_flag[0] if intra_flag else None
-        if intra_flag is not None:
-            sent_model_paths =\
-                attelo_sent_model_paths(lconf, econf.learner, fold)
+    subpack = dconf.pack.testing(dconf.folds, fold)
+    doc_model_paths = attelo_doc_model_paths(lconf, econf.learner, fold)
+    intra_flag = econf.settings.intra
+    if intra_flag is not None:
+        sent_model_paths =\
+            attelo_sent_model_paths(lconf, econf.learner, fold)
 
-            intra_model = Team('oracle', 'oracle')\
-                if intra_flag.intra_oracle\
-                else att.decode.load_models(sent_model_paths)
-            inter_model = Team('oracle', 'oracle')\
-                if intra_flag.inter_oracle\
-                else att.decode.load_models(doc_model_paths)
+        intra_model = Team('oracle', 'oracle')\
+            if intra_flag.intra_oracle\
+            else sent_model_paths.fmap(load_model)
+        inter_model = Team('oracle', 'oracle')\
+            if intra_flag.inter_oracle\
+            else doc_model_paths.fmap(load_model)
 
-            models = IntraInterPair(intra=intra_model,
-                                    inter=inter_model)
-            decoder = IntraInterDecoder(decoder,
-                                        intra_flag.strategy)
-        else:
-            models = att.decode.load_models(doc_model_paths)
+        models = IntraInterPair(intra=intra_model,
+                                inter=inter_model)
+    else:
+        models = doc_model_paths.fmap(load_model)
 
-        return att.decode.delayed_main_for_harness(args, decoder,
-                                                   subpack, models)
+    return ath.decode.jobs(subpack, models,
+                           econf.decoder.payload,
+                           econf.settings.mode,
+                           decode_output_path(lconf, econf, fold))
 
 
 def _post_decode(lconf, dconf, econf, fold):
@@ -354,9 +345,9 @@ def _post_decode(lconf, dconf, econf, fold):
         return
 
     print(_eval_banner(econf, lconf, fold), file=sys.stderr)
-    with DecodeArgs(lconf, econf, fold) as args:
-        subpack = dconf.pack.testing(dconf.folds, fold)
-        att.decode.concatenate_outputs(args, subpack)
+    subpack = dconf.pack.testing(dconf.folds, fold)
+    ath.decode.concatenate_outputs(subpack,
+                                   decode_output_path(lconf, econf, fold))
 
 
 def _generate_fold_file(lconf, dpack):
@@ -378,10 +369,10 @@ def _fold_report_slices(lconf, fold):
     for econf in EVALUATIONS:
         p_path = decode_output_path(lconf, econf, fold)
         enable_details = econf.key in dkeys
-        stripped_decoder_key = econf.decoder.key[len(econf.settings_key) + 1:]
+        stripped_decoder_key = econf.decoder.key[len(econf.settings.key) + 1:]
         config = (econf.learner.key,
                   stripped_decoder_key,
-                  econf.settings_key)
+                  econf.settings.key)
         yield Slice(fold, config,
                     load_predictions(p_path),
                     enable_details)
@@ -395,9 +386,9 @@ def _mk_report(lconf, dconf, slices, fold):
     rpack = full_report(dconf.pack, dconf.folds, slices)
     rpack.dump(report_dir_path(lconf, fold))
     for rconf in LEARNERS:
-        if rconf.attach.name == 'oracle':
+        if rconf.attach.payload == 'oracle':
             pass
-        elif rconf.relate is not None and rconf.relate.name == 'oracle':
+        elif rconf.relate is not None and rconf.relate.payload == 'oracle':
             pass
         else:
             _mk_model_summary(lconf, dconf, rconf, fold)
@@ -438,32 +429,6 @@ def _mk_model_summary(lconf, dconf, rconf, fold):
         _write_discr(discr, True)
 
 
-def _mk_econf_graphs(lconf, econf, fold, diff):
-    "Generate graphs for a single configuration"
-    with GraphArgs(lconf, econf, fold, diff) as args:
-        att.graph.main_for_harness(args)
-
-
-def _mk_graphs(lconf, dconf):
-    "Generate graphs for the gold data and for one of the folds"
-    with GoldGraphArgs(lconf) as args:
-        if fp.exists(args.output):
-            print("skipping gold graphs (already done)",
-                  file=sys.stderr)
-        else:
-            with Torpor('creating gold graphs'):
-                att.graph.main_for_harness(args)
-    fold = sorted(set(dconf.folds.values()))[0]
-
-    with Torpor('creating graphs for fold {}'.format(fold),
-                sameline=False):
-        jobs = []
-        for mode in GraphDiffMode:
-            jobs.extend([delayed(_mk_econf_graphs)(lconf, econf, fold, mode)
-                         for econf in DETAILED_EVALUATIONS])
-        _parallel(lconf)(jobs)
-
-
 def _mk_hashfile(parent_dir, lconf, dconf):
     "Hash the features and models files for long term archiving"
 
@@ -492,7 +457,7 @@ def _mk_global_report(lconf, dconf):
     report_dir = report_dir_path(lconf, None)
     final_report_dir = fp.join(lconf.eval_dir,
                                report_dir_basename(lconf))
-    _mk_graphs(lconf, dconf)
+    mk_graphs(lconf, dconf)
     _mk_hashfile(report_dir, lconf, dconf)
     if fp.exists(final_report_dir):
         shutil.rmtree(final_report_dir)
@@ -513,7 +478,7 @@ def _do_fold(lconf, dconf, fold):
         os.makedirs(fold_dir)
 
     # learn all models in parallel
-    include_intra = any(intra_flags(e.decoder.flags)
+    include_intra = any(e.settings.intra is not None
                         for e in EVALUATIONS)
     learner_jobs = concat_i(_delayed_learn(lconf, dconf, rconf, fold,
                                            include_intra)
@@ -534,7 +499,7 @@ def _mk_combined_models(lconf, dconf):
     """
     Create global for all learners
     """
-    include_intra = any(intra_flags(e.decoder.flags)
+    include_intra = any(e.settings.intra is not None
                         for e in EVALUATIONS)
     jobs = concat_i(_delayed_learn(lconf, dconf, learner, None, include_intra)
                     for learner in LEARNERS)

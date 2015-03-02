@@ -2,91 +2,46 @@
 Attelo command configuration
 """
 
-from enum import Enum
-from os import path as fp
-import argparse
+from collections import namedtuple
 
-from attelo.harness.config import CliArgs
-from attelo.util import (Team)
-import attelo.cmd as att
-
-from .local import (IntraFlag,
-                    ATTELO_CONFIG_FILE,
-                    GRAPH_DOCS)
-from .path import (decode_output_path,
-                   edu_input_path,
-                   eval_model_path,
-                   features_path,
-                   fold_dir_basename,
-                   pairings_path,
-                   report_dir_path)
+import six
 
 # pylint: disable=too-few-public-methods
 
 
-def _attelo_dpack_args(lconf):
-    """
-    Return a list of attelo args that correspond to the data pack
-    files (edu inputs, pairings, features)
-    """
-    return [edu_input_path(lconf),
-            pairings_path(lconf),
-            features_path(lconf)]
+def combined_key(variants):
+    """return a key from a list of objects that have a
+    `key` field each"""
+    return '-'.join(v if isinstance(v, six.string_types) else v.key
+                    for v in variants)
 
 
-def attelo_doc_model_paths(lconf, rconf, fold):
-    """
-    Return attelo intra/intersentential model paths
-    """
-    return Team(attach=eval_model_path(lconf, rconf, fold, "attach"),
-                relate=eval_model_path(lconf, rconf, fold, "relate"))
+IntraFlag = namedtuple('IntraFlag',
+                       ['strategy',
+                        'intra_oracle',
+                        'inter_oracle'])
+"""
+Sort of a virtual flag for enabling intrasentential decoding
+"""
 
 
-def attelo_sent_model_paths(lconf, rconf, fold):
-    """
-    Return attelo intra/intersentential model paths
-    """
-    return Team(attach=eval_model_path(lconf, rconf, fold, "sent-attach"),
-                relate=eval_model_path(lconf, rconf, fold, "sent-relate"))
+Settings = namedtuple('Settings',
+                      ['key', 'intra', 'mode'])
+"""
+Global settings for decoding and for decoder construction
+"""
 
 
-_ATTELO_CONFIG_ARGS = ['--config', ATTELO_CONFIG_FILE]
+KeyedDecoder = namedtuple('KeyedDecoder',
+                          ['key',
+                           'payload',
+                           'settings'])
+"""
+A decoder and some decoder settings that together with it
 
-
-def _attelo_model_args(lconf, rconf, fold, intra=False):
-    """
-    Return command line args for attelo model flags
-    """
-    if intra:
-        paths = attelo_sent_model_paths(lconf, rconf, fold)
-    else:
-        paths = attelo_doc_model_paths(lconf, rconf, fold)
-    return ["--attachment-model", paths.attach,
-            "--relation-model", paths.relate]
-
-
-def censor_flags(flags):
-    """
-    Return flags that are not in the list of things the harness
-    handles by iteslf
-    """
-    return [f for f in flags if not is_intra(f)]
-
-
-def intra_flags(flags):
-    """
-    Return flags that are not in the list of things the harness
-    handles by iteslf
-    """
-    return [f for f in flags if is_intra(f)]
-
-
-def is_intra(flag):
-    """
-    Return True if a flag corresponds to intra/intersential
-    decoding
-    """
-    return isinstance(flag, IntraFlag)
+Note that this is meant to be duck-type-compatible with
+Keyed(Decoder)
+"""
 
 
 def _attelo_fold_args(lconf, fold):
@@ -99,169 +54,3 @@ def _attelo_fold_args(lconf, fold):
     else:
         return ["--fold", str(fold),
                 "--fold-file", lconf.fold_file]
-
-
-class LearnArgs(CliArgs):
-    """
-    cmdline args for attelo learn
-    """
-    def __init__(self, lconf, rconf, fold, intra=False):
-        super(LearnArgs, self).__init__()
-        self.lconf = lconf
-        self.rconf = rconf
-        self.fold = fold
-        self.intra = intra
-
-    def parser(self):
-        psr = argparse.ArgumentParser()
-        att.learn.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        lconf = self.lconf
-        rconf = self.rconf
-        fold = self.fold
-
-        args = []
-        args.extend(_attelo_dpack_args(lconf))
-        args.extend(_ATTELO_CONFIG_ARGS)
-        args.extend(_attelo_model_args(lconf, rconf, fold,
-                                       intra=self.intra))
-        args.extend(_attelo_fold_args(lconf, fold))
-
-        args.extend(["--learner", rconf.attach.name])
-        args.extend(rconf.attach.flags)
-        if rconf.relate is not None:
-            args.extend(["--relation-learner", rconf.relate.name])
-            # yuck: we assume that learner and relation learner flags
-            # are compatible
-            args.extend(rconf.relate.flags)
-        decoder = rconf.attach.decoder
-        if decoder is None and rconf.relate is not None:
-            decoder = rconf.relate.decoder
-        if decoder is not None:
-            args.extend(["--decoder", decoder.name])
-            # intercept fake intra-inter flag because we handle this on
-            # the harness level
-            args.extend(censor_flags(decoder.flags))
-
-        if self.intra:
-            args.extend(["--intrasentential"])
-        return args
-
-
-class DecodeArgs(CliArgs):
-    """
-    cmdline args for attelo decode
-    """
-    def __init__(self, lconf, econf, fold):
-        super(DecodeArgs, self).__init__()
-        self.lconf = lconf
-        self.econf = econf
-        self.fold = fold
-
-    def parser(self):
-        psr = argparse.ArgumentParser()
-        att.decode.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        lconf = self.lconf
-        econf = self.econf
-        fold = self.fold
-
-        args = []
-        args.extend(_attelo_dpack_args(lconf))
-        args.extend(_ATTELO_CONFIG_ARGS)
-        args.extend(_attelo_model_args(lconf, econf.learner, fold))
-        args.extend(_attelo_fold_args(lconf, fold))
-        args.extend(["--decoder", econf.decoder.name,
-                     "--output", decode_output_path(lconf, econf, fold)])
-        args.extend(censor_flags(econf.decoder.flags))
-        return args
-# pylint: enable=too-many-instance-attributes
-
-
-class GoldGraphArgs(CliArgs):
-    'cmd line args to generate graphs (gold set)'
-    def __init__(self, lconf):
-        self.lconf = lconf
-        super(GoldGraphArgs, self).__init__()
-
-    def parser(self):
-        psr = argparse.ArgumentParser()
-        att.graph.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        lconf = self.lconf
-        has_stripped = fp.exists(features_path(lconf, stripped=True))
-        args = [edu_input_path(lconf),
-                '--quiet',
-                '--gold',
-                pairings_path(lconf),
-                features_path(lconf, stripped=has_stripped),
-                '--output',
-                fp.join(report_dir_path(lconf, None),
-                        'graphs-gold')]
-        if GRAPH_DOCS is not None:
-            args.extend(['--select'])
-            args.extend(GRAPH_DOCS)
-        return args
-
-
-class GraphDiffMode(Enum):
-    "what sort of graph output to make"
-    solo = 1
-    diff = 2
-    diff_intra = 3
-
-
-class GraphArgs(CliArgs):
-    'cmd line args to generate graphs (for a fold)'
-    def __init__(self, lconf, econf, fold, diffmode):
-        self.lconf = lconf
-        self.econf = econf
-        self.fold = fold
-        self.diffmode = diffmode
-        super(GraphArgs, self).__init__()
-
-    def parser(self):
-        psr = argparse.ArgumentParser()
-        att.graph.config_argparser(psr)
-        return psr
-
-    def argv(self):
-        lconf = self.lconf
-        econf = self.econf
-        fold = self.fold
-
-        args = [edu_input_path(lconf),
-                '--graphviz-timeout', str(15),
-                '--quiet']
-
-        if self.diffmode == GraphDiffMode.solo:
-            output_bn_prefix = 'graphs-'
-            args.extend(['--predictions',
-                         decode_output_path(lconf, econf, fold)])
-        else:
-            has_stripped = fp.exists(features_path(lconf, stripped=True))
-            output_bn_prefix = 'graphs-gold-vs-'
-            args.extend(['--gold',
-                         pairings_path(lconf),
-                         features_path(lconf, stripped=has_stripped),
-                         '--diff-to',
-                         decode_output_path(lconf, econf, fold)])
-
-        if self.diffmode == GraphDiffMode.diff_intra:
-            output_bn_prefix = 'graphs-sent-gold-vs-'
-            args.extend(['--intra'])
-
-        output_path = fp.join(report_dir_path(lconf, None),
-                              output_bn_prefix + fold_dir_basename(fold),
-                              econf.key)
-        args.extend(['--output', output_path])
-        if GRAPH_DOCS is not None:
-            args.extend(['--select'])
-            args.extend(GRAPH_DOCS)
-        return args
