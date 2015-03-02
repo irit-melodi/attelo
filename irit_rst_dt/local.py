@@ -195,7 +195,7 @@ def _mk_keyed_decoder(kdecoder, settings):
 
     :rtype: KeyedDecoder
     """
-    decoder_key = combined_key([kdecoder, settings])
+    decoder_key = combined_key([settings, kdecoder])
     decoder = kdecoder.payload(settings)
     if settings.intra:
         decoder = IntraInterDecoder(decoder, settings.intra.strategy)
