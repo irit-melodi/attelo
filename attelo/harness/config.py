@@ -139,14 +139,18 @@ class LearnerConfig(Team):
 
 
 class EvaluationConfig(namedtuple("EvaluationConfig",
-                                  "key settings_key learner decoder")):
+                                  "key settings learner decoder")):
     """
-    Combination of learners and decoders for an attelo
-    evaluation
+    Combination of learners, decoders and decoder settings
+    for an attelo evaluation
 
-    :type settings_key: string
+    The settings can really be of type that has a 'key'
+    field; but you should have a way of extracting at
+    least a :pyclass:`DecodingMode` from it
+
     :type learner: Keyed (Team learner)
-    :type decoder: Keyed (Decoder, DecodingMode)
+    :type decoder: Keyed Decoder
+    :type settings: Keyed (???)
     """
     @classmethod
     def simple_key(cls, learner, decoder):
