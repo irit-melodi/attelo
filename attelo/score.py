@@ -206,7 +206,8 @@ def discriminating_features(models, labels, vocab, top_n):
     :rtype: [(string, [(string, float)])] or None
     """
     best_idxes = lambda m, i: _best_feature_indices(vocab, m, i, top_n)
-    if not hasattr(models.relate, 'coef_'):
+    if (not hasattr(models.attach, 'coef_') or
+            not hasattr(models.relate, 'coef_')):
         return None
     rows = []
     rows.append((UNRELATED, best_idxes(models.attach, 0)))
