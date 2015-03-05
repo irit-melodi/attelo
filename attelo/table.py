@@ -50,9 +50,6 @@ class DataPack(namedtuple('DataPack',
     :type labels [string] or None
     '''
     # pylint: disable=too-many-arguments
-    def __init__(self, edus, pairings, data, target, labels):
-        super(DataPack, self).__init__(edus, pairings, data, target, labels)
-
     @classmethod
     def load(cls, edus, pairings, data, target, labels):
         '''
