@@ -2,9 +2,9 @@
 
 The configuration we assume is that you have a team of users working
 on different aspects of the system in a shared space. One of the users
-(eg. Eric) should be designated “mother”.
+(eg. Eric) should be designated “local admin”.
 
-## Initialisation 1 (mother)
+## Initialisation 1 (local admin)
 
 1. Upload the corpora to a shared space
 
@@ -16,8 +16,8 @@ on different aspects of the system in a shared space. One of the users
 1. Put the following in your .bashrc
 
    ```
-   MINICONDA_DIR=EDIT_THIS   # <== get from mother
-   PROJECT_DIR=EDIT_THIS # <== get from mother
+   MINICONDA_DIR=EDIT_THIS   # <== get from local admin
+   PROJECT_DIR=EDIT_THIS # <== get from local admin
    export PATH=$MINICONDA_DIR/bin:$PATH
    ```
 
@@ -48,7 +48,7 @@ on different aspects of the system in a shared space. One of the users
    and attelo branch (HINT: you can refer to branches on GitHub
    repositories)
 
-6. Link the RST-DT and PTB corpora (path provided by mother) in
+6. Link the RST-DT and PTB corpora (path provided by local admin) in
    (see main README)
 
 7. Run the usual install
