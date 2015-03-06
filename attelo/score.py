@@ -168,7 +168,7 @@ def empty_confusion_matrix(dpack):
     """
     llen = len(dpack.labels)
     # pylint: disable=no-member
-    return numpy.zeros((llen, llen))
+    return numpy.zeros((llen, llen), dtype=numpy.int32)
     # pylint: disable=no-member
 
 
