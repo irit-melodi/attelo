@@ -4,6 +4,8 @@ Manipulating data tables (taking slices, etc)
 
 from __future__ import print_function
 from collections import defaultdict, namedtuple
+import itertools as itr
+
 import numpy
 import numpy.ma
 
@@ -327,6 +329,27 @@ def for_intra(pack):
                     data=pack.data,
                     target=new_target,
                     labels=pack.labels)
+
+
+def select_window(dpack, window):
+    '''Select only EDU pairs that are at most `window` EDUs apart
+    from each other (adjacent EDUs would be considered `0` apart)
+
+    Note that if the window is `None`, we simply return the
+    original datapack
+    '''
+    if window is None:
+        return dpack
+    position = {FAKE_ROOT_ID: 0}
+    for _, edus in itr.groupby(dpack.edus, key=lambda x: x.grouping):
+        for i, edu in enumerate(edus):
+            position[edu.id] = i
+    indices = []
+    for i, (edu1, edu2) in enumerate(dpack.pairings):
+        gap = abs(position[edu2.id] - position[edu1.id])
+        if gap <= window:
+            indices.append(i)
+    return dpack.selected(indices)
 
 
 def get_label_string(labels, i):
