@@ -47,3 +47,29 @@ class Decoder(with_metaclass(ABCMeta, object)):
         :rtype: [ [(string,string,string)] ]
         '''
         raise NotImplementedError
+
+
+class PruningDecoder(with_metaclass(ABCMeta, Decoder)):
+    '''
+    A pruning decoder takes another decoder as input and does some
+    preprocessing on the candidate edges, removing some of them
+    before handing them off to its inner decoder
+    '''
+    def __init__(self, decoder):
+        self.decoder = decoder
+
+    def decode(self, prob_distrib):
+        return self.decoder.decode(self.prune(prob_distrib))
+
+    @abstractmethod
+    def prune(self, prob_distrib):
+        '''
+        :param prob_distrib: the proposed links that we would like
+                             to decode over
+        :type prob_distrib: [(string, string, float, string)]
+
+        Trim a set of proposed links
+
+        :rtype: [(string, string, float, string)]
+        '''
+        raise NotImplementedError
