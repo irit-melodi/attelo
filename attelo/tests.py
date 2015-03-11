@@ -261,8 +261,7 @@ class EvaluateArgs(TestArgs):
 
     def argv(self):
         args = super(EvaluateArgs, self).argv()
-        args.extend(['--config', self.eg_path('tiny.config'),
-                     '--nfold', str(MAX_FOLDS)])
+        args.extend(['--nfold', str(MAX_FOLDS)])
         return args
 
     @classmethod
@@ -280,8 +279,7 @@ class EnfoldArgs(TestArgs):
 
     def argv(self):
         args = super(EnfoldArgs, self).argv()
-        args += ['--config', self.eg_path('tiny.config'),
-                 '--nfold', str(MAX_FOLDS),
+        args += ['--nfold', str(MAX_FOLDS),
                  '--output', self.tmp_path('folds.json')]
         return args
 
@@ -304,8 +302,7 @@ class LearnDecodeArgs(TestArgs):
         if self._fold is not None:
             args.extend(['--fold-file', self.tmp_path('folds.json'),
                          '--fold', str(self._fold)])
-        args.extend(['--config', self.eg_path('tiny.config'),
-                     '--quiet',
+        args.extend(['--quiet',
                      '--attachment-model', self.tmp_path('attach.model'),
                      '--relation-model', self.tmp_path('relate.model')])
         args.extend(self._extra_args)

@@ -202,11 +202,6 @@ def add_common_args(psr):
                      help="EDU pairings file (tab separated)")
     psr.add_argument("features", metavar="FILE",
                      help="EDU pair features (libsvm)")
-    psr.add_argument("--config", "-C", metavar="FILE",
-                     required=True,
-                     default=None,
-                     help="corpus specificities config file; if "
-                     "absent, defaults to hard-wired annodis config")
     psr.add_argument("--quiet", action="store_true",
                      help="Supress all feedback")
 
