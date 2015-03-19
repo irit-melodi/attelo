@@ -6,7 +6,6 @@ run an experiment
 """
 
 from __future__ import print_function
-from collections import Counter
 from os import path as fp
 import codecs
 import itertools as itr
@@ -15,7 +14,7 @@ import os
 import shutil
 import sys
 
-from joblib import (Parallel, delayed)
+from joblib import (delayed)
 
 from attelo.io import (load_data_pack, load_predictions,
                        load_fold_dict, save_fold_dict,
@@ -51,8 +50,11 @@ from ..path import (attelo_doc_model_paths,
                     report_dir_path,
                     vocab_path)
 from ..util import (concat_i,
+                    exit_ungathered,
                     latest_tmp,
-                    md5sum_file)
+                    md5sum_file,
+                    parallel,
+                    sanity_check_config)
 from ..loop import (LoopConfig,
                     DataConfig,
                     ClusterStage)
@@ -76,14 +78,6 @@ LEARNERS = {e.learner.key: e.learner for e in EVALUATIONS}.values()
 # ---------------------------------------------------------------------
 # user feedback
 # ---------------------------------------------------------------------
-
-
-def _exit_ungathered():
-    """
-    You don't seem to have run the gather command
-    """
-    sys.exit("""No data to run experiments on.
-Please run `irit-rst-dt gather`""")
 
 
 def _eval_banner(econf, lconf, fold):
@@ -182,49 +176,9 @@ def _create_eval_dirs(args, data_dir, jumpstart):
 
         return eval_dir, scratch_dir
 
-
-def _sanity_check_config():
-    """
-    Die if there's anything odd about the config
-    """
-    conf_counts = Counter(econf.key for econf in EVALUATIONS)
-    bad_confs = [k for k, v in conf_counts.items() if v > 1]
-    if bad_confs:
-        oops = ("Sorry, there's an error in your configuration.\n"
-                "I don't dare to start evaluation until you fix it.\n"
-                "ERROR! -----------------vvvv---------------------\n"
-                "The following configurations more than once:{}\n"
-                "ERROR! -----------------^^^^^--------------------"
-                "").format("\n".join(bad_confs))
-        sys.exit(oops)
-
 # ---------------------------------------------------------------------
 # evaluation
 # ---------------------------------------------------------------------
-
-
-def _parallel(lconf, n_jobs=None, verbose=None):
-    """
-    Run some delayed jobs in parallel (or sequentially
-    depending on our settings)
-    """
-    n_jobs = n_jobs or lconf.n_jobs
-    verbose = verbose or 5
-
-    def sequential(jobs):
-        """
-        run jobs in truly sequential fashion without any of
-        this parallel nonsense
-        """
-        # pylint: disable=star-args
-        for func, args, kwargs in jobs:
-            func(*args, **kwargs)
-        # pylint: enable=star-args
-
-    if n_jobs == 0:
-        return sequential
-    else:
-        return Parallel(n_jobs=n_jobs, verbose=verbose)
 
 
 def _get_learn_job(lconf, rconf, subpack, paths, task):
@@ -484,11 +438,11 @@ def _do_fold(lconf, dconf, fold):
     learner_jobs = concat_i(_delayed_learn(lconf, dconf, rconf, fold,
                                            include_intra)
                             for rconf in LEARNERS)
-    _parallel(lconf)(learner_jobs)
+    parallel(lconf)(learner_jobs)
     # run all model/decoder joblets in parallel
     decoder_jobs = concat_i(_delayed_decode(lconf, dconf, econf, fold)
                             for econf in EVALUATIONS)
-    _parallel(lconf)(decoder_jobs)
+    parallel(lconf)(decoder_jobs)
     for econf in EVALUATIONS:
         _post_decode(lconf, dconf, econf, fold)
     fold_dir = fold_dir_path(lconf, fold)
@@ -504,7 +458,7 @@ def _mk_combined_models(lconf, dconf):
                         for e in EVALUATIONS)
     jobs = concat_i(_delayed_learn(lconf, dconf, learner, None, include_intra)
                     for learner in LEARNERS)
-    _parallel(lconf)(jobs)
+    parallel(lconf)(jobs)
 
 
 def _is_standalone_or(lconf, stage):
@@ -521,7 +475,7 @@ def _do_corpus(lconf):
 
     edus_file = edu_input_path(lconf)
     if not os.path.exists(edus_file):
-        _exit_ungathered()
+        exit_ungathered()
 
     has_stripped = (lconf.stage in [ClusterStage.end, ClusterStage.start]
                     and fp.exists(features_path(lconf, stripped=True)))
@@ -612,11 +566,11 @@ def main(args):
     `config_argparser`
     """
     sys.setrecursionlimit(10000)
-    _sanity_check_config()
+    sanity_check_config()
     stage = args_to_stage(args)
     data_dir = latest_tmp()
     if not os.path.exists(data_dir):
-        _exit_ungathered()
+        exit_ungathered()
     eval_dir, scratch_dir = _create_eval_dirs(args, data_dir, args.jumpstart)
 
     for corpus in TRAINING_CORPORA:

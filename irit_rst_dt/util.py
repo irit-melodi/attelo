@@ -6,13 +6,17 @@
 Miscellaneous utility functions
 """
 
+from collections import (Counter)
+import hashlib
 import itertools
 import os
+import sys
 
-import hashlib
 from attelo.harness.util import timestamp
+from joblib import (Parallel)
 
-from .local import LOCAL_TMP
+from .local import (LOCAL_TMP,
+                    EVALUATIONS)
 
 
 def current_tmp():
@@ -47,3 +51,63 @@ def md5sum_file(path, blocksize=65536):
             hasher.update(buf)
             buf = afile.read(blocksize)
     return hasher.hexdigest()
+
+# ---------------------------------------------------------------------
+# config
+# ---------------------------------------------------------------------
+
+
+def exit_ungathered():
+    """
+    You don't seem to have run the gather command
+    """
+    sys.exit("""No data to run experiments on.
+Please run `irit-rst-dt gather`""")
+
+
+def sanity_check_config():
+    """
+    Die if there's anything odd about the config
+    """
+    conf_counts = Counter(econf.key for econf in EVALUATIONS)
+    bad_confs = [k for k, v in conf_counts.items() if v > 1]
+    if bad_confs:
+        oops = ("Sorry, there's an error in your configuration.\n"
+                "I don't dare to start evaluation until you fix it.\n"
+                "ERROR! -----------------vvvv---------------------\n"
+                "The following configurations more than once:{}\n"
+                "ERROR! -----------------^^^^^--------------------"
+                "").format("\n".join(bad_confs))
+        sys.exit(oops)
+
+# ---------------------------------------------------------------------
+# parallel
+# ---------------------------------------------------------------------
+
+
+def parallel(lconf, n_jobs=None, verbose=None):
+    """
+    Run some delayed jobs in parallel (or sequentially
+    depending on our settings)
+
+    This exists wholly to allow us to bypass joblib in
+    places we suspect that n_jobs=1 isn't quite the same
+    as just straight shot sequential.
+    """
+    n_jobs = n_jobs or lconf.n_jobs
+    verbose = verbose or 5
+
+    def sequential(jobs):
+        """
+        run jobs in truly sequential fashion without any of
+        this parallel nonsense
+        """
+        # pylint: disable=star-args
+        for func, args, kwargs in jobs:
+            func(*args, **kwargs)
+        # pylint: enable=star-args
+
+    if n_jobs == 0:
+        return sequential
+    else:
+        return Parallel(n_jobs=n_jobs, verbose=verbose)
