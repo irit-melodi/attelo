@@ -25,7 +25,7 @@ from ..learn import (LEARNERS,
                      delayed_learn,
                      mk_combined_models)
 from ..local import (EVALUATIONS,
-                     TRAINING_CORPORA)
+                     TRAINING_CORPUS)
 from ..path import (edu_input_path,
                     fold_dir_path,
                     features_path,
@@ -293,16 +293,14 @@ def main(args):
         exit_ungathered()
     eval_dir, scratch_dir = _create_eval_dirs(args, data_dir, args.jumpstart)
 
-    for corpus in TRAINING_CORPORA:
-        dataset = os.path.basename(corpus)
-        fold_file = os.path.join(eval_dir,
-                                 "folds-%s.json" % dataset)
+    dataset = fp.basename(TRAINING_CORPUS)
+    fold_file = fp.join(eval_dir, "folds-%s.json" % dataset)
 
-        lconf = LoopConfig(eval_dir=eval_dir,
-                           scratch_dir=scratch_dir,
-                           folds=args.folds,
-                           stage=stage,
-                           fold_file=fold_file,
-                           n_jobs=args.n_jobs,
-                           dataset=dataset)
-        _do_corpus(lconf)
+    lconf = LoopConfig(eval_dir=eval_dir,
+                       scratch_dir=scratch_dir,
+                       folds=args.folds,
+                       stage=stage,
+                       fold_file=fold_file,
+                       n_jobs=args.n_jobs,
+                       dataset=dataset)
+    _do_corpus(lconf)

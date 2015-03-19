@@ -10,7 +10,7 @@ import os
 
 from attelo.harness.util import call, force_symlink
 
-from ..local import (TRAINING_CORPORA, PTB_DIR, FEATURE_SET)
+from ..local import (TRAINING_CORPUS, PTB_DIR, FEATURE_SET)
 from ..util import\
     current_tmp, latest_tmp
 
@@ -35,9 +35,8 @@ def main(_):
     `config_argparser`
     """
     tdir = current_tmp()
-    for corpus in TRAINING_CORPORA:
-        call(["rst-dt-learning", "extract", corpus, PTB_DIR, tdir,
-              '--feature_set', FEATURE_SET])
+    call(["rst-dt-learning", "extract", TRAINING_CORPUS, PTB_DIR, tdir,
+          '--feature_set', FEATURE_SET])
     with open(os.path.join(tdir, "versions-gather.txt"), "w") as stream:
         call(["pip", "freeze"], stdout=stream)
     latest_dir = latest_tmp()
