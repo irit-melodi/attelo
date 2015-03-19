@@ -17,16 +17,15 @@ import sys
 from attelo.io import (load_data_pack, load_predictions,
                        load_fold_dict, save_fold_dict,
                        load_model, load_vocab)
-from attelo.decoding.intra import (IntraInterPair)
 from attelo.harness.report import (Slice, full_report)
 from attelo.harness.util import\
     timestamp, call, force_symlink
-from attelo.util import (Team, mk_rng)
-import attelo.harness.decode as ath_decode
+from attelo.util import (mk_rng)
 import attelo.fold
 import attelo.score
 import attelo.report
 
+from ..decode import (delayed_decode, post_decode)
 from ..graph import (mk_graphs)
 from ..learn import (LEARNERS,
                      delayed_learn,
@@ -73,20 +72,6 @@ _DEBUG = 0
 # ---------------------------------------------------------------------
 # user feedback
 # ---------------------------------------------------------------------
-
-
-def _eval_banner(econf, lconf, fold):
-    """
-    Which combo of eval parameters are we running now?
-    """
-    msg = ("Reassembling "
-           "fold {fnum} [{dset}]\t"
-           "learner(s): {learner}\t"
-           "decoder: {decoder}")
-    return msg.format(fnum=fold,
-                      dset=lconf.dataset,
-                      learner=econf.learner.key,
-                      decoder=econf.decoder.key)
 
 
 def _corpus_banner(lconf):
@@ -174,72 +159,6 @@ def _create_eval_dirs(args, data_dir, jumpstart):
 # ---------------------------------------------------------------------
 # evaluation
 # ---------------------------------------------------------------------
-
-
-def _say_if_decoded(lconf, econf, fold, stage='decoding'):
-    """
-    If we have already done the decoding for a given config
-    and fold, say so and return True
-    """
-    if fp.exists(decode_output_path(lconf, econf, fold)):
-        print(("skipping {stage} {learner} {decoder} "
-               "(already done)").format(stage=stage,
-                                        learner=econf.learner.key,
-                                        decoder=econf.decoder.key),
-              file=sys.stderr)
-        return True
-    else:
-        return False
-
-
-def _delayed_decode(lconf, dconf, econf, fold):
-    """
-    Return possible futures for decoding groups within
-    this model/decoder combo for the given fold
-    """
-    if _say_if_decoded(lconf, econf, fold, stage='decoding'):
-        return []
-
-    fold_dir = fold_dir_path(lconf, fold)
-    if not os.path.exists(fold_dir):
-        os.makedirs(fold_dir)
-
-    subpack = dconf.pack.testing(dconf.folds, fold)
-    doc_model_paths = attelo_doc_model_paths(lconf, econf.learner, fold)
-    intra_flag = econf.settings.intra
-    if intra_flag is not None:
-        sent_model_paths =\
-            attelo_sent_model_paths(lconf, econf.learner, fold)
-
-        intra_model = Team('oracle', 'oracle')\
-            if intra_flag.intra_oracle\
-            else sent_model_paths.fmap(load_model)
-        inter_model = Team('oracle', 'oracle')\
-            if intra_flag.inter_oracle\
-            else doc_model_paths.fmap(load_model)
-
-        models = IntraInterPair(intra=intra_model,
-                                inter=inter_model)
-    else:
-        models = doc_model_paths.fmap(load_model)
-
-    return ath_decode.jobs(subpack, models,
-                           econf.decoder.payload,
-                           econf.settings.mode,
-                           decode_output_path(lconf, econf, fold))
-
-
-def _post_decode(lconf, dconf, econf, fold):
-    """
-    Join together output files from this model/decoder combo
-    """
-    if _say_if_decoded(lconf, econf, fold, stage='reassembly'):
-        return
-
-    print(_eval_banner(econf, lconf, fold), file=sys.stderr)
-    subpack = dconf.pack.testing(dconf.folds, fold)
-    ath_decode.concatenate_outputs(subpack,
-                                   decode_output_path(lconf, econf, fold))
 
 
 def _generate_fold_file(lconf, dpack):
@@ -377,11 +296,11 @@ def _do_fold(lconf, dconf, fold):
                             for rconf in LEARNERS)
     parallel(lconf)(learner_jobs)
     # run all model/decoder joblets in parallel
-    decoder_jobs = concat_i(_delayed_decode(lconf, dconf, econf, fold)
+    decoder_jobs = concat_i(delayed_decode(lconf, dconf, econf, fold)
                             for econf in EVALUATIONS)
     parallel(lconf)(decoder_jobs)
     for econf in EVALUATIONS:
-        _post_decode(lconf, dconf, econf, fold)
+        post_decode(lconf, dconf, econf, fold)
     fold_dir = fold_dir_path(lconf, fold)
     slices = _fold_report_slices(lconf, fold)
     _mk_report(lconf, dconf, slices, fold)
