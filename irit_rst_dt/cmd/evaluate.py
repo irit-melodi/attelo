@@ -14,8 +14,6 @@ import os
 import shutil
 import sys
 
-from joblib import (delayed)
-
 from attelo.io import (load_data_pack, load_predictions,
                        load_fold_dict, save_fold_dict,
                        load_model, load_vocab)
@@ -23,22 +21,21 @@ from attelo.decoding.intra import (IntraInterPair)
 from attelo.harness.report import (Slice, full_report)
 from attelo.harness.util import\
     timestamp, call, force_symlink
-from attelo.learning import (Task)
-from attelo.table import (for_intra)
 from attelo.util import (Team, mk_rng)
-import attelo.harness.learn as ath_learn
 import attelo.harness.decode as ath_decode
 import attelo.fold
 import attelo.score
 import attelo.report
 
 from ..graph import (mk_graphs)
+from ..learn import (LEARNERS,
+                     delayed_learn,
+                     mk_combined_models)
 from ..local import (EVALUATIONS,
                      DETAILED_EVALUATIONS,
                      TRAINING_CORPORA)
 from ..path import (attelo_doc_model_paths,
                     attelo_sent_model_paths,
-                    combined_dir_path,
                     decode_output_path,
                     edu_input_path,
                     eval_model_path,
@@ -63,8 +60,6 @@ from ..loop import (LoopConfig,
 
 NAME = 'evaluate'
 _DEBUG = 0
-
-LEARNERS = {e.learner.key: e.learner for e in EVALUATIONS}.values()
 
 # ---------------------------------------------------------------------
 # CODE CONVENTIONS USED HERE
@@ -179,64 +174,6 @@ def _create_eval_dirs(args, data_dir, jumpstart):
 # ---------------------------------------------------------------------
 # evaluation
 # ---------------------------------------------------------------------
-
-
-def _get_learn_job(lconf, rconf, subpack, paths, task):
-    'learn a model and write it to the given output path'
-
-    if task == Task.attach:
-        sub_rconf = rconf.attach
-        output_path = paths.attach
-    elif task == Task.relate:
-        sub_rconf = rconf.relate or rconf.attach
-        output_path = paths.relate
-    else:
-        raise ValueError('Unknown learning task: {}'.format(task))
-
-    if sub_rconf.key == 'oracle':
-        return None
-    elif fp.exists(output_path):
-        print(("reusing {key} {task} model (already built): {path}"
-               "").format(key=sub_rconf.key,
-                          task=task.name,
-                          path=fp.relpath(output_path, lconf.scratch_dir)),
-              file=sys.stderr)
-    else:
-        learn_fn = ath_learn.learn
-        learners = Team(attach=rconf.attach,
-                        relate=rconf.relate or rconf.attach)
-        learners = learners.fmap(lambda x: x.payload)
-        return delayed(learn_fn)(subpack, learners, task, output_path,
-                                 quiet=False)
-
-
-def _delayed_learn(lconf, dconf, rconf, fold, include_intra):
-    """
-    Return possible futures for learning models for this
-    fold
-    """
-    if fold is None:
-        parent_dir = combined_dir_path(lconf)
-        get_subpack = lambda d: d
-    else:
-        parent_dir = fold_dir_path(lconf, fold)
-        get_subpack = lambda d: d.training(dconf.folds, fold)
-
-    if not os.path.exists(parent_dir):
-        os.makedirs(parent_dir)
-
-    jobs = []
-    if True:
-        subpack = get_subpack(dconf.pack)
-        paths = attelo_doc_model_paths(lconf, rconf, fold)
-        jobs.append(_get_learn_job(lconf, rconf, subpack, paths, Task.attach))
-        jobs.append(_get_learn_job(lconf, rconf, subpack, paths, Task.relate))
-    if include_intra:
-        subpack = for_intra(get_subpack(dconf.pack))
-        paths = attelo_sent_model_paths(lconf, rconf, fold)
-        jobs.append(_get_learn_job(lconf, rconf, subpack, paths, Task.attach))
-        jobs.append(_get_learn_job(lconf, rconf, subpack, paths, Task.relate))
-    return [j for j in jobs if j is not None]
 
 
 def _say_if_decoded(lconf, econf, fold, stage='decoding'):
@@ -435,8 +372,8 @@ def _do_fold(lconf, dconf, fold):
     # learn all models in parallel
     include_intra = any(e.settings.intra is not None
                         for e in EVALUATIONS)
-    learner_jobs = concat_i(_delayed_learn(lconf, dconf, rconf, fold,
-                                           include_intra)
+    learner_jobs = concat_i(delayed_learn(lconf, dconf, rconf, fold,
+                                          include_intra)
                             for rconf in LEARNERS)
     parallel(lconf)(learner_jobs)
     # run all model/decoder joblets in parallel
@@ -448,17 +385,6 @@ def _do_fold(lconf, dconf, fold):
     fold_dir = fold_dir_path(lconf, fold)
     slices = _fold_report_slices(lconf, fold)
     _mk_report(lconf, dconf, slices, fold)
-
-
-def _mk_combined_models(lconf, dconf):
-    """
-    Create global for all learners
-    """
-    include_intra = any(e.settings.intra is not None
-                        for e in EVALUATIONS)
-    jobs = concat_i(_delayed_learn(lconf, dconf, learner, None, include_intra)
-                    for learner in LEARNERS)
-    parallel(lconf)(jobs)
 
 
 def _is_standalone_or(lconf, stage):
@@ -497,7 +423,7 @@ def _do_corpus(lconf):
             _do_fold(lconf, dconf, fold)
 
     if _is_standalone_or(lconf, ClusterStage.combined_models):
-        _mk_combined_models(lconf, dconf)
+        mk_combined_models(lconf, dconf)
 
     if _is_standalone_or(lconf, ClusterStage.end):
         _mk_global_report(lconf, dconf)
