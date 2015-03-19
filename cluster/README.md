@@ -98,4 +98,4 @@ cluster/go
 * the `cluster/go` script can accept arguments for `irit-rst-dt
   evaluate` on the command line
 
-* you can
+* to monitor progress, you might run something like `watch -d -t -n 10 'echo "---- WATCH  ---"; tail -n 1 i*.out'` in your irit-rst-dt dir.  This tails all of the current log files every 10 seconds, highlighting anything that has changed
