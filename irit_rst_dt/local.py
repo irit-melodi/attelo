@@ -246,7 +246,7 @@ def _mk_evaluations():
     pairs = []
     pairs.extend(itr.product(_LOCAL_LEARNERS, kdecoders))
     for klearner in _STRUCTURED_LEARNERS:
-        pairs.extend((klearner(d.core), d) for d in kdecoders)
+        pairs.extend((klearner(d.payload), d) for d in kdecoders)
 
     # boxing this up a little bit more conveniently
     return [EvaluationConfig(key=combined_key([klearner, kdecoder]),
