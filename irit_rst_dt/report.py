@@ -18,6 +18,7 @@ from attelo.io import (load_model,
                        load_predictions,
                        load_vocab)
 from attelo.harness.report import (Slice, full_report)
+from attelo.harness.util import (makedirs)
 import attelo.score
 import attelo.report
 
@@ -91,7 +92,7 @@ def _mk_model_summary(lconf, dconf, rconf, fold):
         _write_discr(discr, True)
 
 
-def _mk_hashfile(parent_dir, lconf, dconf):
+def _mk_hashfile(lconf, dconf):
     "Hash the features and models files for long term archiving"
 
     hash_me = [features_path(lconf)]
@@ -99,7 +100,10 @@ def _mk_hashfile(parent_dir, lconf, dconf):
         for rconf in LEARNERS:
             models_path = eval_model_path(lconf, rconf, fold, '*')
             hash_me.extend(sorted(glob.glob(models_path + '*')))
-    with open(fp.join(parent_dir, 'hashes.txt'), 'w') as stream:
+    provenance_dir = fp.join(report_dir_path(lconf, None),
+                             'provenance')
+    makedirs(provenance_dir)
+    with open(fp.join(provenance_dir, 'hashes.txt'), 'w') as stream:
         for path in hash_me:
             fold_basename = fp.basename(fp.dirname(path))
             if fold_basename.startswith('fold-'):
@@ -108,6 +112,16 @@ def _mk_hashfile(parent_dir, lconf, dconf):
                 nice_path = fp.basename(path)
             print('\t'.join([nice_path, md5sum_file(path)]),
                   file=stream)
+
+
+def _copy_version_files(lconf):
+    "Hash the features and models files for long term archiving"
+    provenance_dir = fp.join(report_dir_path(lconf, None),
+                             'provenance')
+    makedirs(provenance_dir)
+    for vpath in glob.glob(fp.join(lconf.eval_dir,
+                                   'versions-*.txt')):
+        shutil.copy(vpath, provenance_dir)
 
 
 def _mk_report(lconf, dconf, slices, fold):
@@ -137,12 +151,13 @@ def mk_global_report(lconf, dconf):
     slices = itr.chain.from_iterable(_fold_report_slices(lconf, f)
                                      for f in frozenset(dconf.folds.values()))
     _mk_report(lconf, dconf, slices, None)
+    _copy_version_files(lconf)
 
     report_dir = report_dir_path(lconf, None)
     final_report_dir = fp.join(lconf.eval_dir,
                                report_dir_basename(lconf))
     mk_graphs(lconf, dconf)
-    _mk_hashfile(report_dir, lconf, dconf)
+    _mk_hashfile(lconf, dconf)
     if fp.exists(final_report_dir):
         shutil.rmtree(final_report_dir)
     shutil.copytree(report_dir, final_report_dir)
