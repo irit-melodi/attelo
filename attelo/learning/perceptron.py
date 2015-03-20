@@ -28,8 +28,6 @@ from attelo.table import UNLABELLED
 TODO:
 - add more principled scores to probs conversion (right now, we do just 1-norm
   weight normalization and use logit function)
-- old problem with ('word_last_DU1', '?') and ('word_last_DU2', '?') features
-  (not sure, this is still a problem...)
 - add MC perc and PA for relation prediction.
 - fold relation prediction into structured learning
 """
