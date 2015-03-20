@@ -78,16 +78,9 @@ Attelo is developed within the IRIT Melodi team, based on work
 originally by Stergos Afantenos, Pascal Denis, and Philippe Muller.
 At the time of this writing (2015-02) it is maintained by Eric Kow.
 
-## License (GPL-3)
+## License (Cecill-B)
 
-Attelo is based on the Orange machine learning toolkit, which is
-licensed under the GPL-3.
-
-The Attelo components by themselves should be considered released
-under the more liberal BSD3-like CeCILL-B license.  So long as
-attelo depends on Orange, the combination should be considered as
-GPL'ed however.
-
+Attelo is released under a liberal BSD3-like CeCILL-B license.
 Aside from conformance with French law, the difference between the
 CeCILL-B and other similarly liberal licenses is the strong citation
 requirement mentioned in article 5.3.4 quoted below:

@@ -35,7 +35,13 @@ def learn_task(dpack, learners, task):
     else:
         raise ValueError('Unknown learning task: {}'.format(task))
 
-    return learner.fit(dpack.data, dpack.target)
+    if can_fit_structured(learner):
+        subpacks = [dpack.selected(ix) for ix in
+                    dpack.groupings().values()]
+        targets = [d.target for d in subpacks]
+        return learner.fit_structured(subpacks, targets)
+    else:
+        return learner.fit(dpack.data, dpack.target)
 
 
 def learn(dpack, learners):
@@ -49,6 +55,16 @@ def learn(dpack, learners):
     """
     return Team(attach=learn_task(dpack, learners, Task.attach),
                 relate=learn_task(dpack, learners, Task.relate))
+
+
+def can_fit_structured(learner):
+    """
+    True if a learner can work with structured input, ie. taking
+    in lists of vector-lists (actually datapacks) and lists of
+    target-lists instead of a flat list of vectors and targets.
+    """
+    func = getattr(learner, "fit_structured", None)
+    return callable(func)
 
 
 def can_predict_proba(model):

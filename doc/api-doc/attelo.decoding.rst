@@ -44,6 +44,14 @@ attelo.decoding.interface module
     :undoc-members:
     :show-inheritance:
 
+attelo.decoding.intra module
+----------------------------
+
+.. automodule:: attelo.decoding.intra
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 attelo.decoding.mst module
 --------------------------
 
@@ -56,6 +64,14 @@ attelo.decoding.util module
 ---------------------------
 
 .. automodule:: attelo.decoding.util
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+attelo.decoding.window module
+-----------------------------
+
+.. automodule:: attelo.decoding.window
     :members:
     :undoc-members:
     :show-inheritance:

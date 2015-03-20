@@ -123,8 +123,7 @@ def full_report(dpack, fold_dict, slices):
     edge_count = defaultdict(list)
     edge_lab_count = defaultdict(lambda: defaultdict(list))
     edu_reports = defaultdict(EduReport)
-    cmatrix = empty_confusion_matrix(dpack)
-    confusion = defaultdict(lambda: cmatrix)
+    confusion = defaultdict(lambda: empty_confusion_matrix(dpack))
 
     fold = None
     fpack = dpack
