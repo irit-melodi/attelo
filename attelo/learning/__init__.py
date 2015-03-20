@@ -62,9 +62,13 @@ ATTACH_LEARNERS["never"] = lambda _: DummyClassifier(strategy="constant",
 ATTACH_LEARNERS["sk-perceptron"] = lambda _: SkPerceptron()
 ATTACH_LEARNERS["sk-pasagg"] = lambda _: SkPassiveAggressiveClassifier()
 
-# TODO (Pascal)
-#
-# Insert perceptrons into ATTACH_LEARNERS dict
+# # local reimplemented learners
+# ATTACH_LEARNERS["perc"] = lambda c: Perceptron( c.perc_args )
+# ATTACH_LEARNERS["pa"] = lambda c: PassiveAggressive( c.perc_args )
+
+# # structured learners
+# ATTACH_LEARNERS["perc-struct"] = lambda c: StructuredPerceptron( c.perc_args )
+# ATTACH_LEARNERS["pa-struct"] = lambda c: StructuredPassiveAggressive( c.perc_args )
 
 RELATE_LEARNERS = copy.copy(_LEARNERS)
 '''
