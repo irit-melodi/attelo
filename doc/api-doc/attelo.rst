@@ -38,6 +38,14 @@ attelo.fold module
     :undoc-members:
     :show-inheritance:
 
+attelo.graph module
+-------------------
+
+.. automodule:: attelo.graph
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 attelo.io module
 ----------------
 
@@ -50,6 +58,14 @@ attelo.report module
 --------------------
 
 .. automodule:: attelo.report
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+attelo.score module
+-------------------
+
+.. automodule:: attelo.score
     :members:
     :undoc-members:
     :show-inheritance:
