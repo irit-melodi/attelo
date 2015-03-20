@@ -97,6 +97,7 @@ class Perceptron(object):
     
     def init_model(self, X):
         dim = X.shape[1]
+        print("FEAT. SPACE SIZE:",dim)
         self.weights = zeros(dim, 'd')
         self.avg_weights = zeros(dim, 'd')
         return
@@ -217,13 +218,14 @@ class StructuredPerceptron(Perceptron):
         return
 
     def init_model(self, dim):
+        print("FEAT. SPACE SIZE:",dim)
         self.weights = zeros(dim, 'd')
         self.avg_weights = zeros(dim, 'd')
         return
 
-    def fit_structured(self, datapacks, dim): # datapacks is an datapack iterable
+    def fit_structured(self, datapacks, _targets): # datapacks is an datapack iterable
         """ learn struct. perceptron weights """        
-        self.init_model( dim )
+        self.init_model( datapacks[0].data.shape[1] )
         self.learn( datapacks ) 
         return self
 
@@ -246,14 +248,14 @@ class StructuredPerceptron(Perceptron):
                 edu_pairs = dpack.pairings
                 ref_tree = []
                 fv_index_map = {}
-                for i,id1,id2 in enumerate(edu_pairs):
-                    fv_index_map[id1,id2] = i
+                for i,(id1,id2) in enumerate(edu_pairs):
+                    fv_index_map[id1,id2] = X[i]
                     if Y[i] == 1:
                         ref_tree.append( (id1, id2, UNLABELLED) )
                 # predict tree based on current weight vector
                 pred_tree = self._classify(X, edu_pairs, self.weights)
                 # print doc_id,  predicted_graph
-                loss += self.update(pred_tree, ref_tree, fv_index_map, X)
+                loss += self.update(pred_tree, ref_tree, fv_index_map)
             # print(inst_ct,, file=sys.stderr)
             avg_loss = loss / float(inst_ct)
             t1 = time.time()
@@ -263,28 +265,31 @@ class StructuredPerceptron(Perceptron):
         print("done in %s sec." % round(elapsed_time, 3), file=sys.stderr)
         return
 
-    def update(self, pred_tree, ref_tree, X, fv_map rate=1.0):
-        # print "REF TREE:", ref_tree
-        # print "PRED TREE:", pred_tree
-        # print "INTER:", set(pred_tree) & set(ref_tree)
+    def update(self, pred_tree, ref_tree, fv_map, rate=1.0):
+        # rt = [(t[0].span(),t[1].span()) for t in ref_tree]
+        # pt = [(t[0].span(),t[1].span()) for t in pred_tree]
+        # print("REF TREE:", rt)
+        # print("PRED TREE:", pt)
+        # print("INTER:", set(pt) & set(rt))
         W = self.weights
-        # print "W in:", w
-        error = not( set(pred_tree) == set(ref_tree) )
-        if error:
-            ref_fv = zeros(len(w), 'd')
-            pred_fv = zeros(len(w), 'd')
+        # print("IN W:", W)
+        # error = not( set(pred_tree) == set(ref_tree) )
+        loss = tree_loss( ref_tree, pred_tree )
+        if loss != 0:
+            ref_fv = zeros(len(W), 'd')
+            pred_fv = zeros(len(W), 'd')
             for ref_arc in ref_tree:
                 id1, id2, _ = ref_arc
-                ref_fv = ref_fv + fv_map[id1, id2]
+                ref_fv = ref_fv + fv_map[id1, id2].toarray()
             for pred_arc in pred_tree:
                 id1, id2, _ = pred_arc
-                pred_fv = pred_fv + fv_map[id1, id2]
-            W = W + rate * (ref_global_fv - pred_global_fv)
+                pred_fv = pred_fv + fv_map[id1, id2].toarray()
+            W = W + rate * (ref_fv - pred_fv)
+        # print("OUT W:", W)
         self.weights = W
         if self.avg:
-            self.avg_weights += W
-
-        return error
+            self.avg_weights = self.avg_weights + W
+        return loss
 
 
     def _classify(self, X, edu_pairs, W):
@@ -293,12 +298,12 @@ class StructuredPerceptron(Perceptron):
         scores = X.dot(W.T)
         scored_tuples = []
         for i,(id1, id2) in enumerate(edu_pairs):
-            scores.append((EDU(id1, 0, 0, None), 
-                           EDU(id2, 0, 0, None),
-                           scores[i],
-                           UNLABELLED))
+            scored_tuples.append((EDU(id1, 0, 0, None, None, None), # hacky 
+                                  EDU(id2, 0, 0, None, None, None),
+                                  scores[i],
+                                  UNLABELLED))
         # print "SCORES:", scores
-        pred_tree = decoder.decode(scores)[0]
+        pred_tree = decoder.decode(scored_tuples)[0]
         return pred_tree
 
 
@@ -316,7 +321,7 @@ class StructuredPassiveAggressive(StructuredPerceptron):
         return
 
 
-    def update(self, pred_tree, ref_tree, X, fv_map):
+    def update(self, pred_tree, ref_tree, fv_map):
         r"""PA-II update rule:
 
         .. math::
@@ -335,17 +340,17 @@ class StructuredPassiveAggressive(StructuredPerceptron):
         W = self.weights
         C = self.aggressiveness
         # compute Phi(x,y) and Phi(x,y^)
-        ref_fv = zeros(len(w), 'd')
-        pred_fv = zeros(len(w), 'd')
+        ref_fv = zeros(len(W), 'd')
+        pred_fv = zeros(len(W), 'd')
         for ref_arc in ref_tree:
             id1, id2, _ = ref_arc
-            ref_fv = ref_fv + fv_map[id1, id2]
+            ref_fv = ref_fv + fv_map[id1, id2].toarray()
         for pred_arc in pred_tree:
             id1, id2, _ = pred_arc
-            pred_fv = pred_fv + fv_map[id1, id2]
+            pred_fv = pred_fv + fv_map[id1, id2].toarray()
         # find tau
         delta_fv = ref_fv-pred_fv
-        margin = dot(W, delta_fv)
+        margin = float(dot(W, delta_fv.T))
         loss = 0.0
         tau = 0.0
         if margin < 1.0:
@@ -358,13 +363,13 @@ class StructuredPassiveAggressive(StructuredPerceptron):
         W = W + tau * delta_fv
         self.weights = W
         if self.avg:
-            self.avg_weights += W
+            self.avg_weights = self.avg_weights + W
         return loss
 
 
 
 def tree_loss(ref_tree, pred_tree):
-    return len(set(pred_tree) & set(ref_tree)) #/ float(len(ref_tree))
+    return 1.0 - (len(set(pred_tree) & set(ref_tree))/ float(len(ref_tree)))
 
 
 def _score(w_vect, feat_vect, use_prob=False):
