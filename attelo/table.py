@@ -8,9 +8,10 @@ import itertools as itr
 
 import numpy
 import numpy.ma
+import scipy.sparse
 
 from .edu import FAKE_ROOT_ID
-from .fold import fold_groupings
+from .util import concat_l
 
 # pylint: disable=too-few-public-methods
 
@@ -33,7 +34,12 @@ class DataPackException(Exception):
 class DataPack(namedtuple('DataPack',
                           'edus pairings data target labels')):
     '''
-    EDUs and features associated with pairs thereof
+    A set of data that can be said to belong together.
+
+    A typical use of the datapack would be to group together
+    data for a single document/grouping. But in cases where
+    this distinction does not matter, it can also be convenient
+    to combine data from multiple documents into a single pack.
 
     :param edus: effectively a set of edus
     :type edus: [:py:class:`EDU`]
@@ -46,10 +52,10 @@ class DataPack(namedtuple('DataPack',
 
     :param target: array of predictions for each pairing
 
-    :param labels: (optional) list of relation labels
+    :param labels: list of relation labels
                    (length should be the same as largest value
                    for target)
-    :type labels [string] or None
+    :type labels [string]
     '''
     # pylint: disable=too-many-arguments
     @classmethod
@@ -65,6 +71,25 @@ class DataPack(namedtuple('DataPack',
         pack.sanity_check()
         return pack
     # pylint: enable=too-many-arguments
+
+    @classmethod
+    def vstack(cls, dpacks):
+        '''
+        Combine several datapacks into one.
+
+        The labels for all packs must be the same
+
+        :type dpacks: [DataPack]
+        '''
+        if not dpacks:
+            raise ValueError('need non-empty list of datapacks')
+        # pylint: disable=no-member
+        return DataPack(edus=concat_l(d.edus for d in dpacks),
+                        pairings=concat_l(d.pairings for d in dpacks),
+                        data=scipy.sparse.vstack(d.data for d in dpacks),
+                        target=numpy.concatenate([d.target for d in dpacks]),
+                        labels=dpacks[0].labels)
+        # pylint: enable=no-member
 
     def _check_target(self):
         '''
@@ -107,36 +132,6 @@ class DataPack(namedtuple('DataPack',
             raise(DataPackException(oops.format(tgts=num_targets,
                                                 insts=num_insts)))
 
-    def groupings(self):
-        '''
-        return a dictionary of table indices corresponding to the items
-        for all groupings; likely but not necessarily consequenctive
-
-        (raises DataPackException if we have pairings that traverse
-        group boundaries, which is a no-no in the attelo model)
-
-        :rtype: dict(string, [int])
-        '''
-        res = defaultdict(list)
-        for i, (edu1, edu2) in enumerate(self.pairings):
-            grp1 = edu1.grouping
-            grp2 = edu2.grouping
-            if grp1 is None:
-                grp = grp2
-            elif grp2 is None:
-                grp = grp1
-            elif grp1 != grp2:
-                oops = ('Grouping mismatch: {edu1} is in group {grp1}, '
-                        'but {edu2} is in {grp2}')
-                raise(DataPackException(oops.format(edu1=edu1,
-                                                    edu2=edu2,
-                                                    grp1=grp1,
-                                                    grp2=grp2)))
-            else:
-                grp = grp1
-            res[grp].append(i)
-        return res
-
     def sanity_check(self):
         '''
         Raising :py:class:`DataPackException` if anything about
@@ -145,7 +140,6 @@ class DataPack(namedtuple('DataPack',
         '''
         self._check_target()
         self._check_table_shape()
-        self.groupings()
 
     def selected(self, indices):
         '''
@@ -170,42 +164,6 @@ class DataPack(namedtuple('DataPack',
                         data=sel_data,
                         target=sel_targets,
                         labels=sel_labels)
-
-    def _select_fold(self, fold_dict, pred):
-        '''
-        Given a division into folds and a predicate on folds,
-        return only the items for which the fold predicate is
-        True
-
-        :rtype: :py:class:`DataPack`
-        '''
-        group_indices = self.groupings()
-        indices = []
-        for key, val in fold_dict.items():
-            if pred(val):
-                idx = group_indices[key]
-                indices.extend(idx)
-        return self.selected(indices)
-
-    def training(self, fold_dict, fold):
-        '''
-        Given a division into folds and a fold number,
-        return only the training items for that fold
-
-        :rtype: :py:class:`DataPack`
-        '''
-        fold_groupings(fold_dict, fold)  # sanity check
-        return self._select_fold(fold_dict, lambda x: x != fold)
-
-    def testing(self, fold_dict, fold):
-        '''
-        Given a division into folds and a fold number,
-        return only the test items for that fold
-
-        :rtype: :py:class:`DataPack`
-        '''
-        fold_groupings(fold_dict, fold)  # sanity check
-        return self._select_fold(fold_dict, lambda x: x == fold)
 
     def attached_only(self):
         '''
@@ -233,6 +191,34 @@ class DataPack(namedtuple('DataPack',
         :rtype: float
         '''
         return self.labels.index(label) + 1
+
+
+def groupings(pairings):
+    '''
+    Given a list of EDU pairings, return a dictionary mapping
+    grouping names to list of rows within the pairings.
+
+    :rtype: dict(string, [int])
+    '''
+    res = defaultdict(list)
+    for i, (edu1, edu2) in enumerate(pairings):
+        grp1 = edu1.grouping
+        grp2 = edu2.grouping
+        if grp1 is None:
+            grp = grp2
+        elif grp2 is None:
+            grp = grp1
+        elif grp1 != grp2:
+            oops = ('Grouping mismatch: {edu1} is in group {grp1}, '
+                    'but {edu2} is in {grp2}')
+            raise(DataPackException(oops.format(edu1=edu1,
+                                                edu2=edu2,
+                                                grp1=grp1,
+                                                grp2=grp2)))
+        else:
+            grp = grp1
+        res[grp].append(i)
+    return res
 
 
 def for_attachment(pack):
@@ -329,6 +315,17 @@ def for_intra(pack):
                     data=pack.data,
                     target=new_target,
                     labels=pack.labels)
+
+
+class Multipack(dict):
+    '''
+    A multipack is a mapping from groupings to datapacks
+
+    This class exists purely for documentation purposes; in
+    practice, a dictionary of string to Datapack will do just
+    fine
+    '''
+    pass
 
 
 def select_window(dpack, window):

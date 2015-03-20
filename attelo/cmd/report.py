@@ -6,6 +6,7 @@ from os import path as fp
 import sys
 
 from ..args import add_common_args, add_report_args
+from ..fold import select_testing
 from ..io import (load_predictions, load_fold_dict)
 from ..score import (score_edges, score_edus,
                      score_edges_by_label,
@@ -14,8 +15,9 @@ from ..report import (CombinedReport,
                       EdgeReport,
                       EduReport,
                       LabelReport)
+from ..table import (DataPack)
 from ..harness.report import (ReportPack)
-from .util import (load_args_data_pack,
+from .util import (load_args_multipack,
                    get_output_dir, announce_output_dir)
 
 # pylint: disable=too-few-public-methods
@@ -80,11 +82,12 @@ def _validate_report_args(wrapped):
 def main(args):
     "subcommand main (invoked from outer script)"
     output_dir = get_output_dir(args)
-    dpack = load_args_data_pack(args)
+    mpack = load_args_multipack(args)
     if args.fold is not None:
         fold_dict = load_fold_dict(args.fold_file)
-        dpack = dpack.testing(fold_dict, args.fold)
+        mpack = select_testing(mpack, fold_dict, args.fold)
 
+    dpack = DataPack.vstack(mpack.values())
     predictions = load_predictions(args.predictions)
     edge_counts = score_edges(dpack, predictions)
     edge_label_counts = score_edges_by_label(dpack, predictions)

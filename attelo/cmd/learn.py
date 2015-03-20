@@ -10,10 +10,11 @@ from ..args import\
      add_learner_args, validate_learner_args,
      add_fold_choice_args, validate_fold_choice_args,
      args_to_decoder, args_to_learners)
+from ..fold import (select_training)
 from ..io import (load_fold_dict)
 from ..learning import (Task)
 from ..table import (for_intra)
-from .util import load_args_data_pack
+from .util import load_args_multipack
 
 
 _DEFAULT_MODEL_ATTACH = "attach.model"
@@ -29,17 +30,17 @@ def _load_and_select_data(args):
     read data and filter on fold if relevant
     """
     if args.fold is None:
-        dpack = load_args_data_pack(args)
+        return load_args_multipack(args)
     else:
         # load data pack *AFTER* fold dict (fail faster)
         fold_dict = load_fold_dict(args.fold_file)
-        dpack = load_args_data_pack(args)
-        dpack = dpack.training(fold_dict, args.fold)
+        mpack = load_args_multipack(args)
+        mpack = select_training(mpack, fold_dict, args.fold)
 
     if args.intrasentential:
-        dpack = for_intra(dpack)
+        mpack = {k: for_intra(v) for k, v in mpack.items()}
 
-    return dpack
+    return mpack
 
 
 # ---------------------------------------------------------------------
@@ -69,10 +70,10 @@ def config_argparser(psr):
 def main(args):
     "subcommand main (invoked from outer script)"
 
-    dpack = _load_and_select_data(args)
+    mpack = _load_and_select_data(args)
     decoder = args_to_decoder(args)
     learners = args_to_learners(decoder, args)
     tasks = {Task.attach: args.attachment_model,
              Task.relate: args.relation_model}
-    jobs = hlearn.jobs(dpack, learners, tasks, args.quiet)
+    jobs = hlearn.jobs(mpack, learners, tasks, args.quiet)
     Parallel(n_jobs=-1)(jobs)

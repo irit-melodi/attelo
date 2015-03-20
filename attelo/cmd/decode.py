@@ -8,9 +8,10 @@ from ..args import (add_common_args, add_decoder_args,
                     add_model_read_args,
                     add_fold_choice_args, validate_fold_choice_args,
                     args_to_decoder, args_to_decoding_mode)
+from ..fold import (select_testing)
 from ..io import (load_model, load_fold_dict)
 from ..util import Team
-from .util import load_args_data_pack
+from .util import load_args_multipack
 import attelo.harness.decode as hdecode
 
 # ---------------------------------------------------------------------
@@ -23,15 +24,14 @@ def _load_and_select_data(args):
     read data and filter on fold if relevant
     """
     if args.fold is None:
-        dpack = load_args_data_pack(args)
-        return dpack
+        return load_args_multipack(args)
     else:
         # load fold dictionary before data pack
         # this way, if it fails we find out sooner
         # instead of waiting for the data pack
         fold_dict = load_fold_dict(args.fold_file)
-        dpack = load_args_data_pack(args)
-        return dpack.testing(fold_dict, args.fold)
+        mpack = load_args_multipack(args)
+        return select_testing(mpack, fold_dict, args.fold)
 
 
 # ---------------------------------------------------------------------
@@ -57,12 +57,12 @@ def config_argparser(psr):
 @validate_fold_choice_args
 def main(args):
     "subcommand main"
-    dpack = _load_and_select_data(args)
+    mpack = _load_and_select_data(args)
     model_paths = Team(attach=args.attachment_model,
                        relate=args.relation_model)
     models = model_paths.fmap(load_model)
     decoder = args_to_decoder(args)
     mode = args_to_decoding_mode(args)
-    jobs = hdecode.jobs(dpack, models, decoder, mode, args.output)
+    jobs = hdecode.jobs(mpack, models, decoder, mode, args.output)
     Parallel(n_jobs=-1, verbose=5)(jobs)
-    hdecode.concatenate_outputs(dpack, args.output)
+    hdecode.concatenate_outputs(mpack, args.output)

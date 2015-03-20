@@ -4,8 +4,9 @@ from __future__ import print_function
 from os import path as fp
 
 from .util import (get_output_dir, announce_output_dir,
-                   load_args_data_pack)
+                   load_args_multipack)
 from ..args import add_common_args
+from ..fold import (select_testing)
 from ..io import (load_fold_dict, write_predictions_output)
 
 
@@ -38,10 +39,10 @@ def main_for_harness(args):
     (see `select_data`)
     """
     output_dir = get_output_dir(args)
-    dpack = load_args_data_pack(args)
+    mpack = load_args_multipack(args)
     fold_dict = load_fold_dict(args.fold_file)
     for fold in set(fold_dict.values()):
-        fpack = dpack.testing(fold_dict, fold)
+        fpack = select_testing(mpack, fold_dict, fold)
         filename = fp.join(output_dir, "gold-" + str(fold))
         write_predictions_output(fpack, gold_predictions(fpack), filename)
     announce_output_dir(output_dir)

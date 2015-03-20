@@ -19,14 +19,13 @@ contribs: phil
 
 import random
 
-from .edu import FAKE_ROOT_ID
 
-def make_n_fold(dpack, folds, rng):
-    """Given a data pack and a desired number of folds, return a fold selection
-    dictionary assigning a fold number to each each grouping (see
-    :py:class:attelo.edu.EDU:).
+def make_n_fold(groupings, folds, rng):
+    """Given a set of groupings and a desired number of folds,
+    return a fold selection dictionary assigning a fold number
+    to each each grouping (see :py:class:`attelo.edu.EDU`).
 
-    :type dpack: :py:class:DataPack:
+    :type groupings: iterable(string)
     :type folds: int
     :param rng: random number generator (hint: the random module
                 will be just fine if you don't mind shared state)
@@ -36,8 +35,7 @@ def make_n_fold(dpack, folds, rng):
     """
     if rng is None:
         rng = random
-    groupings = list(set(x.grouping for x in dpack.edus
-                         if x.id != FAKE_ROOT_ID))
+    groupings = list(set(groupings))
 
     if folds < 2:
         raise ValueError("Must have more than 1 fold")
@@ -81,3 +79,27 @@ def fold_groupings(fold_dict, fold):
         oops = 'There is no fold "{f}" in the dictionary {d}'
         raise ValueError(oops.format(f=fold, d=fold_dict))
     return frozenset(res)
+
+
+def select_training(mpack, fold_dict, fold):
+    '''
+    Given a division into folds and a fold number,
+    return only the training items for that fold
+
+    :rtype: :py:class:`Multipack`
+    '''
+    fold_groupings(fold_dict, fold)  # sanity check
+    return {k: v for k, v in mpack.items()
+            if fold_dict[k] != fold}
+
+
+def select_testing(mpack, fold_dict, fold):
+    '''
+    Given a division into folds and a fold number,
+    return only the test items for that fold
+
+    :rtype: :py:class:`Multipack`
+    '''
+    fold_groupings(fold_dict, fold)  # sanity check
+    return {k: v for k, v in mpack.items()
+            if fold_dict[k] == fold}

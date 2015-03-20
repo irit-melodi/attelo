@@ -20,16 +20,15 @@ def _tmp_output_filename(path, suffix):
                    '_' + fp.basename(path) + '.' + suffix)
 
 
-def concatenate_outputs(dpack, output_path):
+def concatenate_outputs(mpack, output_path):
     """
     (For use after :py:func:`delayed_main_for_harness`)
 
     Concatenate temporary per-group outputs into a single
     combined output
     """
-    groupings = dpack.groupings()
     tmpfiles = [_tmp_output_filename(output_path, d)
-                for d in groupings]
+                for d in sorted(mpack.keys())]
     with open(output_path, 'wb') as file_out:
         for tfile in tmpfiles:
             with open(tfile, 'rb') as file_in:
@@ -56,21 +55,19 @@ def _decode_group(dpack, models, decoder, mode,
     write_predictions_output(dpack, first_prediction, output_path)
 
 
-def jobs(dpack, models, decoder, mode, output_path):
+def jobs(mpack, models, decoder, mode, output_path):
     """
     Return a list of delayed decoding jobs for the various
     documents in this group
     """
-    groupings = dpack.groupings()
     res = []
     tmpfiles = [_tmp_output_filename(output_path, d)
-                for d in groupings]
+                for d in mpack.keys()]
     for tmpfile in tmpfiles:
         if fp.exists(tmpfile):
             os.remove(tmpfile)
-    for onedoc, indices in groupings.items():
-        onepack = dpack.selected(indices)
+    for onedoc, dpack in mpack.items():
         tmp_output_path = _tmp_output_filename(output_path, onedoc)
-        res.append(delayed(_decode_group)(onepack, models, decoder, mode,
+        res.append(delayed(_decode_group)(dpack, models, decoder, mode,
                                           tmp_output_path))
     return res

@@ -17,7 +17,7 @@ from sklearn.datasets import load_svmlight_file
 
 from .edu import (EDU, FAKE_ROOT_ID, FAKE_ROOT)
 from .table import (DataPack, DataPackException, UNRELATED,
-                    get_label_string)
+                    get_label_string, groupings)
 from .util import truncate
 
 # pylint: disable=too-few-public-methods
@@ -210,7 +210,7 @@ def _process_edu_links(edus, pairings):
     return edus2, pairings2
 
 
-def load_data_pack(edu_file, pairings_file, feature_file,
+def load_multipack(edu_file, pairings_file, feature_file,
                    n_features=None,
                    verbose=False):
     """
@@ -222,7 +222,7 @@ def load_data_pack(edu_file, pairings_file, feature_file,
     :param: n_features: may be needed if working with test data
                         as the test data may have fewer features
                         extracted for it than the model expects
-    :rtype: :py:class:`DataPack` or None
+    :rtype: :py:class:`Multipack` or None
     """
     with Torpor("Reading edus and pairings", quiet=not verbose):
         edus, pairings = _process_edu_links(load_edus(edu_file),
@@ -235,10 +235,11 @@ def load_data_pack(edu_file, pairings_file, feature_file,
                                            n_features=n_features)
         # pylint: enable=unbalanced-tuple-unpacking
 
-    with Torpor("Sanity checking data pack", quiet=not verbose):
+    with Torpor("Build data packs", quiet=not verbose):
         dpack = DataPack.load(edus, pairings, data, targets, labels)
 
-    return dpack
+    return {k: dpack.selected(idxs) for
+            k, idxs in groupings(pairings).items()}
 
 
 def load_vocab(filename):

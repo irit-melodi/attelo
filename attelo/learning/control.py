@@ -4,7 +4,9 @@ Central interface to the learners
 
 from enum import Enum
 
-from attelo.table import for_attachment, for_labelling
+from attelo.table import (DataPack,
+                          for_attachment,
+                          for_labelling)
 from attelo.util import Team
 
 # pylint: disable=too-few-public-methods
@@ -22,25 +24,27 @@ class Task(Enum):
     relate = 2
 
 
-def learn_task(dpack, learners, task):
+def learn_task(mpack, learners, task):
     """
     Train attachment learner
     """
     if task == Task.attach:
-        dpack = for_attachment(dpack)
+        mpack = {k: for_attachment(v)
+                 for k, v in mpack.items()}
         learner = learners.attach
     elif task == Task.relate:
-        dpack = for_labelling(dpack.attached_only())
+        mpack = {k: for_labelling(v.attached_only())
+                 for k, v in mpack.items()}
         learner = learners.relate
     else:
         raise ValueError('Unknown learning task: {}'.format(task))
 
     if can_fit_structured(learner):
-        subpacks = [dpack.selected(ix) for ix in
-                    dpack.groupings().values()]
+        subpacks = mpack.values()
         targets = [d.target for d in subpacks]
         return learner.fit_structured(subpacks, targets)
     else:
+        dpack = DataPack.vstack(mpack.values())
         return learner.fit(dpack.data, dpack.target)
 
 

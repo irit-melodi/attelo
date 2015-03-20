@@ -17,10 +17,12 @@ import scipy.sparse
 import numpy
 
 import attelo
+import attelo.fold
 
 from .edu import EDU, FAKE_ROOT
-from .table import DataPack, DataPackException
-
+from .fold import select_training
+from .table import (DataPack, DataPackException, groupings)
+from .util import concat_i
 
 MAX_FOLDS = 2
 
@@ -65,10 +67,15 @@ class DataPackTest(unittest.TestCase):
 
     def assertEqualEduIds(self, pack, ids):
         '''
-        the data pack has all the of the edus with the
+        the datapack or multipack has all the of the edus with the
         '''
-        self.assertEqual(frozenset(e.id for e in pack.edus),
-                         frozenset(ids))
+        if isinstance(pack, DataPack):
+            edus = frozenset(e.id for e in pack.edus)
+        else:
+            edus = frozenset(e.id
+                             for p in pack.values()
+                             for e in p.edus)
+        self.assertEqual(edus, frozenset(ids))
     # pylint: enable=invalid-name
 
     def test_trivial_sanity(self):
@@ -88,12 +95,8 @@ class DataPackTest(unittest.TestCase):
                     self.edus[1].end,
                     'b',
                     's2')
-        self.assertRaises(DataPackException, DataPack.load,
-                          [self.edus[0], fake1],
-                          [(self.edus[0], fake1)],
-                          triv.data,
-                          triv.target,
-                          triv.labels)
+        self.assertRaises(DataPackException, groupings,
+                          [(self.edus[0], fake1)])
         # but root is ok
         self.assertTrue(DataPack.load([self.edus[0]],
                                       [(self.edus[0], FAKE_ROOT)],
@@ -165,33 +168,42 @@ class DataPackTest(unittest.TestCase):
         d2 = EDU('d2', '?', 6, 7, 'd', 's4')
         # pylint: enable=invalid-name
 
-        pack = DataPack.load(edus=[a1, a2,
-                                   b1, b2,
-                                   c1, c2,
-                                   d1, d2],
-                             pairings=[(a1, a2),
-                                       (b1, b2),
-                                       (b1, FAKE_ROOT),
-                                       (c1, c2),
-                                       (d1, d2)],
-                             data=scipy.sparse.csr_matrix([[6, 8],
-                                                           [7, 0],
-                                                           [3, 9],
-                                                           [1, 1],
-                                                           [0, 4]]),
-                             target=numpy.array([1, 0, 1, 1, 0]),
-                             labels=['x', 'y', 'UNRELATED'])
+        labels = ['x', 'y', 'UNRELATED']
+        mpack = {'a': DataPack.load(edus=[a1, a2],
+                                    pairings=[(a1, a2)],
+                                    data=scipy.sparse.csr_matrix([[6, 8]]),
+                                    target=numpy.array([1]),
+                                    labels=labels),
+                 'b': DataPack.load(edus=[b1, b2],
+                                    pairings=[(b1, b2),
+                                              (b1, FAKE_ROOT)],
+                                    data=scipy.sparse.csr_matrix([[7, 0],
+                                                                  [3, 9]]),
+                                    target=numpy.array([0, 1]),
+                                    labels=labels),
+                 'c': DataPack.load(edus=[c1, c2],
+                                    pairings=[(c1, c2)],
+                                    data=scipy.sparse.csr_matrix([[1, 1]]),
+                                    target=numpy.array([1]),
+                                    labels=labels),
+                 'd': DataPack.load(edus=[d1, d2],
+                                    pairings=[(d1, d2)],
+                                    data=scipy.sparse.csr_matrix([[0, 4]]),
+                                    target=numpy.array([0]),
+                                    labels=labels)}
         fold_dict = {'a': 0,
                      'b': 1,
                      'c': 0,
                      'd': 1}
-        self.assertEqualEduIds(pack.training(fold_dict, 0),
+        self.assertEqualEduIds(select_training(mpack, fold_dict, 0),
                                ['b1', 'b2', 'd1', 'd2'])
-        self.assertEqualEduIds(pack.training(fold_dict, 1),
+        self.assertEqualEduIds(select_training(mpack, fold_dict, 1),
                                ['a1', 'a2', 'c1', 'c2'])
-        self.assertEqualEduIds(pack.testing(fold_dict, 0),
+        # nose gets confused by the 'test' in select_testing
+        # if we import it directly
+        self.assertEqualEduIds(attelo.fold.select_testing(mpack, fold_dict, 0),
                                ['a1', 'a2', 'c1', 'c2'])
-        self.assertEqualEduIds(pack.testing(fold_dict, 1),
+        self.assertEqualEduIds(attelo.fold.select_testing(mpack, fold_dict, 1),
                                ['b1', 'b2', 'd1', 'd2'])
 
 

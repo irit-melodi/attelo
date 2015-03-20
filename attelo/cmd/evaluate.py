@@ -12,11 +12,11 @@ from ..args import (add_common_args,
                     args_to_learners)
 from ..decoding import (decode)
 from ..learning import (learn)
-from ..fold import make_n_fold
+from ..fold import (make_n_fold, select_training, select_testing)
 from ..report import EdgeReport
 from ..score import (score_edges)
 from ..util import (mk_rng)
-from .util import load_args_data_pack
+from .util import load_args_multipack
 
 
 def best_prediction(dpack, predictions):
@@ -66,7 +66,7 @@ def _decode_group(dpack, models, decoder, mode):
     return score_edges(dpack, best)
 
 
-def _decode_fold(dpack, models, decoder, mode):
+def _decode_fold(mpack, models, decoder, mode):
     '''
     decode and score all groups in the pack
     (pack should be whittled down to test set for
@@ -75,10 +75,9 @@ def _decode_fold(dpack, models, decoder, mode):
     :rtype [Count]
     '''
     scores = []
-    for onedoc, indices in dpack.groupings().items():
+    for onedoc, dpack in mpack.items():
         print("decoding on file : ", onedoc, file=sys.stderr)
-        onepack = dpack.selected(indices)
-        score = _decode_group(onepack, models, decoder, mode)
+        score = _decode_group(dpack, models, decoder, mode)
         scores.append(score)
     return scores
 
@@ -87,7 +86,7 @@ def _decode_fold(dpack, models, decoder, mode):
 def main(args):
     'subcommand main'
 
-    dpack = load_args_data_pack(args)
+    mpack = load_args_multipack(args)
     # print(args, file=sys.stderr)
     decoder = args_to_decoder(args)
     decoding_mode = args_to_decoding_mode(args)
@@ -95,7 +94,7 @@ def main(args):
     # TODO: more models for intra-sentence
     learners = args_to_learners(decoder, args)
 
-    fold_dict = make_n_fold(dpack, args.nfold,
+    fold_dict = make_n_fold(mpack.keys(), args.nfold,
                             mk_rng(args.shuffle))
 
     evals = []
@@ -104,9 +103,9 @@ def main(args):
         print(">>> doing fold ", fold + 1, file=sys.stderr)
         print(">>> training ... ", file=sys.stderr)
 
-        models = learn(dpack.training(fold_dict, fold),
+        models = learn(select_training(mpack, fold_dict, fold),
                        learners)
-        fold_evals = _decode_fold(dpack.testing(fold_dict, fold),
+        fold_evals = _decode_fold(select_testing(mpack, fold_dict, fold),
                                   models, decoder,
                                   decoding_mode)
         fold_report = EdgeReport(fold_evals,

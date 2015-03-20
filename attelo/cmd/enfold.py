@@ -6,7 +6,7 @@ from ..args import (add_common_args, DEFAULT_NFOLD)
 from ..fold import make_n_fold
 from ..io import (save_fold_dict)
 from ..util import (mk_rng)
-from .util import load_args_data_pack
+from .util import (load_args_multipack)
 
 
 def config_argparser(psr):
@@ -30,7 +30,7 @@ def config_argparser(psr):
 
 def main(args):
     "subcommand main (called from mother script)"
-    dpack = load_args_data_pack(args)
+    mpack = load_args_multipack(args)
     rng = mk_rng(args.shuffle)
-    fold_struct = make_n_fold(dpack, args.nfold, rng)
+    fold_struct = make_n_fold(mpack.keys(), args.nfold, rng)
     save_fold_dict(fold_struct, args.output)

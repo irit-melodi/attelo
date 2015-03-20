@@ -8,14 +8,14 @@ import os
 import sys
 import tempfile
 
-from attelo.io import load_data_pack
+from attelo.io import load_multipack
 
 
-def load_args_data_pack(args):
+def load_args_multipack(args):
     '''
-    Load data pack specified via command line arguments
+    Load multipack specified via command line arguments
     '''
-    return load_data_pack(args.edus,
+    return load_multipack(args.edus,
                           args.pairings,
                           args.features,
                           verbose=not args.quiet)
