@@ -8,7 +8,6 @@ attelo tests
 from __future__ import print_function
 from os import path as fp
 import argparse
-import copy
 import shutil
 import tempfile
 import unittest
@@ -22,7 +21,6 @@ import attelo.fold
 from .edu import EDU, FAKE_ROOT
 from .fold import select_training
 from .table import (DataPack, DataPackException, groupings)
-from .util import concat_i
 
 MAX_FOLDS = 2
 
@@ -232,11 +230,6 @@ class TestArgs(object):
         self._tmpdir = tmpdir
         super(TestArgs, self).__init__()
 
-    def parser(self):
-        psr = argparse.ArgumentParser()
-        self.module().config_argparser(psr)
-        return psr
-
     @classmethod
     def module(cls):
         'attelo command module'
@@ -260,7 +253,8 @@ class TestArgs(object):
     def run(cls, *args, **kwargs):
         "run the attelo command that goes with these args"
         cli_args = cls(*args, **kwargs)
-        psr=cli_args.parser()
+        psr = argparse.ArgumentParser()
+        cli_args.module().config_argparser(psr)
         args = psr.parse_args(cli_args.argv())
         cls.module().main(args)
 
@@ -394,7 +388,7 @@ def fake_harness(enfold_kwargs=None,
     for i in range(0, MAX_FOLDS):
         LearnArgs.run(*args, fold=i, **learner_kwargs)
         DecodeArgs.run(*args, fold=i, **decoder_kwargs)
-    #ReportArgs.run(idx_path=idx_filename, *args, **kwargs)
+    # ReportArgs.run(idx_path=idx_filename, *args, **kwargs)
 # pylint: enable=star-args
 
 
