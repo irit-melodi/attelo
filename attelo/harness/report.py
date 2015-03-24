@@ -12,6 +12,7 @@ from collections import (namedtuple, defaultdict)
 from os import path as fp
 
 from .util import makedirs
+from ..fold import (select_testing)
 from ..report import (EdgeReport,
                       LabelReport,
                       EduReport,
@@ -22,6 +23,7 @@ from ..score import (empty_confusion_matrix,
                      score_edges,
                      score_edges_by_label,
                      score_edus)
+from ..table import (DataPack)
 
 
 class ReportPack(namedtuple('ReportPack',
@@ -106,7 +108,7 @@ class Slice(namedtuple('Slice',
 # pylint: disable=too-many-locals
 # it's a bit hard to write this sort score accumulation code
 # local help
-def full_report(dpack, fold_dict, slices):
+def full_report(mpack, fold_dict, slices):
     """
     Generate a report across a set of folds and configurations.
 
@@ -120,17 +122,20 @@ def full_report(dpack, fold_dict, slices):
                    It may be worthwhile to generate this lazily
     :type: slices: iterable(:pyclass:`Slice`)
     """
+    if not mpack:
+        raise ValueError("Can't report with empty multipack")
     edge_count = defaultdict(list)
     edge_lab_count = defaultdict(lambda: defaultdict(list))
     edu_reports = defaultdict(EduReport)
-    confusion = defaultdict(lambda: empty_confusion_matrix(dpack))
+    dpack0 = mpack.values()[0]
+    confusion = defaultdict(lambda: empty_confusion_matrix(dpack0))
 
     fold = None
-    fpack = dpack
 
     for slc in slices:
         if slc.fold != fold:
-            fpack = dpack.testing(fold_dict, slc.fold)
+            f_mpack = select_testing(mpack, fold_dict, slc.fold)
+            fpack = DataPack.vstack(f_mpack.values())
             fold = slc.fold
         key = slc.configuration
         # accumulate scores
@@ -157,5 +162,5 @@ def full_report(dpack, fold_dict, slices):
                       edge_by_label=edge_by_label_report or None,
                       edu=CombinedReport(EduReport, edu_reports),
                       confusion=confusion,
-                      confusion_labels=dpack.labels)
+                      confusion_labels=dpack0.labels)
 # pylint: enable=too-many-locals
