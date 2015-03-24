@@ -36,6 +36,15 @@ as opposed to the proper loss.  If you are using a non-probability-based
 learner,
 you should also set `--non-prob-scores` to false on decoding time
 
+Sometimes classifiers may not naturally support probabilities but can
+provide conversion mechanisms to compute them from scores. These methods
+may come with various downsides (eg. be expensive to compute), so it may
+be best to stick with non-prob decoding for them too.  See the `note in the
+scikit manual
+<http://scikit-learn.org/stable/modules/svm.html#scores-and-probabilities>`_
+for details.
+
+
 Developers' note: if you are developing classifiers for attelo, and your
 classifier does not return probabilties, it should implement
 `decision_function` instead
