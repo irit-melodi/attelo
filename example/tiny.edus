@@ -1,6 +1,8 @@
-d1_492	anybody want sheep for wood?	dialogue_1	s1	0	27
-d1_493	nope, not me	dialogue_1	s2	28	40
-d1_494	not me either	dialogue_1	s2	41	54
-d2_692	anybody want sheep for wood?	dialogue_2	s3	0	27
-d2_693	nope, not me	dialogue_2	s4	28	40
-d2_694	not me either	dialogue_2	s5	41	54
+d1_e2	anybody want sheep for wood?	d1	s1	0	27
+d1_e3	nope, not me	d1	s2	28	40
+d1_e4	not me either	d1	s2	41	54
+d2_e2	anybody want sheep for wood?	d2	s3	0	27
+d2_e3	nope, not me	d2	s4	28	40
+d2_e4	not me either	d2	s5	41	54
+d3_e2	want clay for sheep, anyone?	d3	s3	0	27
+d3_e3	no, sorry	d3	s4	28	34
