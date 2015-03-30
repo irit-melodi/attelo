@@ -29,12 +29,12 @@ discourse corpus, and from any new inputs outside of your corpus. The
 pre-existing corpora, and can also be used to build feature extractors
 for your own corpora.
 
-If you are using attelo in the context of discourse parsing experiments,
-we highly recommend setting up some sort of project-specific
-experimental harness to manage all of the variables you may
-want throw into your experiment. See the [irit-rst-dt][irit-rst-dt]
-experiment for an example of what such a harness would look like. (See
-also the [Shake build system][shake]).
+It would probably be a good idea to build some sort of test harness for
+your discourse experiments (have a look at the
+[quickstart][quickstart]).  For more detailed experiments,
+you might use the [irit-rst-dt][irit-rst-dt] experiment as a starting
+point, or alternatively, build something off the
+[Shake build system][shake].
 
 NB: The `attelo evaluate` command can be seen as a harness of
 sorts but is bit limited at the moment. Our project harnessses use it
@@ -48,13 +48,8 @@ and reduce the amount of infrastructure you need to build.
 Discourse parsing (rough sketch, see the `--help`):
 
 1. extract features (DIY)
-2. attelo learn
-3. attelo decode
-
-Running experiments (old way):
-
-1. extract features (DIY)
-2. attelo evaluate
+2. use attelo to enfold, learn, decode, and score
+   (see [quickstart][quickstart])
 
 ### Finer grained evaluation
 
@@ -114,4 +109,5 @@ requirement mentioned in article 5.3.4 quoted below:
 [apidoc]: http://attelo.readthedocs.org/en/latest/api-doc/attelo/
 [educe]: http://github.com/kowey/educe
 [irit-rst-dt]: http://github.com/kowey/irit-rst-dt
+[quikstart]: http://attelo.readthedocs.org/en/latest/quickstart/
 [shake]: http://community.haskell.org/~ndm/shake/
