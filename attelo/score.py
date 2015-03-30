@@ -92,7 +92,7 @@ def score_edus(dpack, predictions):
     This score may quite low if we are predicted a multiheaded
     graph
 
-    :rtype EduCount
+    :rtype: :py:class:`EduCount`
     """
 
     e_predictions = defaultdict(list)
@@ -191,7 +191,7 @@ def discriminating_features(models, labels, vocab, top_n):
     for each label in the models; or None if the model does not
     support this sort of query
 
-    See :pyfunc:`attelo.report.show_discriminating_features`
+    See :py:func:`attelo.report.show_discriminating_features`
 
     :param top_n number of features to return
     :type top_n: int

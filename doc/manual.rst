@@ -8,7 +8,7 @@ us to write one over time.
 .. toctree::
    :maxdepth: 2
 
-   troubleshooting
+   quickstart
    input
    output
    learning

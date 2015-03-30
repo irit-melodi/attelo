@@ -268,9 +268,10 @@ def write_predictions_output(dpack, predicted, filename):
         'return a list of columns'
         edu1_id = edu1.id
         edu2_id = edu2.id
-        return [edu1_id,
-                edu2_id,
-                links.get((edu1_id, edu2_id), UNRELATED)]
+        row = [edu1_id,
+               edu2_id,
+               links.get((edu1_id, edu2_id), UNRELATED)]
+        return [x.encode('utf-8') for x in row]
 
     with open(filename, 'wb') as fout:
         writer = csv.writer(fout, dialect=csv.excel_tab)
@@ -297,7 +298,7 @@ def load_predictions(edu_file):
                                           num=len(row),
                                           expected=expected_len,
                                           row=row))
-        return tuple(row)
+        return tuple(x.decode('utf-8') for x in row)
 
     with open(edu_file, 'rb') as instream:
         reader = csv.reader(instream, dialect=csv.excel_tab)

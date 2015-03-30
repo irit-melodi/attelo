@@ -123,7 +123,7 @@ def _get_learner_set(args):
     Return a pair of learner wrappers (not the actual
     learners, which we would need the other args for)
 
-    :rtype Team(learner wrapper)
+    :rtype: Team(learner wrapper)
     '''
     aname = args.learner
     rname = args.learner if args.relation_learner is None\
@@ -162,7 +162,7 @@ def args_to_learners(decoder, args):
     learner, but the user can make a point of specifying a
     different one
 
-    :rtype Team(learner)
+    :rtype: Team(learner)
     """
     learner_args = _mk_learner_cfg_args(decoder, args)
     wrappers = _get_learner_set(args)
@@ -180,7 +180,7 @@ def args_to_learner_harness(decoder, args, is_for_attach):
 
     Note that we don't use the distinction between the
 
-    :rtype learner
+    :rtype: learner
     """
     learner_args = _mk_learner_cfg_args(decoder, args)
     factory = _get_learner(args.learner,

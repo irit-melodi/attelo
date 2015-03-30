@@ -85,7 +85,7 @@ class Slice(namedtuple('Slice',
                         'enable_details'])):
     '''
     A piece of the full report that we would like to build.
-    See :pyfunc:`full_report`
+    See :py:func:`full_report`
 
     :type fold: int
 
@@ -120,7 +120,7 @@ def full_report(mpack, fold_dict, slices):
     :param slices: the predictions for each configuration, for each fold.
                    Folds should be contiguous for maximum efficiency.
                    It may be worthwhile to generate this lazily
-    :type: slices: iterable(:pyclass:`Slice`)
+    :type: slices: iterable(:py:class:`Slice`)
     """
     if not mpack:
         raise ValueError("Can't report with empty multipack")

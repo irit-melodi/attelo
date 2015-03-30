@@ -586,8 +586,7 @@ def show_discriminating_features(listing):
     visualisation
 
     :param feats: a list of (label, features) pair; the features
-    are themselves a list of (feature, weight) pairs
-
+                  are themselves a list of (feature, weight) pairs
     :type feats: [ (string, [(string, float)]) ]
     """
     rows = [[label] + concat_l(feats) for

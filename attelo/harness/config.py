@@ -47,7 +47,7 @@ class EvaluationConfig(namedtuple("EvaluationConfig",
 
     The settings can really be of type that has a 'key'
     field; but you should have a way of extracting at
-    least a :pyclass:`DecodingMode` from it
+    least a :py:class:`DecodingMode` from it
 
     :type learner: Keyed (Team learner)
     :type decoder: Keyed Decoder
