@@ -26,6 +26,7 @@ MOCK_MODULES = ['climate',
                 'sklearn.datasets',
                 'sklearn.dummy',
                 'sklearn.linear_model',
+                'sklearn.metrics',
                 'sklearn.naive_bayes',
                 'sklearn.svm']
 for mod_name in MOCK_MODULES:
