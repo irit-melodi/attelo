@@ -21,6 +21,7 @@ import sys
 # pylint: disable=wildcard-import
 # (just for re-export)
 from .control import *
+from .interface import (Decoder)
 from .util import DecoderException
 
 from .astar import (AstarDecoder)
