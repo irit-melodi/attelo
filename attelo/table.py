@@ -42,14 +42,14 @@ class DataPack(namedtuple('DataPack',
     :type pairings: [(EDU, EDU)]
 
     :param data: sparse matrix of features, each
-                     row corresponding to a pairing
+                 row corresponding to a pairing
 
     :param target: array of predictions for each pairing
 
     :param labels: (optional) list of relation labels
                    (length should be the same as largest value
                    for target)
-    :type labels [string] or None
+    :type labels: [string] or None
     '''
     # pylint: disable=too-many-arguments
     @classmethod
@@ -57,7 +57,7 @@ class DataPack(namedtuple('DataPack',
         '''
         Build a data pack and run some sanity checks
         (see :py:method:sanity_check')
-               (recommended if reading from disk)
+        (recommended if reading from disk)
 
         :rtype: :py:class:`DataPack`
         '''
@@ -294,8 +294,8 @@ def for_intra(pack):
     edu is a subgrouping head (if it has no parents other than than
     'ROOT' within its subgrouping).
 
-    This should be done before either :pyfunc:`for_labelling` or
-    pyfunc:`for_attachment`
+    This should be done before either :py:func:`for_labelling` or
+    :py:func:`for_attachment`
 
     :rtype: :py:class:`DataPack`
     '''
