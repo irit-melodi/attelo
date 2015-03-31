@@ -95,6 +95,7 @@ def _combine_probs(dpack, models, debug=False):
             print(' edu2: ', truncate(edu2.text, 50), file=sys.stderr)
             print(' attach: ', a_prob, file=sys.stderr)
             print(' relate: ', r_prob, file=sys.stderr)
+            print(' label: ', label, file=sys.stderr)
             print(' combined: ', prob, file=sys.stderr)
         return (edu1, edu2, prob, label)
 
