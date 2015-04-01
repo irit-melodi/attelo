@@ -334,13 +334,14 @@ def select_window(dpack, window):
 
     Note that if the window is `None`, we simply return the
     original datapack
+
+    Note that will only work correctly on single-document datapacks
     '''
     if window is None:
         return dpack
     position = {FAKE_ROOT_ID: 0}
-    for _, edus in itr.groupby(dpack.edus, key=lambda x: x.grouping):
-        for i, edu in enumerate(edus):
-            position[edu.id] = i
+    for i, edu in enumerate(dpack.edus):
+        position[edu.id] = i
     indices = []
     for i, (edu1, edu2) in enumerate(dpack.pairings):
         gap = abs(position[edu2.id] - position[edu1.id])
