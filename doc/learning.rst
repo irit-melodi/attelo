@@ -38,7 +38,8 @@ you should also set `--non-prob-scores` to false on decoding time
 
 Sometimes classifiers may not naturally support probabilities but can
 provide conversion mechanisms to compute them from scores. These methods
-may come with various downsides (eg. be expensive to compute), so it may
+may come with various downsides (eg. be expensive to compute, and more
+worryingly, inconsistent with the scores), so it may
 be best to stick with non-prob decoding for them too.  See the `note in the
 scikit manual
 <http://scikit-learn.org/stable/modules/svm.html#scores-and-probabilities>`_
