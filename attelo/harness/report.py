@@ -22,7 +22,8 @@ from ..score import (empty_confusion_matrix,
                      build_confusion_matrix,
                      score_edges,
                      score_edges_by_label,
-                     score_edus)
+                     score_edus,
+                     select_in_pack)
 from ..table import (DataPack)
 
 
@@ -108,7 +109,8 @@ class Slice(namedtuple('Slice',
 # pylint: disable=too-many-locals
 # it's a bit hard to write this sort score accumulation code
 # local help
-def full_report(mpack, fold_dict, slices):
+def full_report(mpack, fold_dict, slices,
+                adjust_pack=None):
     """
     Generate a report across a set of folds and configurations.
 
@@ -120,7 +122,11 @@ def full_report(mpack, fold_dict, slices):
     :param slices: the predictions for each configuration, for each fold.
                    Folds should be contiguous for maximum efficiency.
                    It may be worthwhile to generate this lazily
-    :type: slices: iterable(:py:class:`Slice`)
+    :type slices: iterable(:py:class:`Slice`)
+
+    :param adjust_pack: (optional) function that modifies a DataPack, for
+                        example by picking out a subset of the pairings.
+    :type adjust_pack: (DataPack -> DataPack) or None
     """
     if not mpack:
         raise ValueError("Can't report with empty multipack")
@@ -132,18 +138,21 @@ def full_report(mpack, fold_dict, slices):
 
     fold = None
 
+    adjust_pack = adjust_pack or (lambda x: x)
     for slc in slices:
         if slc.fold != fold:
             f_mpack = select_testing(mpack, fold_dict, slc.fold)
-            fpack = DataPack.vstack(f_mpack.values())
+            fpack = DataPack.vstack(adjust_pack(x)
+                                    for x in f_mpack.values())
             fold = slc.fold
         key = slc.configuration
         # accumulate scores
-        edge_count[key].append(score_edges(fpack, slc.predictions))
-        edu_reports[key].add(score_edus(fpack, slc.predictions))
-        confusion[key] += build_confusion_matrix(fpack, slc.predictions)
+        predictions = select_in_pack(fpack, slc.predictions)
+        edge_count[key].append(score_edges(fpack, predictions))
+        edu_reports[key].add(score_edus(fpack, predictions))
+        confusion[key] += build_confusion_matrix(fpack, predictions)
         if slc.enable_details:
-            details = score_edges_by_label(fpack, slc.predictions)
+            details = score_edges_by_label(fpack, predictions)
             for label, lab_count in details:
                 edge_lab_count[key][label].append(lab_count)
 
