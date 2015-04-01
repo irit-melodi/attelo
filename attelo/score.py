@@ -64,7 +64,7 @@ def select_in_pack(dpack, predictions):
     pass in that smaller datapack to get the corresponding
     subset of predictions back
     """
-    pairing_ids = [(e1.id, e2.id) for e1, e2 in dpack.pairings]
+    pairing_ids = {(e1.id, e2.id) for e1, e2 in dpack.pairings}
     return [(id1, id2, r) for id1, id2, r in predictions
             if (id1, id2) in pairing_ids]
 
