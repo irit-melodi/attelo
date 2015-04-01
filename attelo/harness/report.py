@@ -138,7 +138,13 @@ def full_report(mpack, fold_dict, slices,
 
     fold = None
 
-    adjust_pack = adjust_pack or (lambda x: x)
+    # avoid slicing the predictions if we can help it (slow)
+    if adjust_pack is None:
+        adjust_predictions = lambda _, x: x
+        adjust_pack = lambda x: x
+    else:
+        adjust_predictions = select_in_pack
+
     for slc in slices:
         if slc.fold != fold:
             f_mpack = select_testing(mpack, fold_dict, slc.fold)
@@ -147,7 +153,7 @@ def full_report(mpack, fold_dict, slices,
             fold = slc.fold
         key = slc.configuration
         # accumulate scores
-        predictions = select_in_pack(fpack, slc.predictions)
+        predictions = adjust_predictions(fpack, slc.predictions)
         edge_count[key].append(score_edges(fpack, predictions))
         edu_reports[key].add(score_edus(fpack, predictions))
         confusion[key] += build_confusion_matrix(fpack, predictions)
