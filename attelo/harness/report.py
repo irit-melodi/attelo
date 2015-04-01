@@ -142,8 +142,8 @@ def full_report(mpack, fold_dict, slices,
     for slc in slices:
         if slc.fold != fold:
             f_mpack = select_testing(mpack, fold_dict, slc.fold)
-            fpack = DataPack.vstack(adjust_pack(x)
-                                    for x in f_mpack.values())
+            fpack = DataPack.vstack([adjust_pack(x)
+                                     for x in f_mpack.values()])
             fold = slc.fold
         key = slc.configuration
         # accumulate scores
