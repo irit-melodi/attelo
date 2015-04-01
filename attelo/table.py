@@ -4,7 +4,6 @@ Manipulating data tables (taking slices, etc)
 
 from __future__ import print_function
 from collections import defaultdict, namedtuple
-import itertools as itr
 
 import numpy
 import numpy.ma
