@@ -53,6 +53,22 @@ class EduCount(namedtuple('EduCount',
                         self.total + other.total)
 
 
+def select_in_pack(dpack, predictions):
+    """Given some predictions, return only the ones that are
+    in the given datapack.
+
+    This could be useful for situations where you want to
+    evaluate on parts of a (larger) datapack. If you have
+    predictions on the whole pack and you only want the
+    those which are relevant to the smaller slice, just
+    pass in that smaller datapack to get the corresponding
+    subset of predictions back
+    """
+    pairing_ids = [(e1.id, e2.id) for e1, e2 in dpack.pairings]
+    return [(id1, id2, r) for id1, id2, r in predictions
+            if (id1, id2) in pairing_ids]
+
+
 def score_edges(dpack, predictions):
     """basic eval: counting correct predicted edges (labelled or not)
     data contains the reference attachments
