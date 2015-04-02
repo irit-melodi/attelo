@@ -475,7 +475,7 @@ class CombinedReport(object):
             raise ValueError('report must have at least one key')
 
         if main_header:
-            headers = [main_header] + [''] * (len(keys) - 1)
+            headers = [main_header] + [''] * (len(list(keys[0])) - 1)
         else:
             headers = []
         headers += self.report_cls.table_header()
