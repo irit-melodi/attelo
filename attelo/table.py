@@ -257,7 +257,19 @@ def for_labelling(pack):
     return pack
 
 
-def select_intrasentential(dpack, include_fake_root=True):
+def select_fakeroot(dpack):
+    """
+    Retain only the pairings from a datapack which involve
+    the fakeroot node
+    """
+    retain = []
+    for i, (edu1, _) in enumerate(dpack.pairings):
+        if edu1.id == FAKE_ROOT_ID:
+            retain.append(i)
+    return dpack.selected(retain)
+
+
+def select_intrasentential(dpack, include_fake_root=False):
     """
     Retain only the pairings from a datapack which correspond to
     EDUs in the same sentence (or the fake root).
@@ -275,7 +287,7 @@ def select_intrasentential(dpack, include_fake_root=True):
     return dpack.selected(retain)
 
 
-def select_intersentential(dpack, include_fake_root=True):
+def select_intersentential(dpack, include_fake_root=False):
     """
     Retain only the pairings from a datapack which correspond to
     EDUs in different sentences (or the fake root).
