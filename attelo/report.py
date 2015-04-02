@@ -459,7 +459,7 @@ class CombinedReport(object):
         "dictionary from config name (string) to Report"
     # pylint: enable=pointless-string-statement
 
-    def table(self, sortkey=None):
+    def table(self, main_header=None, sortkey=None):
         """
         2D tabular output
 
@@ -471,10 +471,18 @@ class CombinedReport(object):
             keys = [k for k, _ in
                     sorted(self.reports.items(), key=sortkey)]
 
+        if not keys:
+            raise ValueError('report must have at least one key')
+
+        if main_header:
+            headers = [main_header] + [''] * (len(keys) - 1)
+        else:
+            headers = []
+        headers += self.report_cls.table_header()
         rows = [list(k) + self.reports[k].table_row()
                 for k in keys]
         return tabulate(rows,
-                        headers=self.report_cls.table_header(),
+                        headers=headers,
                         floatfmt=".3f")
 
     def for_json(self):
@@ -502,7 +510,7 @@ def _mk_confusion_row(ignore, row):
     return res
 
 
-def show_confusion_matrix(labels, matrix):
+def show_confusion_matrix(labels, matrix, main_header=None):
     '''
     Return a string representing a confusion matrix in 2D
     '''
@@ -517,7 +525,11 @@ def show_confusion_matrix(labels, matrix):
     body = []
     for rnum, (label, row) in enumerate(zip(labels, matrix.tolist())):
         body.append([label] + _mk_confusion_row(rnum, row))
-    return tabulate(headers + body)
+    table = tabulate(headers + body)
+    if main_header:
+        return main_header + '\n' + table
+    else:
+        return table
 
 # ---------------------------------------------------------------------
 # discriminating features

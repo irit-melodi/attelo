@@ -43,40 +43,86 @@ class ReportPack(namedtuple('ReportPack',
     :type confusion: dict(string, array)
     """
 
-    def dump(self, output_dir):
+    def _filenames(self, output_dir):
         """
-        Save reports to an output directory
+        Return a dictionary of filenames; keys are internal
+        to this class
         """
         makedirs(output_dir)
+        filenames = {}
+
         if self.edge is not None:
             # edgewise scores
-            ofilename = fp.join(output_dir, 'scores.txt')
-            with open(ofilename, 'w') as ostream:
-                print(self.edge.table(), file=ostream)
+            filenames['edge'] = fp.join(output_dir, 'scores.txt')
 
         if self.edu is not None:
             # edu scores
-            ofilename = fp.join(output_dir, 'edu-scores.txt')
-            with open(ofilename, 'w') as ostream:
-                print(self.edu.table(), file=ostream)
+            filenames['edu'] = fp.join(output_dir, 'edu-scores.txt')
 
         if self.edge_by_label is not None:
             label_dir = fp.join(output_dir, 'label-scores')
             makedirs(label_dir)
-            for key, report in self.edge_by_label.items():
-                ofilename = fp.join(label_dir, '-'.join(key))
-                with open(ofilename, 'w') as ostream:
-                    print(report.table(sortkey=lambda (_, v): 0 - v.count),
-                          file=ostream)
+            for key in self.edge_by_label:
+                fkey = ('label', key)
+                filenames[fkey] = fp.join(label_dir, '-'.join(key))
 
         if self.confusion is not None:
             confusion_dir = fp.join(output_dir, 'confusion')
             makedirs(confusion_dir)
-            for key, matrix in self.confusion.items():
-                ofilename = fp.join(confusion_dir, '-'.join(key))
-                with open(ofilename, 'w') as ostream:
-                    print(show_confusion_matrix(self.confusion_labels, matrix),
+            for key in self.confusion:
+                fkey = ('confusion', key)
+                filenames[fkey] = fp.join(confusion_dir, '-'.join(key))
+        return filenames
+
+    def dump(self, output_dir, header=None):
+        """
+        Save reports to an output directory
+        """
+        makedirs(output_dir)
+        fnames = self._filenames(output_dir).values()
+        # touch every file
+        for fname in fnames:
+            with open(fname, 'w'):
+                pass
+        self.append(output_dir, header=header)
+
+    def append(self, output_dir, header):
+        """
+        Append reports to a pre-existing output directory
+
+        :param header: optional name for the tables
+        :type header: string or None
+        """
+        fnames = self._filenames(output_dir)
+        if self.edge is not None:
+            # edgewise scores
+            with open(fnames['edge'], 'a') as ostream:
+                print(self.edge.table(main_header=header), file=ostream)
+                print(file=ostream)
+
+        if self.edu is not None:
+            # edu scores
+            with open(fnames['edu'], 'a') as ostream:
+                print(self.edu.table(main_header=header), file=ostream)
+                print(file=ostream)
+
+        if self.edge_by_label is not None:
+            for key, report in self.edge_by_label.items():
+                fkey = ('label', key)
+                with open(fnames[fkey], 'a') as ostream:
+                    print(report.table(sortkey=lambda (_, v): 0 - v.count,
+                                       main_header=header),
                           file=ostream)
+                    print(file=ostream)
+
+        if self.confusion is not None:
+            for key, matrix in self.confusion.items():
+                fkey = ('confusion', key)
+                with open(fnames[fkey], 'a') as ostream:
+                    print(show_confusion_matrix(self.confusion_labels, matrix,
+                                                main_header=header),
+                          file=ostream)
+                    print(file=ostream)
 
 
 class Slice(namedtuple('Slice',
