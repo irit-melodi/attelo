@@ -66,7 +66,8 @@ for fold in range(num_folds):
                              DecodingMode.joint)
         # record the best prediction score (among the decoder nbest)
         doc_scores = [score_edges(dpack, x) for x in predictions]
-        scores.append(max(doc_scores, key=lambda x: x.tpos_label))
+        scores.append(max(doc_scores,
+                          key=lambda x: x.directed.tpos_label))
         # optional: save the predictions for further inspection
         fold_predictions.extend(predictions[0])
 

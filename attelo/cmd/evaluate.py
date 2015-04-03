@@ -30,7 +30,7 @@ def best_prediction(dpack, predictions):
                    otherwise only attachments
     :param predicted: a single prediction (list of id, id, label tuples)
     """
-    max_key = lambda x: score_edges(dpack, x).tpos_label
+    max_key = lambda x: score_edges(dpack, x).directed.tpos_label
     return max(predictions, key=max_key)
 
 
