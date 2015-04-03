@@ -27,10 +27,9 @@ from ..learn import (LEARNERS,
 from ..local import (EVALUATIONS,
                      TRAINING_CORPUS)
 from ..path import (edu_input_path,
-                    fold_dir_path,
                     features_path,
-                    pairings_path,
-                    vocab_path)
+                    fold_dir_path,
+                    pairings_path)
 from ..report import (mk_fold_report,
                       mk_global_report)
 from ..util import (concat_i,
