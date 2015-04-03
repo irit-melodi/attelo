@@ -25,6 +25,7 @@ class Count(namedtuple('Count',
         """
         Count made of the total of all counts
         """
+        counts = list(counts)  # accept iterable
         return cls(sum(x.tpos_attach for x in counts),
                    sum(x.tpos_label for x in counts),
                    sum(x.tpos_fpos for x in counts),
