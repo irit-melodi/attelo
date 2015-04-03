@@ -135,6 +135,7 @@ def _create_eval_dirs(args, data_dir, jumpstart):
         if not fp.exists(scratch_dir):
             os.makedirs(scratch_dir)
             if jumpstart:
+                _link_fold_files(eval_current, eval_dir)
                 _link_model_files(scratch_current, scratch_dir)
             force_symlink(fp.basename(scratch_dir), scratch_current)
 
@@ -150,11 +151,12 @@ def _create_eval_dirs(args, data_dir, jumpstart):
 
 def _generate_fold_file(lconf, mpack):
     """
-    Generate the folds file
+    Generate the folds file; return the resulting folds
     """
     rng = mk_rng()
     fold_dict = attelo.fold.make_n_fold(mpack, 10, rng)
     save_fold_dict(fold_dict, lconf.fold_file)
+    return fold_dict
 
 
 def _do_fold(lconf, dconf, fold):
@@ -190,27 +192,62 @@ def _is_standalone_or(lconf, stage):
     return lconf.stage is None or lconf.stage == stage
 
 
+def _load_harness_multipack(lconf):
+    """
+    :rtype: Multipack
+    """
+    has_stripped = (lconf.stage in [ClusterStage.end, ClusterStage.start]
+                    and fp.exists(features_path(lconf, stripped=True)))
+    return load_multipack(edu_input_path(lconf),
+                          pairings_path(lconf),
+                          features_path(lconf, stripped=has_stripped),
+                          verbose=True)
+
+
+def _init_corpus(lconf):
+    """Start evaluation; generate folds if needed
+
+    :rtype: DataConfig or None
+    """
+    can_skip_folds = fp.exists(lconf.fold_file)
+    msg_skip_folds = ('Skipping generation of fold files '
+                      '(must have been jumpstarted)')
+
+    if lconf.stage is None:
+        # standalone: we always have to load the datapack
+        # because we'll need it for further stages
+        mpack = _load_harness_multipack(lconf)
+        if can_skip_folds:
+            print(msg_skip_folds, file=sys.stderr)
+            fold_dict = load_fold_dict(lconf.fold_file)
+        else:
+            fold_dict = _generate_fold_file(lconf, mpack)
+        return DataConfig(pack=mpack, folds=fold_dict)
+    elif lconf.stage == ClusterStage.start:
+        if can_skip_folds:
+            # if we are just running --start and the fold file already
+            # exists we can even bail out before reading the datapacks
+            # because that's all we wanted them for
+            print(msg_skip_folds, file=sys.stderr)
+        else:
+            mpack = _load_harness_multipack(lconf)
+            _generate_fold_file(lconf, mpack)
+        return None
+    else:
+        # any other stage: fold files have already been
+        # created so we just read them in
+        return DataConfig(pack=_load_harness_multipack(lconf),
+                          folds=load_fold_dict(lconf.fold_file))
+
+
 def _do_corpus(lconf):
     "Run evaluation on a corpus"
     print(_corpus_banner(lconf), file=sys.stderr)
 
-    edus_file = edu_input_path(lconf)
-    if not os.path.exists(edus_file):
+    if not os.path.exists(edu_input_path(lconf)):
         exit_ungathered()
 
-    has_stripped = (lconf.stage in [ClusterStage.end, ClusterStage.start]
-                    and fp.exists(features_path(lconf, stripped=True)))
-    mpack = load_multipack(edus_file,
-                           pairings_path(lconf),
-                           features_path(lconf, stripped=has_stripped),
-                           verbose=True)
-
-    if _is_standalone_or(lconf, ClusterStage.start):
-        _generate_fold_file(lconf, mpack)
-
-    dconf = DataConfig(pack=mpack,
-                       folds=load_fold_dict(lconf.fold_file))
-
+    dconf = _init_corpus(lconf)
     if _is_standalone_or(lconf, ClusterStage.main):
         foldset = lconf.folds if lconf.folds is not None\
             else frozenset(dconf.folds.values())
