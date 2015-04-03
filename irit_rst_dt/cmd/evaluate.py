@@ -105,13 +105,53 @@ def _link_model_files(old_dir, new_dir):
         os.link(old_mpath, new_mpath)
 
 
+def _link_fold_files(old_dir, new_dir):
+    """
+    Hardlink the fold file
+    """
+    for old_path in glob.glob(fp.join(old_dir, 'folds*.json')):
+        new_path = fp.join(new_dir, fp.basename(old_path))
+        os.link(old_path, new_path)
+
+
+def _create_tstamped_dir(prefix, suffix):
+    """
+    Given a path prefix (eg. 'foo/bar') and a new suffix
+    (eg. quux),
+
+    If the desired path (eg. 'foo/bar-quux') already exists,
+    return False.
+    Otherwise:
+
+    1. Create a directory at the desired path
+    2. Rename any existing prefix-'current' link
+       to prefix-'previous'
+    3. Link prefix-suffix to prefix-'current'
+    4. Return True
+    """
+    old = prefix + '-previous'
+    new = prefix + '-current'
+    actual_new = prefix + '-' + suffix
+    if fp.exists(actual_new):
+        return False
+    else:
+        os.makedirs(actual_new)
+        if os.path.exists(new):
+            actual_old = fp.realpath(prefix + '-current')
+            force_symlink(fp.basename(actual_old), old)
+        force_symlink(fp.basename(actual_new), new)
+        return True
+
+
 def _create_eval_dirs(args, data_dir, jumpstart):
     """
     Return eval and scatch directory paths
     """
+    eval_prefix = fp.join(data_dir, "eval")
+    scratch_prefix = fp.join(data_dir, "scratch")
 
-    eval_current = fp.join(data_dir, "eval-current")
-    scratch_current = fp.join(data_dir, "scratch-current")
+    eval_current = eval_prefix + '-current'
+    scratch_current = scratch_prefix + '-current'
     stage = args_to_stage(args)
 
     if args.resume or stage in [ClusterStage.main,
@@ -120,24 +160,21 @@ def _create_eval_dirs(args, data_dir, jumpstart):
         if not fp.exists(eval_current) or not fp.exists(scratch_current):
             sys.exit("No currently running evaluation to resume!")
         else:
-            return eval_current, scratch_current
+            return fp.realpath(eval_current), fp.realpath(scratch_current)
     else:
+        eval_actual_old = fp.realpath(eval_current)
+        scratch_actual_old = fp.realpath(scratch_current)
         tstamp = "TEST" if _DEBUG else timestamp()
-        eval_dir = fp.join(data_dir, "eval-" + tstamp)
-        if not fp.exists(eval_dir):
-            os.makedirs(eval_dir)
+        if _create_tstamped_dir(eval_prefix, tstamp):
+            eval_dir = eval_prefix + '-' + tstamp
+            scratch_dir = scratch_prefix + '-' + tstamp
+            _create_tstamped_dir(scratch_prefix, tstamp)
             _link_data_files(data_dir, eval_dir)
-            force_symlink(fp.basename(eval_dir), eval_current)
+            if jumpstart:
+                _link_fold_files(eval_actual_old, eval_dir)
+                _link_model_files(scratch_actual_old, scratch_dir)
         elif not _DEBUG:
             sys.exit("Try again in one minute")
-
-        scratch_dir = fp.join(data_dir, "scratch-" + tstamp)
-        if not fp.exists(scratch_dir):
-            os.makedirs(scratch_dir)
-            if jumpstart:
-                _link_fold_files(eval_current, eval_dir)
-                _link_model_files(scratch_current, scratch_dir)
-            force_symlink(fp.basename(scratch_dir), scratch_current)
 
         with open(fp.join(eval_dir, "versions-evaluate.txt"), "w") as stream:
             call(["pip", "freeze"], stdout=stream)
