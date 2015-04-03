@@ -10,7 +10,7 @@ import sys
 
 from tabulate import tabulate
 
-from .score import (Count, EduCount)
+from .score import (CountPair, EduCount)
 from .util import (concat_l)
 
 # pylint: disable=too-few-public-methods
@@ -80,13 +80,23 @@ class Score(object):
                    correction)
 
     @classmethod
-    def score_attach(cls, count, correction):
+    def score_attach_dir(cls, count, correction):
         """
         From counts to precision/recall scores
         """
-        return cls.score(count.tpos_attach,
-                         count.tpos_fpos,
-                         count.tpos_fneg,
+        return cls.score(count.directed.tpos_attach,
+                         count.directed.tpos_fpos,
+                         count.directed.tpos_fneg,
+                         correction)
+
+    @classmethod
+    def score_attach_undir(cls, count, correction):
+        """
+        From counts to precision/recall scores
+        """
+        return cls.score(count.undirected.tpos_attach,
+                         count.undirected.tpos_fpos,
+                         count.undirected.tpos_fneg,
                          correction)
 
     @classmethod
@@ -94,9 +104,9 @@ class Score(object):
         """
         From counts to precision/recall scores
         """
-        return cls.score(count.tpos_label,
-                         count.tpos_fpos,
-                         count.tpos_fneg,
+        return cls.score(count.directed.tpos_label,
+                         count.directed.tpos_fpos,
+                         count.directed.tpos_fneg,
                          correction)
 
     def for_json(self):
@@ -133,11 +143,11 @@ class Score(object):
         config = config or DEFAULT_SCORE_CONFIG
         corrected = config.correction != 1.0
 
-        res = ["pre" if config.prefix is None else "%s pre" % config.prefix,
-               "rec", "f1"]
+        res = ["p" if config.prefix is None else "%s p" % config.prefix,
+               "r", "f1"]
 
         if corrected:
-            res += ["rec (cr %.2f)" % config.correction,
+            res += ["r (cr %.2f)" % config.correction,
                     "f1 (cr %.2f)" % config.correction]
 
         return res
@@ -317,11 +327,15 @@ class EdgeReport(object):
     Experimental results and some basic statistical tests on them
     """
     def __init__(self, evals, params=None, correction=1.0):
-        totals = Count.sum(evals)
+        totals = CountPair.sum(evals)
         self.config = ScoreConfig(prefix=None,
                                   correction=correction)
-        self.attach =\
-            Multiscore.create(lambda x: Score.score_attach(x, correction),
+        self.attach_undir =\
+            Multiscore.create(lambda x:
+                              Score.score_attach_undir(x, correction),
+                              totals, evals)
+        self.attach_dir =\
+            Multiscore.create(lambda x: Score.score_attach_dir(x, correction),
                               totals, evals)
         self.label =\
             Multiscore.create(lambda x: Score.score_label(x, correction),
@@ -333,7 +347,8 @@ class EdgeReport(object):
         Return a JSON-serialisable dictionary representing the scores
         for this run
         """
-        return {"attachment": self.attach.for_json(),
+        return {"attachment_undirected": self.attach_undir.for_json(),
+                "attachment_directed": self.attach_dir.for_json(),
                 "labeling": self.label.for_json()}
 
     def _params_to_filename(self):
@@ -350,27 +365,30 @@ class EdgeReport(object):
         "One line summary string"
 
         output = [self._params_to_filename(),
-                  "\tATTACHMENT", self.attach.summary(),
-                  "\tLABELLING", self.label.summary()]
+                  "\tATT", self.attach_dir.summary(),
+                  "\t+DIR", self.attach_undir.summary(),
+                  "\t+LAB", self.label.summary()]
         return " ".join(output)
 
     def table_row(self):
         "Scores as a tabulate table row"
-        return\
-            self.attach.table_row() +\
-            self.label.table_row()
+        return (self.attach_undir.table_row() +
+                self.attach_dir.table_row() +
+                self.label.table_row())
 
     @classmethod
     def table_header(cls, config=None):
         "Scores as a tabulate table row"
         config = config or DEFAULT_SCORE_CONFIG
         config_a = ScoreConfig(correction=config.correction,
-                               prefix="ATTACH")
+                               prefix="ATT")
+        config_d = ScoreConfig(correction=config.correction,
+                               prefix="+DIR")
         config_l = ScoreConfig(correction=config.correction,
-                               prefix="LABEL")
-        return\
-            Multiscore.table_header(config_a) +\
-            Multiscore.table_header(config_l)
+                               prefix="+LAB")
+        return (Multiscore.table_header(config_a) +
+                Multiscore.table_header(config_d) +
+                Multiscore.table_header(config_l))
 
 
 class LabelReport(object):
@@ -381,9 +399,9 @@ class LabelReport(object):
     the same
     """
     def __init__(self, evals, correction=1.0):
-        totals = Count.sum(evals)
+        totals = CountPair.sum(evals)
         self.score = Score.score_label(totals, correction)
-        self.count = totals.tpos_fneg
+        self.count = totals.directed.tpos_fneg
 
     def for_json(self):
         """

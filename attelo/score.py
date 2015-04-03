@@ -12,6 +12,23 @@ from .table import (UNRELATED, get_label_string)
 # pylint: disable=too-few-public-methods
 
 
+class CountPair(namedtuple('CountPair',
+                           ['undirected',
+                            'directed'])):
+    """
+    Number of correct edges etc, both ignoring and taking
+    directionality into account
+    """
+    @classmethod
+    def sum(cls, counts):
+        """
+        Count made of the total of all counts
+        """
+        counts = list(counts)  # accept iterable
+        return cls(Count.sum(x.undirected for x in counts),
+                   Count.sum(x.directed for x in counts))
+
+
 class Count(namedtuple('Count',
                        ['tpos_attach',
                         'tpos_label',
@@ -71,29 +88,43 @@ def select_in_pack(dpack, predictions):
 
 
 def score_edges(dpack, predictions):
-    """basic eval: counting correct predicted edges (labelled or not)
-    data contains the reference attachments
-    labels the corresponding relations
+    """Count correctly predicted edges and labels
+    Note that undirected label counts are undefined and
+    hardcoded to 0
 
-    :rtype: :py:class:`attelo.report.Count`
+    :rtype: :py:class:`attelo.report.CountPair`
     """
-    tpos_attach = 0
-    tpos_label = 0
+    att_pack = dpack.attached_only()
     dict_predicted = {(arg1, arg2): rel for arg1, arg2, rel in predictions
                       if rel != UNRELATED}
-    pack = dpack.attached_only()
-    for edu_pair, ref_label in zip(pack.pairings, pack.target):
+
+    # undirected
+    u_predicted = set(tuple(sorted((arg1, arg2)))
+                      for arg1, arg2 in dict_predicted)
+    u_gold = set(tuple(sorted((edu1.id, edu2.id)))
+                 for edu1, edu2 in att_pack.pairings)
+    undirected = Count(tpos_attach=len(u_gold & u_predicted),
+                       tpos_label=0,
+                       tpos_fpos=len(u_predicted),
+                       tpos_fneg=len(u_gold))
+
+    # directed
+    tpos_attach = 0
+    tpos_label = 0
+    for edu_pair, ref_label in zip(att_pack.pairings, att_pack.target):
         edu1, edu2 = edu_pair
         pred_label = dict_predicted.get((edu1.id, edu2.id))
         if pred_label is not None:
             tpos_attach += 1
-            if dpack.label_number(pred_label) == ref_label:
+            if att_pack.label_number(pred_label) == ref_label:
                 tpos_label += 1
+    directed = Count(tpos_attach=tpos_attach,
+                     tpos_label=tpos_label,
+                     tpos_fpos=len(dict_predicted.keys()),
+                     tpos_fneg=len(att_pack.pairings))
 
-    return Count(tpos_attach=tpos_attach,
-                 tpos_label=tpos_label,
-                 tpos_fpos=len(dict_predicted.keys()),
-                 tpos_fneg=len(dpack.attached_only().pairings))
+    return CountPair(undirected=undirected,
+                     directed=directed)
 
 
 def score_edus(dpack, predictions):
