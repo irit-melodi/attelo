@@ -77,6 +77,13 @@ def _mk_local_decoder(config, default=0.5):
     return LocalBaseline(threshold, config.use_prob)
 
 
+def _mk_asmany_decoder(config):
+    """
+    Instantiate the local "as many" decoder
+    """
+    return LocalBaselineAsMany(threshold, config.use_prob)
+
+
 def _mk_mst_decoder(config):
     """
     Instantiate an MST decoder
@@ -87,6 +94,7 @@ def _mk_mst_decoder(config):
 
 DECODERS = {"last": lambda _: LastBaseline(),
             "local": _mk_local_decoder,
+            "asmany": _mk_asmany_decoder,
             "locallyGreedy": lambda _: LocallyGreedy(),
             "msdag": lambda c: MsdagDecoder(c.mst_root_strategy, c.use_prob),
             "mst": _mk_mst_decoder,
