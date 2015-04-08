@@ -57,14 +57,12 @@ class BestIncomingDecoder(Decoder):
         inc_edges = {}
         for cand in cands:
             src, tgt, score, lbl = cand
-            try:
+            if tgt.id in inc_edges:
                 cur_best = inc_edges[tgt.id][2]
-            except KeyError:
-                # tgt is yet unseen
-                inc_edges[tgt.id] = cand
-            else:
                 if score > cur_best:
                     inc_edges[tgt.id] = cand
+            else:
+                inc_edges[tgt.id] = cand
 
         predicted = [(src.id, tgt.id, lbl)
                      for src, tgt, score, lbl in inc_edges.values()]
