@@ -189,7 +189,10 @@ class DataPack(namedtuple('DataPack',
 
         :rtype: float
         '''
-        return self.labels.index(label) + 1
+        if label == UNKNOWN:
+            return 0
+        else:
+            return self.labels.index(label) + 1
 
 
 def groupings(pairings):
@@ -387,4 +390,4 @@ def get_label_string(labels, i):
     '''
     Return the class label for the given target value.
     '''
-    return labels[int(i) - 1]
+    return labels[int(i) - 1] if i else UNKNOWN
