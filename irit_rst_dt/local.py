@@ -95,9 +95,11 @@ _LOCAL_LEARNERS = [
                   relate=learner_maxent()),
     LearnerConfig(attach=learner_maxent(),
                   relate=learner_oracle()),
-#    LearnerConfig(attach=Keyed('sk-perceptron', SkPerceptron()),
+#    LearnerConfig(attach=Keyed('sk-perceptron',
+#                               SkPerceptron(n_iter=20)),
 #                  relate=learner_maxent()),
-#    LearnerConfig(attach=Keyed('sk-pasagg', SkPassiveAggressiveClassifier()),
+#    LearnerConfig(attach=Keyed('sk-pasagg',
+#                               SkPassiveAggressiveClassifier(n_iter=20)),
 #                  relate=learner_maxent()),
 ]
 """Straightforward attelo learner algorithms to try
