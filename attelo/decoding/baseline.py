@@ -24,6 +24,24 @@ class LocalBaseline(Decoder):
         return [predicted]
 
 
+class LocalBaselineAsMany(Decoder):
+    """just attach locally the top N edges, N=nb(real EDUs)"""
+    def decode(self, prob_distrib):
+        """Predict as many labels as there are EDUs"""
+        # assume all real EDUs appear as a2 in prob_distrib
+        nb_edus = len(list(set(a2 for a1, a2, p, l in prob_distrib)))
+
+        predicted = []
+        sorted_cands = sorted(prob_distrib, key=lambda t: t[2], reverse=True)
+        for arg1, arg2, probs, label in sorted_cands:
+            attach = probs
+            if len(predicted) < nb_edus:
+                predicted.append((arg1.id, arg2.id, label))
+            else:
+                break
+        return [predicted]
+
+
 class LastBaseline(Decoder):
     "attach to last, always"
 
