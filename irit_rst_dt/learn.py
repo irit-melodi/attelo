@@ -36,7 +36,7 @@ def _get_learn_job(lconf, rconf, subpack, paths, task):
         sub_rconf = rconf.attach
         output_path = paths.attach
     elif task == Task.relate:
-        sub_rconf = rconf.relate or rconf.attach
+        sub_rconf = rconf.relate
         output_path = paths.relate
     else:
         raise ValueError('Unknown learning task: {}'.format(task))
@@ -52,7 +52,7 @@ def _get_learn_job(lconf, rconf, subpack, paths, task):
     else:
         learn_fn = ath_learn.learn
         learners = Team(attach=rconf.attach,
-                        relate=rconf.relate or rconf.attach)
+                        relate=rconf.relate)
         learners = learners.fmap(lambda x: x.payload)
         return delayed(learn_fn)(subpack, learners, task, output_path,
                                  quiet=False)

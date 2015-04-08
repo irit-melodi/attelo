@@ -154,7 +154,7 @@ def _mk_report(lconf, dconf, slices, fold):
     for rconf in LEARNERS:
         if rconf.attach.payload == 'oracle':
             pass
-        elif rconf.relate is not None and rconf.relate.payload == 'oracle':
+        elif rconf.relate.payload == 'oracle':
             pass
         else:
             _mk_model_summary(lconf, dconf, rconf, fold)
