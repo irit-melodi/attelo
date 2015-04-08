@@ -61,13 +61,14 @@ def _predict_relate(dpack, models):
     """
     if models.relate == 'oracle':
         unrelated = dpack.label_number(UNRELATED)
-        # pylint: disable=no-member
+        unk_lbl = dpack.label_number(UNKNOWN)
         # treat unrelated as unknown (to avoid cutting links that may
         # have been inserted by an non-oracle attachment label)
-        always_related = np.vectorize(lambda x: 0 if x == unrelated else x)
+        default_to_unk = lambda lbl: unk_lbl if lbl == unrelated else lbl
+        # pylint: disable=no-member
         probs = np.ones(dpack.target.shape)
+        lbls = np.vectorize(default_to_unk)(dpack.target)
         # pylint: enable=no-member
-        idxes = always_related(dpack.target)
     elif not can_predict_proba(models.relate):
         raise DecoderException('Tried to use a non-prob decoder for relations')
     else:
@@ -76,11 +77,11 @@ def _predict_relate(dpack, models):
         # pylint: disable=no-member
         probs = np.amax(all_probs, axis=1)
         # pylint: enable=no-member
-        idxes = models.relate.predict(dpack.data)
+        lbls = models.relate.predict(dpack.data)
     # pylint: disable=no-member
     get_label = np.vectorize(dpack.get_label)
     # pylint: enable=no-member
-    return probs, get_label(idxes)
+    return probs, get_label(lbls)
 
 
 def _combine_probs(dpack, models, debug=False):
