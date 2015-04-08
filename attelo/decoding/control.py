@@ -10,7 +10,7 @@ import numpy as np
 
 from attelo.learning import (can_predict_proba)
 from attelo.table import (for_attachment, for_labelling, for_intra,
-                          UNKNOWN)
+                          UNRELATED, UNKNOWN)
 from attelo.util import truncate
 from .intra import (IntraInterPair, select_subgrouping)
 from .util import (DecoderException,
@@ -60,10 +60,14 @@ def _predict_relate(dpack, models):
     and an list of labels
     """
     if models.relate == 'oracle':
-        idxes = dpack.target
+        unrelated = dpack.label_number(UNRELATED)
         # pylint: disable=no-member
-        probs = np.ones(idxes.shape)
+        # treat unrelated as unknown (to avoid cutting links that may
+        # have been inserted by an non-oracle attachment label)
+        always_related = np.vectorize(lambda x: 0 if x == unrelated else x)
+        probs = np.ones(dpack.target.shape)
         # pylint: enable=no-member
+        idxes = always_related(dpack.target)
     elif not can_predict_proba(models.relate):
         raise DecoderException('Tried to use a non-prob decoder for relations')
     else:
