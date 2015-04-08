@@ -11,6 +11,8 @@ In the future we may move this to a proper configuration file.
 from __future__ import print_function
 import itertools as itr
 
+from numpy import inf
+
 from attelo.harness.config import (EvaluationConfig,
                                    LearnerConfig,
                                    Keyed)
@@ -20,6 +22,11 @@ from attelo.decoding.baseline import (LocalBaseline)
 from attelo.decoding.local import (AsManyDecoder, BestIncomingDecoder)
 from attelo.decoding.mst import (MstDecoder, MstRootStrategy)
 from attelo.decoding.intra import (IntraInterDecoder, IntraStrategy)
+from attelo.learning.perceptron import (Perceptron,
+                                        PerceptronArgs,
+                                        PassiveAggressive,
+                                        StructuredPerceptron,
+                                        StructuredPassiveAggressive)
 from attelo.learning import (can_predict_proba)
 from sklearn.linear_model import (LogisticRegression,
                                   Perceptron as SkPerceptron,
@@ -87,6 +94,25 @@ def learner_maxent():
     "return a keyed instance of maxent learner"
     return Keyed('maxent', LogisticRegression())
 
+LOCAL_PERC_ARGS = PerceptronArgs(iterations=20,
+                                 averaging=True,
+                                 use_prob=False,
+                                 aggressiveness=inf)
+
+LOCAL_PA_ARGS = PerceptronArgs(iterations=20,
+                               averaging=True,
+                               use_prob=False,
+                               aggressiveness=inf)
+
+STRUCT_PERC_ARGS = PerceptronArgs(iterations=50,
+                                  averaging=True,
+                                  use_prob=False,
+                                  aggressiveness=inf)
+
+STRUCT_PA_ARGS = PerceptronArgs(iterations=50,
+                                averaging=True,
+                                use_prob=False,
+                                aggressiveness=inf)
 
 _LOCAL_LEARNERS = [
     LearnerConfig(attach=learner_oracle(),
@@ -101,6 +127,12 @@ _LOCAL_LEARNERS = [
 #    LearnerConfig(attach=Keyed('sk-pasagg',
 #                               SkPassiveAggressiveClassifier(n_iter=20)),
 #                  relate=learner_maxent()),
+#    LearnerConfig(attach=Keyed('dp-perc',
+#                               Perceptron(d, LOCAL_PERC_ARGS)),
+#                  relate=learner_maxent()),
+#    LearnerConfig(attach=Keyed('dp-pa',
+#                               PassiveAggressive(d, LOCAL_PA_ARGS)),
+#                  relate=learner_maxent()),
 ]
 """Straightforward attelo learner algorithms to try
 
@@ -110,8 +142,12 @@ between different configurations of your learners.
 """
 
 _STRUCTURED_LEARNERS = [
-    # lambda d: LearnerConfig(attach=Keyed('pd-perceptron', Perceptron(d)),
-    #                        relate=learner_maxent(),
+#    lambda d: LearnerConfig(attach=Keyed('dp-struct-perc',
+#                                         StructuredPerceptron(d, STRUCT_PERC_ARGS)),
+#                            relate=learner_maxent()),
+#    lambda d: LearnerConfig(attach=Keyed('dp-struct-pa',
+#                                         StructuredPassiveAggressive(d, STRUCT_PA_ARGS)),
+#                            relate=learner_maxent()),
 ]
 
 """Attelo learners that take decoders as arguments.
