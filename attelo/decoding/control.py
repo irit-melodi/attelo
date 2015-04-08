@@ -153,10 +153,11 @@ def _add_labels(dpack, models, predictions, clobber=True):
 # ---------------------------------------------------------------------
 
 
-def build_prob_distrib(dpack, models, mode):
+def build_candidates(dpack, models, mode):
     """
-    Extract a decoder probability distribution from the models
-    for all instances in the datapack
+    Extract candidate links (scores and proposed labels
+    for each edu pair) from the models for all instances
+    in the datapack
 
     :type models: Team(model)
     """
@@ -222,7 +223,7 @@ def decode_vanilla(dpack, models, decoder, mode):
 
     :type models: Team(model)
     """
-    prob_distrib = build_prob_distrib(dpack, models, mode)
+    prob_distrib = build_candidates(dpack, models, mode)
     predictions = decoder.decode(prob_distrib)
     return _maybe_post_label(dpack, models, predictions, mode)
 
@@ -243,12 +244,12 @@ def decode_intra_inter(dpack, models, decoder, mode):
         dpacks = IntraInterPair(intra=dpack, inter=dpack)
 
     prob_distribs =\
-        IntraInterPair(intra=build_prob_distrib(dpacks.intra,
-                                                models.intra,
-                                                mode),
-                       inter=build_prob_distrib(dpacks.inter,
-                                                models.inter,
-                                                mode))
+        IntraInterPair(intra=build_candidates(dpacks.intra,
+                                              models.intra,
+                                              mode),
+                       inter=build_candidates(dpacks.inter,
+                                              models.inter,
+                                              mode))
     sorted_edus = get_sorted_edus(prob_distribs.inter)
 
     # launch a decoder per sentence

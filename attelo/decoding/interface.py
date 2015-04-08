@@ -25,7 +25,8 @@ class Decoder(with_metaclass(ABCMeta, object)):
           between a pair of EDUs. The first two items are their
           identifiers, and the third is the link label
 
-        - a **proposed link** (`(string, string, float, string)`)
+        - a **candidate link** (or candidate, to be short,
+          `(string, string, float, string)`)
           is a link with a probability attached
 
         - a **prediction** is morally a set (in practice a list) of links
@@ -34,11 +35,11 @@ class Decoder(with_metaclass(ABCMeta, object)):
     '''
 
     @abstractmethod
-    def decode(self, prob_distrib):
+    def decode(self, candidates):
         '''
-        :param prob_distrib: the proposed links that we would like
+        :param candidates: the proposed links that we would like
                              to decode over
-        :type prob_distrib: [(string, string, float, string)]
+        :type candidates: [(string, string, float, string)]
 
         The links you return must be a subset of the proposed links
         from the probability distribution (modulo probabilities).
@@ -58,15 +59,15 @@ class PruningDecoder(with_metaclass(ABCMeta, Decoder)):
     def __init__(self, decoder):
         self.decoder = decoder
 
-    def decode(self, prob_distrib):
-        return self.decoder.decode(self.prune(prob_distrib))
+    def decode(self, candidates):
+        return self.decoder.decode(self.prune(candidates))
 
     @abstractmethod
-    def prune(self, prob_distrib):
+    def prune(self, candidates):
         '''
-        :param prob_distrib: the proposed links that we would like
-                             to decode over
-        :type prob_distrib: [(string, string, float, string)]
+        :param candidates: the proposed links that we would like
+                           to decode over
+        :type candidates: [(string, string, float, string)]
 
         Trim a set of proposed links
 
