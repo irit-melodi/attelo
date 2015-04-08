@@ -175,8 +175,6 @@ def build_candidates(dpack, models, mode):
     else:
         attach_pack = for_attachment(dpack)
         pairings = attach_pack.pairings
-        # FIXME: this is a bug in how we're calling perceptrons
-        # should be just pack
         confidence = _predict_attach(attach_pack, models)
         return [(id1, id2, conf, UNKNOWN) for
                 (id1, id2), conf in zip(pairings, confidence)]
