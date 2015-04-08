@@ -17,6 +17,7 @@ from attelo.harness.config import (EvaluationConfig,
 
 from attelo.decoding import (DecodingMode)
 from attelo.decoding.baseline import (LocalBaseline)
+from attelo.decoding.local import (AsManyDecoder, BestIncomingDecoder)
 from attelo.decoding.mst import (MstDecoder, MstRootStrategy)
 from attelo.decoding.intra import (IntraInterDecoder, IntraStrategy)
 from attelo.learning import (can_predict_proba)
@@ -118,7 +119,9 @@ We assume that they cannot be used relation modelling
 
 _CORE_DECODERS = [
     Keyed('local', decoder_local),
-    Keyed('mst', decoder_mst)
+    Keyed('mst', decoder_mst),
+#    Keyed('asmany', lambda _: AsManyDecoder()),
+#    Keyed('bestin', lambda _: BestIncomingDecoder()),
 ]
 
 """Attelo decoders to try in experiment
