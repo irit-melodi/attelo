@@ -34,7 +34,7 @@ class LearnerConfig(Team):
     def __new__(cls, attach, relate):
         team = super(LearnerConfig, cls).__new__(cls, attach, relate)
         team.key = team.attach.key
-        if team.relate is not None:
+        if team.relate.key != team.attach.key:
             team.key += "_" + team.relate.key
         return team
 
