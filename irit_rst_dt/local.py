@@ -60,7 +60,7 @@ Where to read the Penn Treebank from (should be dir corresponding to
 parsed/mrg/wsj)
 """
 
-FEATURE_SET = 'li2014'  # one of ['dev', 'eyk', 'li2014']
+FEATURE_SET = 'dev'  # one of ['dev', 'eyk', 'li2014']
 """
 Which feature set to use for feature extraction
 """
