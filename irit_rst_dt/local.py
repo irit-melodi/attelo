@@ -67,37 +67,41 @@ Which feature set to use for feature extraction
 
 def decoder_local(settings):
     "our instantiation of the local baseline decoder"
-    use_prob = settings.mode == DecodingMode.post_label
+    use_prob = settings.mode != DecodingMode.post_label
     return LocalBaseline(0.5, use_prob)
 
 
 def decoder_mst(settings):
     "our instantiation of the local baseline decoder"
-    use_prob = settings.mode == DecodingMode.post_label
+    use_prob = settings.mode != DecodingMode.post_label
     return MstDecoder(MstRootStrategy.fake_root,
                       use_prob)
 
-LEARNER_MAXENT = Keyed('maxent', LogisticRegression())
+def learner_maxent():
+    "return a keyed instance of maxent learner"
+    return Keyed('maxent', LogisticRegression())
+
 
 _LOCAL_LEARNERS = [
     LearnerConfig(attach=Keyed('oracle', 'oracle'),
-                  relate=None),
-    LearnerConfig(attach=LEARNER_MAXENT,
-                  relate=None),
+                  relate=Keyed('oracle', 'oracle')),
+    LearnerConfig(attach=learner_maxent(),
+                  relate=learner_maxent()),
 #    LearnerConfig(attach=Keyed('sk-perceptron', SkPerceptron()),
-#                  relate=LEARNER_MAXENT),
+#                  relate=learner_maxent()),
 #    LearnerConfig(attach=Keyed('sk-pasagg', SkPassiveAggressiveClassifier()),
-#                  relate=LEARNER_MAXENT),
+#                  relate=learner_maxent()),
 ]
 """Straightforward attelo learner algorithms to try
 
 It's up to you to choose values for the key field that can distinguish
 between different configurations of your learners.
+
 """
 
 _STRUCTURED_LEARNERS = [
     # lambda d: LearnerConfig(attach=Keyed('pd-perceptron', Perceptron(d)),
-    #                        relate=_MAXENT),
+    #                        relate=learner_maxent(),
 ]
 
 """Attelo learners that take decoders as arguments.
