@@ -12,8 +12,9 @@ from numpy.linalg import norm
 # pylint at the time of this writing doesn't deal well with
 # packages that dynamically generate methods
 # https://bitbucket.org/logilab/pylint/issue/58/false-positive-no-member-on-numpy-imports
-from numpy import dot, exp, zeros, sign
-from scipy.sparse import csr_matrix  
+from numpy import dot, zeros, sign
+from scipy.sparse import csr_matrix
+from scipy.special import expit  # aka the logistic function
 # pylint: enable-no-name-in-module
 
 from attelo.edu import EDU
@@ -27,7 +28,7 @@ from attelo.table import UNKNOWN
 """
 TODO:
 - add more principled scores to probs conversion (right now, we do just 1-norm
-  weight normalization and use logit function)
+  weight normalization and use expit function)
 - add MC perc and PA for relation prediction.
 - fold relation prediction into structured learning
 """
@@ -373,11 +374,6 @@ def tree_loss(ref_tree, pred_tree):
 def _score(w_vect, feat_vect, use_prob=False):
     score = dot(w_vect, feat_vect)
     if use_prob:
-        score = logit(score)
+        score = expit(score)
     return score
-
-
-def logit(score):
-    """ return score in [0,1], i.e., fake probability"""
-    return 1.0/(1.0+exp(-score))
 # pylint: enable=no-member
