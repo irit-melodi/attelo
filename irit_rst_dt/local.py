@@ -77,16 +77,23 @@ def decoder_mst(settings):
     return MstDecoder(MstRootStrategy.fake_root,
                       use_prob)
 
+def learner_oracle():
+    "return a keyed instance of the oracle (virtual) learner"
+    return Keyed('oracle', 'oracle')
+
+
 def learner_maxent():
     "return a keyed instance of maxent learner"
     return Keyed('maxent', LogisticRegression())
 
 
 _LOCAL_LEARNERS = [
-    LearnerConfig(attach=Keyed('oracle', 'oracle'),
-                  relate=Keyed('oracle', 'oracle')),
+    LearnerConfig(attach=learner_oracle(),
+                  relate=learner_oracle()),
     LearnerConfig(attach=learner_maxent(),
                   relate=learner_maxent()),
+    LearnerConfig(attach=learner_maxent(),
+                  relate=learner_oracle()),
 #    LearnerConfig(attach=Keyed('sk-perceptron', SkPerceptron()),
 #                  relate=learner_maxent()),
 #    LearnerConfig(attach=Keyed('sk-pasagg', SkPassiveAggressiveClassifier()),
