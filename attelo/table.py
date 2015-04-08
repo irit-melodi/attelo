@@ -16,9 +16,9 @@ from .util import concat_l
 
 # pylint: disable=pointless-string-statement
 UNRELATED = "UNRELATED"
-"distinguished value for unrelateted relation labels"
+"distinguished value for unrelated relation labels"
 
-UNLABELLED = "unlabelled"
+UNKNOWN = "__UNK__"
 "distinguished internal value for post-labelling mode"
 # pylint: enable=pointless-string-statement
 

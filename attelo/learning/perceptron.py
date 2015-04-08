@@ -17,7 +17,7 @@ from scipy.sparse import csr_matrix
 # pylint: enable-no-name-in-module
 
 from attelo.edu import EDU
-from attelo.table import UNLABELLED
+from attelo.table import UNKNOWN
 
 # pylint: disable=too-few-public-methods
 # pylint: disable=invalid-name
@@ -249,7 +249,7 @@ class StructuredPerceptron(Perceptron):
                 for i,(id1,id2) in enumerate(edu_pairs):
                     fv_index_map[id1,id2] = X[i]
                     if Y[i] == 1:
-                        ref_tree.append( (id1, id2, UNLABELLED) )
+                        ref_tree.append( (id1, id2, UNKNOWN) )
                 # predict tree based on current weight vector
                 pred_tree = self._classify(X, edu_pairs, self.weights)
                 # print doc_id,  predicted_graph
@@ -299,7 +299,7 @@ class StructuredPerceptron(Perceptron):
             scored_tuples.append((EDU(id1, 0, 0, None, None, None), # hacky 
                                   EDU(id2, 0, 0, None, None, None),
                                   scores[i],
-                                  UNLABELLED))
+                                  UNKNOWN))
         # print "SCORES:", scores
         pred_tree = decoder.decode(scored_tuples)[0]
         return pred_tree

@@ -10,7 +10,7 @@ import numpy as np
 
 from attelo.learning import (can_predict_proba)
 from attelo.table import (for_attachment, for_labelling, for_intra,
-                          UNLABELLED)
+                          UNKNOWN)
 from attelo.util import truncate
 from .intra import (IntraInterPair, select_subgrouping)
 from .util import (DecoderException,
@@ -120,7 +120,7 @@ def _add_labels(dpack, models, predictions, clobber=True):
     :rtype: [prediction]
 
     :param clobber: if True, override pre-existing labels; if False, only
-                    do so if == UNLABELLED
+                    do so if == UNKNOWN
     """
 
     relate_pack = for_labelling(dpack)
@@ -133,7 +133,7 @@ def _add_labels(dpack, models, predictions, clobber=True):
         '''replace the link label (the original by rights is something
         like "unlabelled"'''
         edu1, edu2, old_label = link
-        can_replace = clobber or old_label == UNLABELLED
+        can_replace = clobber or old_label == UNKNOWN
         label = label_dict[(edu1, edu2)] if can_replace else old_label
         return (edu1, edu2, label)
 
@@ -172,7 +172,7 @@ def build_prob_distrib(dpack, models, mode):
         # FIXME: this is a bug in how we're calling perceptrons
         # should be just pack
         confidence = _predict_attach(attach_pack, models)
-        return [(id1, id2, conf, UNLABELLED) for
+        return [(id1, id2, conf, UNKNOWN) for
                 (id1, id2), conf in zip(pairings, confidence)]
 
 
