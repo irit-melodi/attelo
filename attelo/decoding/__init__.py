@@ -28,6 +28,7 @@ from .astar import (AstarDecoder)
 from .baseline import LastBaseline, LocalBaseline
 from .mst import (MsdagDecoder, MstDecoder, MstRootStrategy)
 from .greedy import LocallyGreedy
+from .local import (AsManyDecoder, BestIncomingDecoder)
 
 
 class DecoderArgs(namedtuple("DecoderAgs",
@@ -90,7 +91,10 @@ DECODERS = {"last": lambda _: LastBaseline(),
             "locallyGreedy": lambda _: LocallyGreedy(),
             "msdag": lambda c: MsdagDecoder(c.mst_root_strategy, c.use_prob),
             "mst": _mk_mst_decoder,
-            "astar": lambda c: AstarDecoder(c.astar)}
+            "astar": lambda c: AstarDecoder(c.astar),
+            "asmany": lambda _: AsManyDecoder(),
+            "bestin": lambda _: BestIncomingDecoder(),
+}
 """
 Dictionary (`string -> DecoderAgs -> Decoder`) of decoder names (recognised by
 the command line interface) to wrappers. Wrappers smooth out the differences
