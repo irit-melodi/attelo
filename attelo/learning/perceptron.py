@@ -248,13 +248,13 @@ class StructuredPerceptron(Perceptron):
                 ref_tree = []
                 fv_index_map = {}
                 for i,(id1,id2) in enumerate(edu_pairs):
-                    fv_index_map[id1,id2] = X[i]
+                    fv_index_map[id1,id2] = i
                     if Y[i] == 1:
                         ref_tree.append( (id1, id2, UNKNOWN) )
                 # predict tree based on current weight vector
                 pred_tree = self._classify(X, edu_pairs, self.weights)
                 # print doc_id,  predicted_graph
-                loss += self.update(pred_tree, ref_tree, fv_index_map)
+                loss += self.update(pred_tree, ref_tree, X, fv_index_map)
             # print(inst_ct,, file=sys.stderr)
             avg_loss = loss / float(inst_ct)
             t1 = time.time()
@@ -264,7 +264,7 @@ class StructuredPerceptron(Perceptron):
         print("done in %s sec." % round(elapsed_time, 3), file=sys.stderr)
         return
 
-    def update(self, pred_tree, ref_tree, fv_map, rate=1.0):
+    def update(self, pred_tree, ref_tree, X, fv_map, rate=1.0):
         # rt = [(t[0].span(),t[1].span()) for t in ref_tree]
         # pt = [(t[0].span(),t[1].span()) for t in pred_tree]
         # print("REF TREE:", rt)
@@ -279,10 +279,10 @@ class StructuredPerceptron(Perceptron):
             pred_fv = zeros(len(W), 'd')
             for ref_arc in ref_tree:
                 id1, id2, _ = ref_arc
-                ref_fv = ref_fv + fv_map[id1, id2].toarray()
+                ref_fv = ref_fv + X[fv_map[id1, id2]].toarray()
             for pred_arc in pred_tree:
                 id1, id2, _ = pred_arc
-                pred_fv = pred_fv + fv_map[id1, id2].toarray()
+                pred_fv = pred_fv + X[fv_map[id1, id2]].toarray()
             W = W + rate * (ref_fv - pred_fv)
         # print("OUT W:", W)
         self.weights = W
@@ -320,7 +320,7 @@ class StructuredPassiveAggressive(StructuredPerceptron):
         return
 
 
-    def update(self, pred_tree, ref_tree, fv_map):
+    def update(self, pred_tree, ref_tree, X, fv_map):
         r"""PA-II update rule:
 
         .. math::
@@ -343,10 +343,10 @@ class StructuredPassiveAggressive(StructuredPerceptron):
         pred_fv = zeros(len(W), 'd')
         for ref_arc in ref_tree:
             id1, id2, _ = ref_arc
-            ref_fv = ref_fv + fv_map[id1, id2].toarray()
+            ref_fv = ref_fv + X[fv_map[id1, id2]].toarray()
         for pred_arc in pred_tree:
             id1, id2, _ = pred_arc
-            pred_fv = pred_fv + fv_map[id1, id2].toarray()
+            pred_fv = pred_fv + X[fv_map[id1, id2]].toarray()
         # find tau
         delta_fv = ref_fv-pred_fv
         margin = float(dot(W, delta_fv.T))
