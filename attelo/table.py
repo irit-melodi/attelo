@@ -364,6 +364,20 @@ class Multipack(dict):
     pass
 
 
+def _edu_positions(dpack):
+    """Return a dictionary associating each EDU with a position
+    identifier. The fake root always has position 0.
+
+    Note that this will only work correctly on single-document
+    datapacks.
+    """
+    position = {FAKE_ROOT_ID: 0}
+    sorted_edus = sorted(dpack.edus, key=lambda x: x.span()[0])
+    for i, edu in enumerate(sorted_edus):
+        position[edu.id] = i
+    return position
+
+
 def select_window(dpack, window):
     '''Select only EDU pairs that are at most `window` EDUs apart
     from each other (adjacent EDUs would be considered `0` apart)
@@ -375,9 +389,7 @@ def select_window(dpack, window):
     '''
     if window is None:
         return dpack
-    position = {FAKE_ROOT_ID: 0}
-    for i, edu in enumerate(dpack.edus):
-        position[edu.id] = i
+    position = _edu_positions(dpack)
     indices = []
     for i, (edu1, edu2) in enumerate(dpack.pairings):
         gap = abs(position[edu2.id] - position[edu1.id])
