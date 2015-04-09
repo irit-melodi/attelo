@@ -398,6 +398,31 @@ def select_window(dpack, window):
     return dpack.selected(indices)
 
 
+def pairing_distances(dpack):
+    """Return for each target value (label) in the datapack,
+    the left and right maximum distances of edu pairings
+    (in number of EDUs, so adjacent EDUs have distance of 0)
+
+    Note that we assume a single-document datapack. If you
+    give this a stacked datapack, you may get very large
+    distances to the fake root
+
+    :rtype dict(int, (int, int))
+    """
+    position = _edu_positions(dpack)
+    max_l = defaultdict(int)
+    max_r = defaultdict(int)
+    for i, (edu1, edu2) in enumerate(dpack.pairings):
+        gap = position[edu2.id] - position[edu1.id]
+        lbl = dpack.target[i]
+        if gap < 0:
+            max_l[lbl] = max(max_l[lbl], -gap)
+        else:
+            max_r[lbl] = max(max_r[lbl], gap)
+    keys = frozenset(max_l.keys() + max_r.keys())
+    return {k: (max_l[k], max_r[k]) for k in keys}
+
+
 def get_label_string(labels, i):
     '''
     Return the class label for the given target value.
