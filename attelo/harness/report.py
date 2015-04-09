@@ -203,10 +203,9 @@ def full_report(mpack, fold_dict, slices,
         edge_count[key].append(score_edges(fpack, predictions))
         edu_reports[key].add(score_edus(fpack, predictions))
         confusion[key] += build_confusion_matrix(fpack, predictions)
-        if slc.enable_details:
-            details = score_edges_by_label(fpack, predictions)
-            for label, lab_count in details:
-                edge_lab_count[key][label].append(lab_count)
+        details = score_edges_by_label(fpack, predictions)
+        for label, lab_count in details:
+            edge_lab_count[key][label].append(lab_count)
 
     edge_report = CombinedReport(EdgeReport,
                                  {k: EdgeReport(v)
