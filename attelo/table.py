@@ -423,6 +423,25 @@ def pairing_distances(dpack):
     return {k: (max_l[k], max_r[k]) for k in keys}
 
 
+def mpack_pairing_distances(mpack):
+    """Return for each target value (label) in the multipack.
+    See :py:func:`pairing_distances` for details
+
+    :rtype dict(int, (int, int))
+    """
+    distances = {}
+    for dpack in mpack.values():
+        d_maxes = pairing_distances(dpack)
+        for lbl, (dmax_l, dmax_r) in d_maxes.items():
+            if lbl in distances:
+                gmax_l, gmax_r = distances[lbl]
+                distances[lbl] = (max(gmax_l, dmax_l),
+                                  max(gmax_r, dmax_r))
+            else:
+                distances[lbl] = dmax_l, dmax_r
+    return distances
+
+
 def get_label_string(labels, i):
     '''
     Return the class label for the given target value.
