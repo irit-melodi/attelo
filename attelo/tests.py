@@ -377,7 +377,6 @@ class ReportArgs(TestArgs):
         return attelo.cmd.report
 
 
-# pylint: disable=star-args
 def fake_harness(enfold_kwargs=None,
                  learner_kwargs=None,
                  decoder_kwargs=None,
@@ -401,7 +400,6 @@ def fake_harness(enfold_kwargs=None,
         LearnArgs.run(*args, fold=i, **learner_kwargs)
         DecodeArgs.run(*args, fold=i, **decoder_kwargs)
     # ReportArgs.run(idx_path=idx_filename, *args, **kwargs)
-# pylint: enable=star-args
 
 
 class CliTest(unittest.TestCase):
