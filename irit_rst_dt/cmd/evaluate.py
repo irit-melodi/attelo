@@ -169,6 +169,7 @@ def _create_eval_dirs(args, data_dir, jumpstart):
             eval_dir = eval_prefix + '-' + tstamp
             scratch_dir = scratch_prefix + '-' + tstamp
             _create_tstamped_dir(scratch_prefix, tstamp)
+            _link_data_files(data_dir, eval_dir)
             if jumpstart:
                 _link_fold_files(eval_actual_old, eval_dir)
                 _link_model_files(scratch_actual_old, scratch_dir)
@@ -178,8 +179,6 @@ def _create_eval_dirs(args, data_dir, jumpstart):
         with open(fp.join(eval_dir, "versions-evaluate.txt"), "w") as stream:
             call(["pip", "freeze"], stdout=stream)
 
-        # recreate hard links in case there's anything new
-        _link_data_files(data_dir, eval_dir)
         return eval_dir, scratch_dir
 
 # ---------------------------------------------------------------------
