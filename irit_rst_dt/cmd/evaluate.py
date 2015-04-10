@@ -160,7 +160,11 @@ def _create_eval_dirs(args, data_dir, jumpstart):
         if not fp.exists(eval_current) or not fp.exists(scratch_current):
             sys.exit("No currently running evaluation to resume!")
         else:
-            return fp.realpath(eval_current), fp.realpath(scratch_current)
+            eval_dir = fp.realpath(eval_current)
+            scratch_dir = fp.realpath(scratch_current)
+            # in case there are any new data files to link
+            _link_data_files(data_dir, eval_dir)
+            return eval_dir, scratch_dir
     else:
         eval_actual_old = fp.realpath(eval_current)
         scratch_actual_old = fp.realpath(scratch_current)
