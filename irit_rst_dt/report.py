@@ -15,8 +15,7 @@ import shutil
 import sys
 
 from attelo.io import (load_model,
-                       load_predictions,
-                       load_vocab)
+                       load_predictions)
 from attelo.harness.report import (Slice, full_report)
 from attelo.harness.util import (makedirs)
 from attelo.table import (select_fakeroot,
@@ -36,8 +35,7 @@ from .path import (attelo_doc_model_paths,
                    mpack_paths,
                    model_info_path,
                    report_dir_basename,
-                   report_dir_path,
-                   vocab_path)
+                   report_dir_path)
 from .util import (md5sum_file,
                    test_evaluation)
 
@@ -89,7 +87,7 @@ def _mk_model_summary(lconf, dconf, rconf, fold):
 
     dpack0 = dconf.pack.values()[0]
     labels = dpack0.labels
-    vocab = load_vocab(vocab_path(lconf))
+    vocab = dpack0.vocab
     # doc level discriminating features
     if True:
         models = attelo_doc_model_paths(lconf, rconf, fold).fmap(load_model)

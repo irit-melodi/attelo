@@ -55,13 +55,6 @@ def mpack_paths(lconf, test_data, stripped=False):
             core_path + '.vocab')
 
 
-def vocab_path(lconf, test_data=False):
-    """
-    Path to the vocab file in the evaluation dir
-    """
-    return mpack_paths(lconf, test_data)[3]
-
-
 def fold_dir_basename(fold):
     "Relative directory for working within a given fold"
     return "fold-%d" % fold

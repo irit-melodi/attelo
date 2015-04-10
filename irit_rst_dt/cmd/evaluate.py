@@ -262,6 +262,7 @@ def _load_harness_multipack(lconf, test_data=False):
     return load_multipack(paths[0],
                           paths[1],
                           paths[2],
+                          paths[3],
                           verbose=True)
 
 
