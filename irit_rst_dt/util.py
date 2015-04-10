@@ -16,7 +16,9 @@ from attelo.harness.util import timestamp
 from joblib import (Parallel)
 
 from .local import (LOCAL_TMP,
-                    EVALUATIONS)
+                    EVALUATIONS,
+                    TEST_CORPUS,
+                    TEST_EVALUATION_KEY)
 
 
 def current_tmp():
@@ -65,6 +67,21 @@ def exit_ungathered():
 Please run `irit-rst-dt gather`""")
 
 
+def test_evaluation():
+    """
+    Return the test evaluation or None if unset
+    """
+    if TEST_CORPUS is None:
+        return None
+    elif TEST_EVALUATION_KEY is None:
+        return None
+    test_confs = [x for x in EVALUATIONS if x.key == TEST_EVALUATION_KEY]
+    if test_confs:
+        return test_confs[0]
+    else:
+        return None
+
+
 def sanity_check_config():
     """
     Die if there's anything odd about the config
@@ -78,6 +95,15 @@ def sanity_check_config():
                 "The following configurations more than once:{}\n"
                 "ERROR! -----------------^^^^^--------------------"
                 "").format("\n".join(bad_confs))
+        sys.exit(oops)
+    if TEST_EVALUATION_KEY is not None and test_evaluation() is None:
+        oops = ("Sorry, there's an error in your configuration.\n"
+                "I don't dare to start evaluation until you fix it.\n"
+                "ERROR! -----------------vvvv---------------------\n"
+                "The test configuration '{}' does not appear in your "
+                "configurations\n"
+                "ERROR! -----------------^^^^^--------------------"
+                "").format(TEST_EVALUATION_KEY)
         sys.exit(oops)
 
 # ---------------------------------------------------------------------

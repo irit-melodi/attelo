@@ -15,7 +15,8 @@ LoopConfig = namedtuple("LoopConfig",
                          "folds",
                          "fold_file",
                          "n_jobs",
-                         "dataset"])
+                         "dataset",
+                         "testset"])
 "that which is common to outerish loops"
 
 

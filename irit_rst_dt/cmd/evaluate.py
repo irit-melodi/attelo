@@ -25,18 +25,19 @@ from ..learn import (LEARNERS,
                      delayed_learn,
                      mk_combined_models)
 from ..local import (EVALUATIONS,
-                     TRAINING_CORPUS)
-from ..path import (edu_input_path,
-                    features_path,
-                    fold_dir_path,
-                    pairings_path)
+                     TRAINING_CORPUS,
+                     TEST_CORPUS)
+from ..path import (fold_dir_path,
+                    mpack_paths)
 from ..report import (mk_fold_report,
-                      mk_global_report)
+                      mk_global_report,
+                      mk_test_report)
 from ..util import (concat_i,
                     exit_ungathered,
                     latest_tmp,
                     parallel,
-                    sanity_check_config)
+                    sanity_check_config,
+                    test_evaluation)
 from ..loop import (LoopConfig,
                     DataConfig,
                     ClusterStage)
@@ -220,6 +221,17 @@ def _do_fold(lconf, dconf, fold):
     mk_fold_report(lconf, dconf, fold)
 
 
+def _do_global_decode(lconf, dconf):
+    """
+    Run decoder on test data (if available)
+    """
+    econf = test_evaluation()
+    if econf is not None:
+        decoder_jobs = delayed_decode(lconf, dconf, econf, None)
+        parallel(lconf)(decoder_jobs)
+        post_decode(lconf, dconf, econf, None)
+
+
 def _is_standalone_or(lconf, stage):
     """
     True if we are in standalone mode (do everything)
@@ -228,15 +240,28 @@ def _is_standalone_or(lconf, stage):
     return lconf.stage is None or lconf.stage == stage
 
 
-def _load_harness_multipack(lconf):
+def _load_harness_multipack(lconf, test_data=False):
     """
+    Load the multipack for our current configuration.
+
+    Load the stripped features file if we don't actually need to
+    use the features (this would only make sense on the cluster
+    where evaluation is broken up into separate stages that we
+    can fire on different nodes)
+
+    :type test_data: bool
+
     :rtype: Multipack
     """
-    has_stripped = (lconf.stage in [ClusterStage.end, ClusterStage.start]
-                    and fp.exists(features_path(lconf, stripped=True)))
-    return load_multipack(edu_input_path(lconf),
-                          pairings_path(lconf),
-                          features_path(lconf, stripped=has_stripped),
+    stripped_paths = mpack_paths(lconf, test_data, stripped=True)
+    if (lconf.stage in [ClusterStage.end, ClusterStage.start]
+            and fp.exists(stripped_paths[2])):
+        paths = stripped_paths
+    else:
+        paths = mpack_paths(lconf, test_data, stripped=False)
+    return load_multipack(paths[0],
+                          paths[1],
+                          paths[2],
                           verbose=True)
 
 
@@ -280,7 +305,8 @@ def _do_corpus(lconf):
     "Run evaluation on a corpus"
     print(_corpus_banner(lconf), file=sys.stderr)
 
-    if not os.path.exists(edu_input_path(lconf)):
+    evidence_of_gathered = mpack_paths(lconf, False)[0]
+    if not fp.exists(evidence_of_gathered):
         exit_ungathered()
 
     dconf = _init_corpus(lconf)
@@ -292,9 +318,15 @@ def _do_corpus(lconf):
 
     if _is_standalone_or(lconf, ClusterStage.combined_models):
         mk_combined_models(lconf, dconf)
+        if test_evaluation() is not None:
+            test_pack = _load_harness_multipack(lconf, test_data=True)
+            test_dconf = DataConfig(pack=test_pack, folds=None)
+            _do_global_decode(lconf, test_dconf)
+            mk_test_report(lconf, test_dconf)
 
     if _is_standalone_or(lconf, ClusterStage.end):
         mk_global_report(lconf, dconf)
+
 
 # ---------------------------------------------------------------------
 # main
@@ -368,6 +400,7 @@ def main(args):
     eval_dir, scratch_dir = _create_eval_dirs(args, data_dir, args.jumpstart)
 
     dataset = fp.basename(TRAINING_CORPUS)
+    testset = None if TEST_CORPUS is None else fp.basename(TEST_CORPUS)
     fold_file = fp.join(eval_dir, "folds-%s.json" % dataset)
 
     lconf = LoopConfig(eval_dir=eval_dir,
@@ -376,5 +409,6 @@ def main(args):
                        stage=stage,
                        fold_file=fold_file,
                        n_jobs=args.n_jobs,
-                       dataset=dataset)
+                       dataset=dataset,
+                       testset=testset)
     _do_corpus(lconf)
