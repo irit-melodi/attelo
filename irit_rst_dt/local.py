@@ -171,25 +171,25 @@ Don't forget that you can parameterise the decoders ::
 
 
 _SETTINGS = [
-    Settings(key='AD.L_joint_intra_soft',
+    Settings(key='AD.L_jnt_intra_soft',
              mode=DecodingMode.joint,
              intra=IntraFlag(strategy=IntraStrategy.soft,
                              intra_oracle=False,
                              inter_oracle=False)),
-    Settings(key='AD.L_joint_intra_heads',
+    Settings(key='AD.L_jnt_intra_heads',
              mode=DecodingMode.joint,
              intra=IntraFlag(strategy=IntraStrategy.heads,
                              intra_oracle=False,
                              inter_oracle=False)),
-    Settings(key='AD.L_joint_intra_only',
+    Settings(key='AD.L_jnt_intra_only',
              mode=DecodingMode.joint,
              intra=IntraFlag(strategy=IntraStrategy.only,
                              intra_oracle=False,
                              inter_oracle=False)),
-    Settings(key='AD.L_joint',
+    Settings(key='AD.L_jnt',
              mode=DecodingMode.joint,
              intra=None),
-    Settings(key='AD.L_post',
+    Settings(key='AD.L_pst',
              mode=DecodingMode.post_label,
              intra=None),
     ]
@@ -330,7 +330,7 @@ Set to None to graph everything
 DETAILED_EVALUATIONS = [e for e in EVALUATIONS if
                         'maxent' in e.learner.key and
                         ('mst' in e.decoder.key or 'astar' in e.decoder.key)
-                        and 'joint' in e.settings.key
+                        and 'jnt' in e.settings.key
                         and 'orc' not in e.settings.key]
 """
 Any evalutions that we'd like full reports and graphs for.
