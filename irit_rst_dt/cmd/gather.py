@@ -34,7 +34,9 @@ def config_argparser(psr):
     psr.set_defaults(func=main)
 
 
-def extract_features(corpus, output_dir, vocab_path=None):
+def extract_features(corpus, output_dir,
+                     vocab_path=None,
+                     label_path=None):
     """
     Run feature extraction for a particular corpus; and store the
     results in the output directory. Output file name will be
@@ -55,6 +57,8 @@ def extract_features(corpus, output_dir, vocab_path=None):
            '--feature_set', FEATURE_SET]
     if vocab_path is not None:
         cmd.extend(['--vocabulary', vocab_path])
+    if label_path is not None:
+        cmd.extend(['--labels', label_path])
     call(cmd)
 
 
@@ -71,9 +75,12 @@ def main(args):
         tdir = current_tmp()
         extract_features(TRAINING_CORPUS, tdir)
     if TEST_CORPUS is not None:
-        vocab_path = fp.join(tdir, fp.basename(TRAINING_CORPUS))
-        vocab_path += '.relations.sparse.vocab'
-        extract_features(TEST_CORPUS, tdir, vocab_path=vocab_path)
+        train_path = fp.join(tdir, fp.basename(TRAINING_CORPUS))
+        label_path = train_path + '.relations.sparse'
+        vocab_path = label_path + '.vocab'
+        extract_features(TEST_CORPUS, tdir,
+                         vocab_path=vocab_path,
+                         label_path=label_path)
     with open(os.path.join(tdir, "versions-gather.txt"), "w") as stream:
         call(["pip", "freeze"], stdout=stream)
     if not args.skip_training:
