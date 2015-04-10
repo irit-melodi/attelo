@@ -183,6 +183,7 @@ def full_report(mpack, fold_dict, slices,
     confusion = defaultdict(lambda: empty_confusion_matrix(dpack0))
 
     fold = None
+    is_first_slice = True
 
     # avoid slicing the predictions if we can help it (slow)
     if adjust_pack is None:
@@ -192,11 +193,16 @@ def full_report(mpack, fold_dict, slices,
         adjust_predictions = select_in_pack
 
     for slc in slices:
-        if slc.fold != fold:
+        if is_first_slice and slc.fold is None:
+            fpack = DataPack.vstack([adjust_pack(x)
+                                     for x in mpack.values()])
+            is_first_slice = False
+        elif is_first_slice or slc.fold != fold:
             f_mpack = select_testing(mpack, fold_dict, slc.fold)
             fpack = DataPack.vstack([adjust_pack(x)
                                      for x in f_mpack.values()])
             fold = slc.fold
+            is_first_slice = False
         key = slc.configuration
         # accumulate scores
         predictions = adjust_predictions(fpack, slc.predictions)
