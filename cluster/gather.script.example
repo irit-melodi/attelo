@@ -5,7 +5,7 @@
 IRIT_RST_DT=$HOME/irit-rst-dt
 source "$IRIT_RST_DT/cluster/env"
 cd "$IRIT_RST_DT"
-time irit-rst-dt gather
+time irit-rst-dt gather "$@"
 for i in TMP/latest/*.sparse; do
     # get all the labels
     head -n 1 "$i" > "$i.stripped"
