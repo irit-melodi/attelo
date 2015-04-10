@@ -88,7 +88,7 @@ def _link_data_files(data_dir, eval_dir):
     for fname in os.listdir(data_dir):
         data_file = os.path.join(data_dir, fname)
         eval_file = os.path.join(eval_dir, fname)
-        if os.path.isfile(data_file):
+        if fp.isfile(data_file) and not fp.exists(eval_file):
             os.link(data_file, eval_file)
 
 
