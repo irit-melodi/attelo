@@ -18,6 +18,7 @@ def load_args_multipack(args):
     return load_multipack(args.edus,
                           args.pairings,
                           args.features,
+                          args.vocab,
                           verbose=not args.quiet)
 
 

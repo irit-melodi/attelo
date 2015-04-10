@@ -202,6 +202,8 @@ def add_common_args(psr):
                      help="EDU pairings file (tab separated)")
     psr.add_argument("features", metavar="FILE",
                      help="EDU pair features (libsvm)")
+    psr.add_argument("vocab", metavar="FILE",
+                     help="feature vocabulary")
     psr.add_argument("--quiet", action="store_true",
                      help="Supress all feedback")
 

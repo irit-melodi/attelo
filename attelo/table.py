@@ -31,7 +31,7 @@ class DataPackException(Exception):
 
 
 class DataPack(namedtuple('DataPack',
-                          'edus pairings data target labels')):
+                          'edus pairings data target labels vocab')):
     '''
     A set of data that can be said to belong together.
 
@@ -55,10 +55,14 @@ class DataPack(namedtuple('DataPack',
                    (length should be the same as largest value
                    for target)
     :type labels: [string]
+
+    :param vocab: feature names (corresponds to the feature
+                  indices) in data
+    :type vocab: [string]
     '''
     # pylint: disable=too-many-arguments
     @classmethod
-    def load(cls, edus, pairings, data, target, labels):
+    def load(cls, edus, pairings, data, target, labels, vocab):
         '''
         Build a data pack and run some sanity checks
         (see :py:method:sanity_check')
@@ -66,7 +70,7 @@ class DataPack(namedtuple('DataPack',
 
         :rtype: :py:class:`DataPack`
         '''
-        pack = cls(edus, pairings, data, target, labels)
+        pack = cls(edus, pairings, data, target, labels, vocab)
         pack.sanity_check()
         return pack
     # pylint: enable=too-many-arguments
@@ -76,7 +80,7 @@ class DataPack(namedtuple('DataPack',
         '''
         Combine several datapacks into one.
 
-        The labels for all packs must be the same
+        The labels and vocabulary for all packs must be the same
 
         :type dpacks: [DataPack]
         '''
@@ -87,7 +91,8 @@ class DataPack(namedtuple('DataPack',
                         pairings=concat_l(d.pairings for d in dpacks),
                         data=scipy.sparse.vstack(d.data for d in dpacks),
                         target=numpy.concatenate([d.target for d in dpacks]),
-                        labels=dpacks[0].labels)
+                        labels=dpacks[0].labels,
+                        vocab=dpacks[0].vocab)
         # pylint: enable=no-member
 
     def _check_target(self):
@@ -162,7 +167,8 @@ class DataPack(namedtuple('DataPack',
                         pairings=sel_pairings,
                         data=sel_data,
                         target=sel_targets,
-                        labels=sel_labels)
+                        labels=sel_labels,
+                        vocab=self.vocab)
 
     def attached_only(self):
         '''
@@ -242,7 +248,8 @@ def for_attachment(pack):
                     pairings=pack.pairings,
                     data=pack.data,
                     target=tweak(pack.target),
-                    labels=None)
+                    labels=None,
+                    vocab=pack.vocab)
 
 
 def for_labelling(pack):
@@ -350,7 +357,8 @@ def for_intra(pack):
                     pairings=pack.pairings,
                     data=pack.data,
                     target=new_target,
-                    labels=pack.labels)
+                    labels=pack.labels,
+                    vocab=pack.vocab)
 
 
 class Multipack(dict):

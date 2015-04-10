@@ -210,8 +210,7 @@ def _process_edu_links(edus, pairings):
     return edus2, pairings2
 
 
-def load_multipack(edu_file, pairings_file, feature_file,
-                   n_features=None,
+def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
                    verbose=False):
     """
     Read EDUs and features for edu pairs.
@@ -219,11 +218,10 @@ def load_multipack(edu_file, pairings_file, feature_file,
     Perform some basic sanity checks, raising
     :py:class:`IoException` if they should fail
 
-    :param: n_features: may be needed if working with test data
-                        as the test data may have fewer features
-                        extracted for it than the model expects
     :rtype: :py:class:`Multipack` or None
     """
+    vocab = load_vocab(vocab_file)
+
     with Torpor("Reading edus and pairings", quiet=not verbose):
         edus, pairings = _process_edu_links(load_edus(edu_file),
                                             load_pairings(pairings_file))
@@ -232,11 +230,12 @@ def load_multipack(edu_file, pairings_file, feature_file,
         labels = load_labels(feature_file)
         # pylint: disable=unbalanced-tuple-unpacking
         data, targets = load_svmlight_file(feature_file,
-                                           n_features=n_features)
+                                           n_features=len(vocab))
         # pylint: enable=unbalanced-tuple-unpacking
 
     with Torpor("Build data packs", quiet=not verbose):
-        dpack = DataPack.load(edus, pairings, data, targets, labels)
+        dpack = DataPack.load(edus, pairings, data, targets,
+                              labels, vocab)
 
     return {k: dpack.selected(idxs) for
             k, idxs in groupings(pairings).items()}
