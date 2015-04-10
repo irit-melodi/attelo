@@ -54,8 +54,9 @@ def _mk_econf_graphs(lconf, edus, gold, econf, fold):
         else:
             raise Exception('Unknown diff mode {}'.format(diffmode))
 
-        suffix = 'test' if fold is None else fold_dir_basename(fold)
-        output_dir = fp.join(report_dir_path(lconf, None),
+        want_test = fold is None
+        suffix = 'test' if want_test else fold_dir_basename(fold)
+        output_dir = fp.join(report_dir_path(lconf, want_test, None),
                              output_bn_prefix + suffix,
                              econf.key)
 
