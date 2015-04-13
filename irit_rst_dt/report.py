@@ -68,7 +68,7 @@ def _fold_report_slices(lconf, fold):
                     enable_details=econf.key in dkeys)
 
 
-def _mk_model_summary(lconf, dconf, rconf, fold):
+def _mk_model_summary(lconf, dconf, rconf, test_data, fold):
     "generate summary of best model features"
     _top_n = 3
 
@@ -80,7 +80,9 @@ def _mk_model_summary(lconf, dconf, rconf, fold):
                               grain='sent' if intra else 'doc'),
                   file=sys.stderr)
             return
-        output = model_info_path(lconf, rconf, fold, intra)
+        output = model_info_path(lconf, rconf, test_data,
+                                 fold=fold,
+                                 intra=intra)
         with codecs.open(output, 'wb', 'utf-8') as fout:
             print(attelo.report.show_discriminating_features(discr),
                   file=fout)
@@ -171,7 +173,7 @@ def _mk_report(lconf, dconf, slices, fold, test_data=False):
         elif rconf.relate.payload == 'oracle':
             pass
         else:
-            _mk_model_summary(lconf, dconf, rconf, fold)
+            _mk_model_summary(lconf, dconf, rconf, test_data, fold)
 
 
 def mk_fold_report(lconf, dconf, fold):

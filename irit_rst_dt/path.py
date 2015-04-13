@@ -146,11 +146,11 @@ def report_dir_path(lconf, test_data, fold=None):
                    report_dir_basename(lconf, test_data))
 
 
-def model_info_path(lconf, rconf, fold=None, intra=False):
+def model_info_path(lconf, rconf, test_data, fold=None, intra=False):
     """
     Path to the model output file
     """
     template = "discr-features{grain}.{learner}.txt"
-    return fp.join(report_dir_path(lconf, fold),
+    return fp.join(report_dir_path(lconf, test_data, fold=fold),
                    template.format(grain='-sent' if intra else '',
                                    learner=rconf.key))
