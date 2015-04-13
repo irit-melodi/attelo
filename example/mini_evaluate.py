@@ -37,6 +37,7 @@ if not fp.exists(TMP_OUTPUT):
 mpack = load_multipack(PREFIX + '.edus',
                        PREFIX + '.pairings',
                        PREFIX + '.features.sparse',
+                       PREFIX + '.features.sparse.vocab',
                        verbose=True)
 
 # divide the dataset into folds
