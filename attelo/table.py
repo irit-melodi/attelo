@@ -60,6 +60,10 @@ class DataPack(namedtuple('DataPack',
                   indices) in data
     :type vocab: [string]
     '''
+
+    def __len__(self):
+        return len(self.pairings)
+
     # pylint: disable=too-many-arguments
     @classmethod
     def load(cls, edus, pairings, data, target, labels, vocab):
