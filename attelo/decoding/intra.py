@@ -7,11 +7,13 @@ subgrouping and then join the results together.
 """
 
 from __future__ import print_function
-from collections import namedtuple
+from collections import defaultdict, namedtuple
+import copy
 
 from ..edu import (FAKE_ROOT_ID)
 from ..table import (UNRELATED)
 from ..util import (ArgparserEnum, concat_i, concat_l)
+from .interface import (LinkPack)
 
 # pylint: disable=too-few-public-methods
 
@@ -89,54 +91,21 @@ def _zip_sentences(func, sent_parses):
     :type sent_parses: [[prediction]]
     :rtype: [a]
     """
-    # pylint: disable=star-args
     return [func(list(xs)) for xs in zip(*sent_parses)]
-    # pylint: enable=star-args
 
 
-def select_subgrouping(prob_distrib, subg):
+def partition_subgroupings(lpack):
     """
-    Return elements from a probability distribution which belong
-    to a subgrouping.
-
-    Note that e silently ignore any EDU pairings which are not in
-    the same subgrouping
+    Return an iterable of link packs, each pack consisting of
+    pairings within the same subgrouping
     """
-
-    def is_in_group(edu):
-        "true if an edu is the subgrouping"
-        return edu.subgrouping == subg or edu.id == FAKE_ROOT_ID
-
-    return [(e1, e2, prob, rel) for (e1, e2, prob, rel) in prob_distrib
-            if is_in_group(e1) and is_in_group(e2)]
-
-
-def _select_ids(prob_distrib, edu_ids):
-    """
-    Return elements from a probability distribution in which both
-    the source and target have ids in the whitelist
-    """
-    def is_in_whitelist(edu):
-        "true if an edu is the subgrouping"
-        return edu.id in edu_ids
-
-    return [(e1, e2, prob, rel) for (e1, e2, prob, rel) in prob_distrib
-            if is_in_whitelist(e1) or is_in_whitelist(e2)]
-
-
-def _select_intra(prob_distrib, sources, targets):
-    """
-    Return elements from a probability distribution in which
-
-    * the source comes from the list of allowed sources
-    * the target comes from the list of allowed targets
-    * the source and target are not the same node
-
-    :type sources: [string]
-    :type targets: [string]
-    """
-    return [(e1, e2, prob, rel) for (e1, e2, prob, rel) in prob_distrib
-            if e1 in sources and e2 in targets and e1 != e2]
+    sg_indices = defaultdict(list)
+    for i, pair in enumerate(lpack.pairings):
+        edu2 = pair[1]
+        key = edu2.grouping, edu2.subgrouping
+        sg_indices[key].append(i)
+    for idxs in sg_indices.values():
+        yield lpack.selected(idxs)
 
 
 class IntraInterDecoder(object):
@@ -153,13 +122,13 @@ class IntraInterDecoder(object):
         self._strategy = strategy
         self._debug = True
 
-    def decode_sentence(self, prob_distrib):
+    def decode_sentence(self, lpack):
         """
         Run the inner decoder on a single sentence
         """
-        return self._decoder.decode(prob_distrib)
+        return self._decoder.decode(lpack)
 
-    def decode_document(self, prob_distrib, sent_parses):
+    def decode_document(self, lpack, sent_parses):
         """
         Run the inner decoder on the "chunks" resulting from applying
         :py:func:`decode_sentence` on each of the sentences
@@ -168,21 +137,30 @@ class IntraInterDecoder(object):
             "attach heads of sentences"
             heads = concat_l(_roots(e) for e in sent_edges)
             blinks = concat_l(_rootless(e) for e in sent_edges)
-            doc_distrib = _select_ids(prob_distrib, heads + [FAKE_ROOT_ID])
-            rlinks = self._decoder.decode(doc_distrib)
+            is_head_or_root = lambda x: x.id in heads or x.id == FAKE_ROOT_ID
+            # FIXME: isn't this a little bit too lax?
+            # we surely don't want ALL the FAKEROOT links; just those that
+            # involve sentence heads?
+            idxes = [i for i, (e1, e2) in enumerate(lpack.pairings)
+                     if is_head_or_root(e1) or is_head_or_root(e2)]
+            rlinks = self._decoder.decode(lpack.selected(idxes))
             return rlinks + blinks
 
         def decode_soft(sent_edges):
             "soft decoding - pass sentence edges through the prob dist"
-            intra_links = [(e1, e2) for e1, e2, rel in
+            intra_links = {(e1, e2) for e1, e2, rel in
                            concat_i(_rootless(e) for e in sent_edges)
-                           if rel != UNRELATED]
-            doc_distrib = []
-            for edu1, edu2, prob, rel in prob_distrib:
-                prob2 = 1.0 if ((edu1.id, edu2.id) in intra_links
-                                and rel != UNRELATED) else prob
-                doc_distrib.append((edu1, edu2, prob2, rel))
-            return self._decoder.decode(doc_distrib)
+                           if rel != UNRELATED}
+            scores_ad = copy.copy(lpack.scores_ad)
+            for i, pair in lpack.pairings:
+                if pair in intra_links:
+                    scores_ad[i] = 1.0
+            doc_lpack = LinkPack(edus=lpack.edus,
+                                 labels=lpack.labels,
+                                 pairings=lpack.pairings,
+                                 scores_ad=scores_ad,
+                                 scores_l=lpack.scores_l)
+            return self._decoder.decode(doc_lpack)
 
         if self._strategy == IntraStrategy.only:
             return _zip_sentences(concat_l, sent_parses)

@@ -5,7 +5,7 @@ if they are separated by more than a certain number of EDUs
 # pylint: disable=too-few-public-methods
 
 from .interface import (PruningDecoder)
-from .util import (get_sorted_edus)
+from ..table import (select_window)
 
 
 class WindowPruningDecoder(PruningDecoder):
@@ -19,12 +19,6 @@ class WindowPruningDecoder(PruningDecoder):
         super(WindowPruningDecoder, self).__init__(decoder)
         self._window = window
 
-    def prune(self, prob_distrib):
-        positions = {e: i for i, e in enumerate(get_sorted_edus(prob_distrib))}
-        prob_distrib2 = []
-        for inst in prob_distrib:
-            edu1, edu2, _, _ = inst
-            gap = abs(positions[edu2] - positions[edu1])
-            if gap <= self._window:
-                prob_distrib2.append(inst)
-        return prob_distrib2
+    def prune(self, lpack):
+        # select_window will work for LinkPacks via duck typing
+        return select_window(lpack, self._window)

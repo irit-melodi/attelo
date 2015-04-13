@@ -14,9 +14,9 @@ class LocalBaseline(Decoder):
         self._threshold = threshold
         self._use_prob = use_prob
 
-    def decode(self, prob_distrib):
+    def decode(self, lpack):
         predicted = []
-        for arg1, arg2, probs, label in prob_distrib:
+        for arg1, arg2, probs, label in lpack.simple_candidates():
             attach = probs
             threshold = self._threshold if self._use_prob else 0.0
             if attach > threshold:
@@ -27,8 +27,9 @@ class LocalBaseline(Decoder):
 class LastBaseline(Decoder):
     "attach to last, always"
 
-    def decode(self, prob_distrib):
-        labels_probs = get_prob_map(prob_distrib)
+    def decode(self, lpack):
+        cands = lpack.simple_candidates()
+        labels_probs = get_prob_map(cands)
 
         def get_prediction(edu1, edu2):
             """Return triple of EDU ids and label from the probability
@@ -45,7 +46,7 @@ class LastBaseline(Decoder):
                 raise DecoderException("Could not find row with EDU pairs "
                                        "%s and %s: " % (edu1.id, edu2.id))
 
-        edus = get_sorted_edus(prob_distrib)
+        edus = get_sorted_edus(cands)
         ordered_pairs = zip(edus[:-1], edus[1:])
         results = []
         for edu1, edu2 in ordered_pairs:

@@ -509,21 +509,21 @@ class AstarArgs(namedtuple('AstarArgs',
 
 
 
-def preprocess_heuristics(prob_distrib):
+def preprocess_heuristics(cands):
     """precompute a set of useful information used by heuristics, such as
              - best probability
              - table of best probability when attaching a node, indexed on that node
 
-    format of prob_distrib is format given in main decoder: a list of
+    format of cands is format given in main decoder: a list of
     (arg1,arg2,proba,best_relation)
     """
     result = {}
-    result["best_overall"] = max([x[2] for x in prob_distrib])
+    result["best_overall"] = max([x[2] for x in cands])
     result["best_attach"] = defaultdict(float)
     result["average"] = defaultdict(list)
-    for du1, du2, prob, label in prob_distrib:
-        result["best_attach"][du2.id] = max(result["best_attach"][du2.id], prob)
-        result["average"][du2.id].append(prob)
+    for du1, du2, score, label in cands:
+        result["best_attach"][du2.id] = max(result["best_attach"][du2.id], score)
+        result["average"][du2.id].append(score)
 
     for one in result["average"]:
         result["average"][one] = sum(result["average"][one])/len(result["average"][one])
@@ -544,15 +544,16 @@ class AstarDecoder(Decoder):
         self._heuristic = astar_args.heuristics
         self._args = astar_args
 
-    def decode(self, prob_distrib):
-        probs = get_prob_map(prob_distrib)
-        edus = [x.id for x in get_sorted_edus(prob_distrib)]
+    def decode(self, lpack):
+        cands = lpack.simple_candidates()
+        probs = get_prob_map(cands)
+        edus = [x.id for x in get_sorted_edus(cands)]
         print("\t %s nodes to attach"%(len(edus)-1), file=sys.stderr)
 
         heuristic = HEURISTICS[self._heuristic]
         search_shared = {"probs": probs,
                          "use_prob": self._args.use_prob,
-                         "heuristics": preprocess_heuristics(prob_distrib),
+                         "heuristics": preprocess_heuristics(cands),
                          "RFC": self._args.rfc}
         if self._args.beam:
             astar = DiscourseBeamSearch(heuristic=heuristic,

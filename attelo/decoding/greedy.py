@@ -160,6 +160,6 @@ class LocallyGreedy(Decoder):
     '''
     The locally greedy decoder
     '''
-    def decode(self, instances):
-        return [LocallyGreedyState(instances).decode()]
+    def decode(self, lpack):
+        return [LocallyGreedyState(lpack.simple_candidates()).decode()]
 # pylint: enable=unused-argument

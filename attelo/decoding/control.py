@@ -4,18 +4,16 @@ Central interface to the decoders
 
 from __future__ import print_function
 from enum import Enum
-import sys
 
 import numpy as np
+from scipy.sparse import dok_matrix
 
 from attelo.learning import (can_predict_proba)
 from attelo.table import (for_attachment, for_labelling, for_intra,
                           UNRELATED, UNKNOWN)
-from attelo.util import truncate
-from .intra import (IntraInterPair, select_subgrouping)
-from .util import (DecoderException,
-                   get_sorted_edus,
-                   subgroupings)
+from .interface import (LinkPack)
+from .intra import (IntraInterPair, partition_subgroupings)
+from .util import (DecoderException)
 # pylint: disable=too-few-public-methods
 
 
@@ -35,7 +33,7 @@ class DecodingMode(Enum):
 # ---------------------------------------------------------------------
 
 
-def _predict_attach(dpack, models):
+def _get_attach_scores(dpack, models):
     """
     Return an array either of probabilities (or in the case of
     non-probability-capable models), confidence scores
@@ -54,65 +52,28 @@ def _predict_attach(dpack, models):
         return models.attach.decision_function(dpack.data)
 
 
-def _predict_relate(dpack, models):
+def _get_relate_scores(dpack, models):
     """
     Return an array of probabilities (that of the best label),
     and an list of labels
     """
     if models.relate == 'oracle':
-        unrelated = dpack.label_number(UNRELATED)
-        unk_lbl = dpack.label_number(UNKNOWN)
-        # treat unrelated as unknown (to avoid cutting links that may
-        # have been inserted by an non-oracle attachment label)
-        default_to_unk = lambda lbl: unk_lbl if lbl == unrelated else lbl
-        # pylint: disable=no-member
-        probs = np.ones(dpack.target.shape)
-        lbls = np.vectorize(default_to_unk)(dpack.target)
-        # pylint: enable=no-member
+        labels = [UNKNOWN] + dpack.labels
+        scores_l = dok_matrix((len(dpack), len(labels)))
+        lbl_unrelated = dpack.label_number(UNRELATED)
+        lbl_unk = dpack.label_number(UNKNOWN)
+        for i, lbl in enumerate(dpack.target):
+            if lbl == lbl_unrelated:
+                scores_l[i, lbl_unk] = 1.0
+            else:
+                scores_l[i, lbl] = 1.0
+        scores_l = scores_l.todense()
     elif not can_predict_proba(models.relate):
         raise DecoderException('Tried to use a non-prob decoder for relations')
     else:
-        all_probs = models.relate.predict_proba(dpack.data)
-        # get the probability associated with the best label
-        # pylint: disable=no-member
-        probs = np.amax(all_probs, axis=1)
-        # pylint: enable=no-member
-        lbls = models.relate.predict(dpack.data)
-    # pylint: disable=no-member
-    get_label = np.vectorize(dpack.get_label)
-    # pylint: enable=no-member
-    return probs, get_label(lbls)
-
-
-def _combine_probs(dpack, models, debug=False):
-    """for all EDU pairs, retrieve probability of the best relation
-    on that pair, given the probability of an attachment
-
-    """
-    def link(pair, a_prob, r_prob, label):
-        'return a combined-probability link'
-        edu1, edu2 = pair
-        # TODO: log would be better, no?
-        prob = a_prob * r_prob
-        if debug:
-            print('DECODE', edu1.id, edu2.id, file=sys.stderr)
-            print(' edu1: ', truncate(edu1.text, 50), file=sys.stderr)
-            print(' edu2: ', truncate(edu2.text, 50), file=sys.stderr)
-            print(' attach: ', a_prob, file=sys.stderr)
-            print(' relate: ', r_prob, file=sys.stderr)
-            print(' label: ', label, file=sys.stderr)
-            print(' combined: ', prob, file=sys.stderr)
-        return (edu1, edu2, prob, label)
-
-    attach_pack = for_attachment(dpack)
-    relate_pack = for_labelling(dpack)
-    attach_probs = _predict_attach(attach_pack, models)
-    relate_probs, relate_labels = _predict_relate(relate_pack, models)
-
-    # pylint: disable=star-args
-    return [link(*x) for x in
-            zip(dpack.pairings, attach_probs, relate_probs, relate_labels)]
-    # pylint: disable=star-args
+        scores_l = models.relate.predict_proba(dpack.data)
+        labels = [dpack.get_label(x) for x in models.relate.classes_]
+    return labels, scores_l
 
 
 def _add_labels(dpack, models, predictions, clobber=True):
@@ -129,10 +90,13 @@ def _add_labels(dpack, models, predictions, clobber=True):
     """
 
     relate_pack = for_labelling(dpack)
-    _, relate_labels = _predict_relate(relate_pack, models)
-    label_dict = {(edu1.id, edu2.id): label
-                  for (edu1, edu2), label in
-                  zip(dpack.pairings, relate_labels)}
+    labels, scores_l = _get_relate_scores(relate_pack, models)
+    # pylint: disable=no-member
+    lbls = np.argmax(scores_l, axis=1)
+    # pylint: enable=no-member
+    label_dict = {(edu1.id, edu2.id): labels[lbl]
+                  for (edu1, edu2), lbl in
+                  zip(dpack.pairings, lbls)}
 
     def update(link):
         '''replace the link label (the original by rights is something
@@ -153,15 +117,17 @@ def _add_labels(dpack, models, predictions, clobber=True):
 # ---------------------------------------------------------------------
 
 
-def build_candidates(dpack, models, mode):
+def build_lpack(dpack, models, mode):
     """
     Extract candidate links (scores and proposed labels
     for each edu pair) from the models for all instances
     in the datapack
 
     :type models: Team(model)
+
+    :rtype: LinkPack
     """
-    if mode != DecodingMode.post_label:
+    if mode == DecodingMode.joint:
         if not can_predict_proba(models.attach):
             oops = ('Attachment model does not know how to predict '
                     'probabilities. It should only be used in post '
@@ -171,13 +137,29 @@ def build_candidates(dpack, models, mode):
             raise DecoderException('Relation labelling model does not '
                                    'know how to predict probabilities')
 
-        return _combine_probs(dpack, models)
-    else:
         attach_pack = for_attachment(dpack)
-        pairings = attach_pack.pairings
-        confidence = _predict_attach(attach_pack, models)
-        return [(id1, id2, conf, UNKNOWN) for
-                (id1, id2), conf in zip(pairings, confidence)]
+        relate_pack = for_labelling(dpack)
+        scores_ad = _get_attach_scores(attach_pack, models)
+        labels, scores_l = _get_relate_scores(relate_pack, models)
+        return LinkPack(edus=dpack.edus,
+                        pairings=dpack.pairings,
+                        labels=labels,
+                        scores_ad=scores_ad,
+                        scores_l=scores_l)
+    elif mode == DecodingMode.post_label:
+        attach_pack = for_attachment(dpack)
+        scores_ad = _get_attach_scores(attach_pack, models)
+        # pylint: disable=no-member
+        scores_l = np.ones((len(dpack), 1))
+        # pylint: enable=no-member
+        return LinkPack(edus=dpack.edus,
+                        pairings=dpack.pairings,
+                        labels=[UNKNOWN],
+                        scores_ad=scores_ad,
+                        scores_l=scores_l)
+        # pylint: enable=no-member
+    else:
+        raise ValueError('Unknown labelling mode: ' + mode)
 
 
 def _maybe_post_label(dpack, models, predictions,
@@ -221,8 +203,8 @@ def decode_vanilla(dpack, models, decoder, mode):
 
     :type models: Team(model)
     """
-    prob_distrib = build_candidates(dpack, models, mode)
-    predictions = decoder.decode(prob_distrib)
+    lpack = build_lpack(dpack, models, mode)
+    predictions = decoder.decode(lpack)
     return _maybe_post_label(dpack, models, predictions, mode)
 
 
@@ -241,25 +223,23 @@ def decode_intra_inter(dpack, models, decoder, mode):
         # otherwise we really need to bother
         dpacks = IntraInterPair(intra=dpack, inter=dpack)
 
-    prob_distribs =\
-        IntraInterPair(intra=build_candidates(dpacks.intra,
-                                              models.intra,
-                                              mode),
-                       inter=build_candidates(dpacks.inter,
-                                              models.inter,
-                                              mode))
-    sorted_edus = get_sorted_edus(prob_distribs.inter)
+    lpacks =\
+        IntraInterPair(intra=build_lpack(dpacks.intra,
+                                         models.intra,
+                                         mode),
+                       inter=build_lpack(dpacks.inter,
+                                         models.inter,
+                                         mode))
 
     # launch a decoder per sentence
     sent_parses = []
-    for subg in subgroupings(sorted_edus):
-        mini_distrib = select_subgrouping(prob_distribs.intra, subg)
-        sent_predictions = decoder.decode_sentence(mini_distrib)
+    for mini_lpack in partition_subgroupings(lpacks.intra):
+        sent_predictions = decoder.decode_sentence(mini_lpack)
         sent_parses.append(_maybe_post_label(dpacks.intra, models.intra,
                                              sent_predictions, mode))
     ##########
 
-    doc_predictions = decoder.decode_document(prob_distribs.inter, sent_parses)
+    doc_predictions = decoder.decode_document(lpacks.inter, sent_parses)
     return _maybe_post_label(dpacks.inter, models.inter,
                              doc_predictions, mode,
                              clobber=False)

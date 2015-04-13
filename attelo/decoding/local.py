@@ -15,14 +15,10 @@ class AsManyDecoder(Decoder):
     It can be non-connex, contain cycles and re-entrancies.
     """
 
-    def decode(self, cands):
+    def decode(self, lpack):
         """Return the set of top N edges
-
-        Parameters
-        ----------
-        cands: iterable
-            candidate set
         """
+        cands = lpack.simple_candidates()
         # number of real EDUs
         # this works under the assumption that all real EDUs appear
         # as targets in cands
@@ -45,17 +41,12 @@ class BestIncomingDecoder(Decoder):
     It can be non-connex or contain cycles, but no re-entrancy.
     """
 
-    def decode(self, cands):
+    def decode(self, lpack):
         """Return the best incoming edge for each EDU
-
-        Parameters
-        ----------
-        cands: iterable
-            candidate set
         """
         # best incoming edge for each EDU
         inc_edges = {}
-        for cand in cands:
+        for cand in lpack.simple_candidates():
             src, tgt, score, lbl = cand
             if tgt.id in inc_edges:
                 cur_best = inc_edges[tgt.id][2]

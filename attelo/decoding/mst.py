@@ -135,8 +135,8 @@ class MstDecoder(Decoder):
                        lambda s, t: scores[s, t],
                        lambda s, t: labels[s, t])
 
-    def decode(self, instances):
-        graph = self._graph(instances)
+    def decode(self, lpack):
+        graph = self._graph(lpack.simple_candidates())
         subgraph = graph.mst()
         predictions = [(src, tgt, subgraph.get_label(src, tgt))
                        for src, tgt in subgraph.iteredges()]
@@ -146,8 +146,8 @@ class MstDecoder(Decoder):
 class MsdagDecoder(MstDecoder):
     """ Attach according to MSDAG (subgraph of original)"""
 
-    def decode(self, instances):
-        graph = self._graph(instances)
+    def decode(self, lpack):
+        graph = self._graph(lpack.simple_candidates())
         subgraph = _msdag(graph)
         predictions = [(src, tgt, subgraph.get_label(src, tgt))
                        for src, tgt in subgraph.iteredges()]
