@@ -58,9 +58,7 @@ def _msdag(graph):
     """
     tree = graph.mst()
     # Sort edges in orginal graph by decreasing score
-    # pylint: disable=star-args
     edges = sorted(graph.iteredges(), key=lambda p: -graph.get_score(*p))
-    # pylint: enable=star-args
 
     for src, tgt in edges:
         # Already in graph ?
