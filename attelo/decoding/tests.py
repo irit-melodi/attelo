@@ -8,6 +8,7 @@ import unittest
 from ..args import DEFAULT_ASTAR_ARGS
 from ..edu import EDU
 from . import astar, greedy, mst
+from .interface import LinkPack
 
 # pylint: disable=too-few-public-methods
 
@@ -31,12 +32,28 @@ class DecoderTest(unittest.TestCase):
 
     # would result of prob models max_relation
     # (p(attachement)*p(relation|attachmt))
-    prob_distrib =\
-        [(edus[0], edus[1], 0.6, 'elaboration'),
-         (edus[1], edus[2], 0.3, 'narration'),
-         (edus[0], edus[2], 0.4, 'continuation')]
-    for one in edus[:3]:
-        prob_distrib.append((one, edus[3], 0.1, 'acknowledgement'))
+    pairings = [(edus[0], edus[1]),
+                (edus[1], edus[2]),
+                (edus[0], edus[2]),
+                (edus[0], edus[3]),
+                (edus[1], edus[3]),
+                (edus[2], edus[3])]
+    scores_ad = [0.8, 0.4, 0.5, 0.2, 0.2, 0.2]
+    scores_l = [[0.8, 0.1, 0.1, 0.0],
+                [0.1, 0.9, 0.0, 0.0],
+                [0.0, 0.0, 0.8, 0.2],
+                [0.0, 0.0, 0.3, 0.7],
+                [0.0, 0.0, 0.3, 0.7],
+                [0.0, 0.0, 0.3, 0.7]]
+    lpack = LinkPack(labels=['elaboration',
+                             'narration',
+                             'continuation',
+                             'acknowledgement'],
+                     edus=edus,
+                     pairings=pairings,
+                     scores_ad=scores_ad,
+                     scores_l=scores_l)
+
 
 
 class AstarTest(DecoderTest):
@@ -45,8 +62,9 @@ class AstarTest(DecoderTest):
         '''
         Run an A* search with the given heuristic
         '''
-        prob = {(a1, a2): (l, p) for a1, a2, p, l in self.prob_distrib}
-        pre_heurist = astar.preprocess_heuristics(self.prob_distrib)
+        cands = self.lpack.simple_candidates()
+        prob = {(a1, a2): (l, p) for a1, a2, p, l in cands}
+        pre_heurist = astar.preprocess_heuristics(cands)
         config = {"probs": prob,
                   "heuristics": pre_heurist,
                   "use_prob": True,
@@ -72,7 +90,7 @@ class AstarTest(DecoderTest):
                                      nbest=nbest,
                                      use_prob=DEFAULT_ASTAR_ARGS.use_prob)
         decoder = astar.AstarDecoder(astar_args)
-        soln = decoder.decode(self.prob_distrib)
+        soln = decoder.decode(self.lpack)
         self.assertEqual(nbest, len(soln))
         return soln
 
@@ -96,7 +114,7 @@ class LocallyGreedyTest(DecoderTest):
     def test_locally_greedy(self):
         'check that the locally greedy decoder works'
         decoder = greedy.LocallyGreedy()
-        predictions = decoder.decode(self.prob_distrib)
+        predictions = decoder.decode(self.lpack)
         # made one prediction
         self.assertEqual(1, len(predictions))
         # predicted some attachments in that prediction
@@ -109,18 +127,18 @@ class MstTest(DecoderTest):
     def test_mst(self):
         'check plain MST decoder'
         decoder1 = mst.MstDecoder(mst.MstRootStrategy.fake_root)
-        edges = decoder1.decode(self.prob_distrib)[0]
+        edges = decoder1.decode(self.lpack)[0]
         # Is it a tree ? (One edge less than number of vertices)
         self.assertEqual(len(edges), len(self.edus) - 1)
 
         decoder2 = mst.MstDecoder(mst.MstRootStrategy.leftmost)
-        edges = decoder2.decode(self.prob_distrib)[0]
+        edges = decoder2.decode(self.lpack)[0]
         # Is it a tree ? (One edge less than number of vertices)
         self.assertEqual(len(edges), len(self.edus) - 1)
 
     def test_msdag(self):
         'check MSDAG decoder'
         decoder = mst.MsdagDecoder(mst.MstRootStrategy.fake_root)
-        edges = decoder.decode(self.prob_distrib)[0]
+        edges = decoder.decode(self.lpack)[0]
         # Are all links included ? (already given a MSDAG...)
-        self.assertEqual(len(edges), len(self.prob_distrib))
+        self.assertEqual(len(edges), len(self.lpack))
