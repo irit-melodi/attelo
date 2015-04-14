@@ -76,7 +76,7 @@ def _get_relate_scores(dpack, models):
     return labels, scores_l
 
 
-def _add_labels(dpack, models, predictions, clobber=True):
+def _add_labels(dpack, models, predictions):
     """given a list of predictions, predict labels for a given set of edges
     (=post-labelling an unlabelled decoding)
 
@@ -84,9 +84,6 @@ def _add_labels(dpack, models, predictions, clobber=True):
 
     :type predictions: [prediction] (see `attelo.decoding.interface`)
     :rtype: [prediction]
-
-    :param clobber: if True, override pre-existing labels; if False, only
-                    do so if == UNKNOWN
     """
 
     relate_pack = for_labelling(dpack)
@@ -102,7 +99,7 @@ def _add_labels(dpack, models, predictions, clobber=True):
         '''replace the link label (the original by rights is something
         like "unlabelled"'''
         edu1, edu2, old_label = link
-        can_replace = clobber or old_label == UNKNOWN
+        can_replace = old_label == UNKNOWN
         label = label_dict[(edu1, edu2)] if can_replace else old_label
         return (edu1, edu2, label)
 
@@ -159,14 +156,13 @@ def build_lpack(dpack, models, mode):
         raise ValueError('Unknown labelling mode: ' + mode)
 
 
-def _maybe_post_label(dpack, models, predictions,
-                      mode, clobber=True):
+def _maybe_post_label(dpack, models, predictions, mode):
     """
     If post labelling mode is enabled, apply the best label from
     our relation model to all links in the prediction
     """
     if mode == DecodingMode.post_label:
-        return _add_labels(dpack, models, predictions, clobber=clobber)
+        return _add_labels(dpack, models, predictions)
     else:
         return predictions
 
@@ -235,5 +231,4 @@ def decode_intra_inter(dpack, models, decoder, mode):
 
     doc_predictions = decoder.decode_document(lpacks.inter, sent_parses)
     return _maybe_post_label(dpacks.inter, models.inter,
-                             doc_predictions, mode,
-                             clobber=False)
+                             doc_predictions, mode)
