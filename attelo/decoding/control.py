@@ -212,14 +212,11 @@ def decode_intra_inter(dpack, models, decoder, mode):
 
     :type models: IntraInterPair(Team(model))
     """
-    if models.intra == 'oracle':
-        # intrasentential oracle should be fed with gold sentence roots
-        dpacks = IntraInterPair(intra=for_intra(dpack),
-                                inter=dpack)
-    else:
-        # otherwise we really need to bother
-        dpacks = IntraInterPair(intra=dpack, inter=dpack)
-
+    # intrasentential target links are slightly different
+    # in the fakeroot case (this only really matters if we
+    # are using an oracle)
+    dpacks = IntraInterPair(intra=for_intra(dpack),
+                            inter=dpack)
     lpacks =\
         IntraInterPair(intra=build_lpack(dpacks.intra,
                                          models.intra,
