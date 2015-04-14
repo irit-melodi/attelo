@@ -21,7 +21,7 @@ class LinkPack(namedtuple('LinkPack',
     Collection of candidate links
 
     :param labels: list of labels (same length as the width of
-                   scores_l)
+                   scores_l), nb. may not match DataPack labels
     :type labels: [string]
 
     :param edus: list of EDUs (somewhat redundant with pairings,
@@ -74,9 +74,24 @@ class LinkPack(namedtuple('LinkPack',
         best_lbls = np.ravel(np.argmax(self.scores_l, axis=1))
         scores = np.multiply(self.scores_ad, scores_best_l)
         # pylint: enable=no-member
-        return [(pair[0], pair[1], score, self.labels[int(lbl)])
+        return [(pair[0], pair[1], score, self.get_label(lbl))
                 for pair, score, lbl
                 in zip(self.pairings, scores, best_lbls)]
+
+    def get_label(self, i):
+        '''
+        Return the class label for the given target value.
+        '''
+        return self.labels[int(i)]
+
+    def label_number(self, label):
+        '''
+        Return the numerical label that corresponnds to the given
+        string label
+
+        :rtype: float
+        '''
+        return self.labels.index(label)
 
 
 class Decoder(with_metaclass(ABCMeta, object)):
