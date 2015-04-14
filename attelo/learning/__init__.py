@@ -64,6 +64,9 @@ from .perceptron import (PerceptronArgs,
                          PassiveAggressive,
                          StructuredPerceptron,
                          StructuredPassiveAggressive)
+# pylint: disable=wildcard-import
+from .interface import *
+# pylint: enable=wildcard-import
 
 # pylint: disable=too-few-public-methods
 

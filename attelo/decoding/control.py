@@ -52,30 +52,6 @@ def _get_attach_scores(dpack, models):
         return models.attach.decision_function(dpack.data)
 
 
-def _get_relate_scores(dpack, models):
-    """
-    Return an array of probabilities (that of the best label),
-    and an list of labels
-    """
-    if models.relate == 'oracle':
-        labels = [UNKNOWN] + dpack.labels
-        scores_l = dok_matrix((len(dpack), len(labels)))
-        lbl_unrelated = dpack.label_number(UNRELATED)
-        lbl_unk = dpack.label_number(UNKNOWN)
-        for i, lbl in enumerate(dpack.target):
-            if lbl == lbl_unrelated:
-                scores_l[i, lbl_unk] = 1.0
-            else:
-                scores_l[i, lbl] = 1.0
-        scores_l = scores_l.todense()
-    elif not can_predict_proba(models.relate):
-        raise DecoderException('Tried to use a non-prob decoder for relations')
-    else:
-        scores_l = models.relate.predict_proba(dpack.data)
-        labels = [dpack.get_label(x) for x in models.relate.classes_]
-    return labels, scores_l
-
-
 def _add_labels(dpack, models, predictions):
     """given a list of predictions, predict labels for a given set of edges
     (=post-labelling an unlabelled decoding)
@@ -86,8 +62,7 @@ def _add_labels(dpack, models, predictions):
     :rtype: [prediction]
     """
 
-    relate_pack = for_labelling(dpack)
-    labels, scores_l = _get_relate_scores(relate_pack, models)
+    labels, scores_l = models.relate.transform(dpack)
     # pylint: disable=no-member
     lbls = np.argmax(scores_l, axis=1)
     # pylint: enable=no-member
@@ -130,14 +105,13 @@ def build_lpack(dpack, models, mode):
                     'probabilities. It should only be used in post '
                     'labelling mode')
             raise DecoderException(oops)
-        if not can_predict_proba(models.relate):
+        if not models.relate.can_predict_proba:
             raise DecoderException('Relation labelling model does not '
                                    'know how to predict probabilities')
 
         attach_pack = for_attachment(dpack)
-        relate_pack = for_labelling(dpack)
         scores_ad = _get_attach_scores(attach_pack, models)
-        labels, scores_l = _get_relate_scores(relate_pack, models)
+        labels, scores_l = models.relate.transform(dpack)
         return LinkPack(edus=dpack.edus,
                         pairings=dpack.pairings,
                         labels=labels,

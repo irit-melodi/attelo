@@ -32,20 +32,17 @@ def learn_task(mpack, learners, task):
         mpack = {k: for_attachment(v)
                  for k, v in mpack.items()}
         learner = learners.attach
+        if can_fit_structured(learner):
+            subpacks = mpack.values()
+            targets = [d.target for d in subpacks]
+            return learner.fit_structured(subpacks, targets)
+        else:
+            dpack = DataPack.vstack(mpack.values())
+            return learner.fit(dpack.data, dpack.target)
     elif task == Task.relate:
-        mpack = {k: for_labelling(v.attached_only())
-                 for k, v in mpack.items()}
-        learner = learners.relate
+        return learners.relate.fit(mpack)
     else:
         raise ValueError('Unknown learning task: {}'.format(task))
-
-    if can_fit_structured(learner):
-        subpacks = mpack.values()
-        targets = [d.target for d in subpacks]
-        return learner.fit_structured(subpacks, targets)
-    else:
-        dpack = DataPack.vstack(mpack.values())
-        return learner.fit(dpack.data, dpack.target)
 
 
 def learn(dpack, learners):
