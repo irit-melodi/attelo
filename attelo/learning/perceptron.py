@@ -19,6 +19,7 @@ from scipy.special import expit  # aka the logistic function
 
 from attelo.edu import EDU
 from attelo.table import UNKNOWN
+from attelo.decoding.interface import LinkPack
 
 # pylint: disable=too-few-public-methods
 # pylint: disable=invalid-name
@@ -244,15 +245,14 @@ class StructuredPerceptron(Perceptron):
                 X = dpack.data # each row is EDU pair
                 Y = dpack.target # each row is {-1,+1}
                 # construct ref graph and mapping {edu_pair => index in X}
-                edu_pairs = dpack.pairings
                 ref_tree = []
                 fv_index_map = {}
-                for i,(id1,id2) in enumerate(edu_pairs):
+                for i,(id1,id2) in enumerate(dpack.pairings):
                     fv_index_map[id1,id2] = i
                     if Y[i] == 1:
                         ref_tree.append( (id1, id2, UNKNOWN) )
                 # predict tree based on current weight vector
-                pred_tree = self._classify(X, edu_pairs, self.weights)
+                pred_tree = self._classify(dpack, X, self.weights)
                 # print doc_id,  predicted_graph
                 loss += self.update(pred_tree, ref_tree, X, fv_index_map)
             # print(inst_ct,, file=sys.stderr)
@@ -291,18 +291,15 @@ class StructuredPerceptron(Perceptron):
         return loss
 
 
-    def _classify(self, X, edu_pairs, W):
+    def _classify(self, dpack, X, W):
         """ return predicted tree """
         decoder = self.decoder
         scores = X.dot(W.T)
-        scored_tuples = []
-        for i,(id1, id2) in enumerate(edu_pairs):
-            scored_tuples.append((EDU(id1, 0, 0, None, None, None), # hacky 
-                                  EDU(id2, 0, 0, None, None, None),
-                                  scores[i],
-                                  UNKNOWN))
+        lpack = LinkPack.unlabelled(edus=dpack.edus,
+                                    pairings=dpack.pairings,
+                                    scores_ad=scores)
         # print "SCORES:", scores
-        pred_tree = decoder.decode(scored_tuples)[0]
+        pred_tree = decoder.decode(lpack)[0]
         return pred_tree
 
 
