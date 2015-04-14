@@ -9,6 +9,8 @@ from six import with_metaclass
 
 import numpy as np
 
+from attelo.table import UNKNOWN
+
 # pylint: disable=too-few-public-methods
 
 class LinkPack(namedtuple('LinkPack',
@@ -40,6 +42,20 @@ class LinkPack(namedtuple('LinkPack',
                      of labels)
     :type scores_l: array(float)
     '''
+    @classmethod
+    def unlabelled(cls, edus, pairings, scores_ad):
+        '''
+        Return a LinkPack with only unknown labels
+        '''
+        # pylint: disable=no-member
+        scores_l = np.ones((len(pairings), 1))
+        # pylint: enable=no-member
+        return LinkPack(edus=edus,
+                        pairings=pairings,
+                        labels=[UNKNOWN],
+                        scores_ad=scores_ad,
+                        scores_l=scores_l)
+
     def __len__(self):
         return len(self.pairings)
 

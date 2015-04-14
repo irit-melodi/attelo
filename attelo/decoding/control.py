@@ -152,12 +152,9 @@ def build_lpack(dpack, models, mode):
         # pylint: disable=no-member
         scores_l = np.ones((len(dpack), 1))
         # pylint: enable=no-member
-        return LinkPack(edus=dpack.edus,
-                        pairings=dpack.pairings,
-                        labels=[UNKNOWN],
-                        scores_ad=scores_ad,
-                        scores_l=scores_l)
-        # pylint: enable=no-member
+        return LinkPack.unlabelled(edus=dpack.edus,
+                                   pairings=dpack.pairings,
+                                   scores_ad=scores_ad)
     else:
         raise ValueError('Unknown labelling mode: ' + mode)
 
