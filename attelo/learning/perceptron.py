@@ -61,19 +61,9 @@ class PerceptronArgs(namedtuple('PerceptronArgs',
 # pylint: enable=too-few-public-methods
 
 
-def is_perceptron_model(model):
-    """
-    If the model in question is somehow based on perceptrons
-    """
-    return model.name in ["Perceptron",
-                          "PassiveAggressive",
-                          "StructuredPerceptron",
-                          "StructuredPassiveAggressive"]
-
 class Perceptron(object):
     """ Vanilla binary perceptron learner """
     def __init__(self, pconfig):
-        self.name = "Perceptron"
         self.nber_it = pconfig.iterations
         self.avg = pconfig.averaging
         self.use_prob = pconfig.use_prob
@@ -165,7 +155,6 @@ class PassiveAggressive(Perceptron):
 
     def __init__(self, pconfig):
         Perceptron.__init__(self, pconfig)
-        self.name = "PassiveAggressive"
         self.aggressiveness = pconfig.aggressiveness
         return
 
@@ -213,7 +202,6 @@ class StructuredPerceptron(Perceptron):
 
     def __init__(self, decoder, pconfig):
         Perceptron.__init__(self, pconfig)
-        self.name = "StructuredPerceptron"
         self.decoder = decoder
         return
 
@@ -312,7 +300,6 @@ class StructuredPassiveAggressive(StructuredPerceptron):
 
     def __init__(self, decoder, pconfig):
         StructuredPerceptron.__init__(self, decoder, pconfig)
-        self.name = "StructuredPassiveAggressive"
         self.aggressiveness = pconfig.aggressiveness
         return
 
