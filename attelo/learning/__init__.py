@@ -59,6 +59,8 @@ from .control import (Task,
                       learn,
                       learn_task,
                       can_predict_proba)
+from .local import (ScikitLabelClassifier,
+                    LabelOracle)
 from .perceptron import (PerceptronArgs,
                          Perceptron,
                          PassiveAggressive,
@@ -80,14 +82,20 @@ class LearnerArgs(namedtuple("LearnerArgs",
     '''
 
 
-_LEARNERS =\
+ATTACH_LEARNERS =\
     {"oracle": lambda _: 'oracle',
      "bayes": lambda _: MultinomialNB(),
      "maxent": lambda _: LogisticRegression(),
      "svm": lambda _: SVC(),
-     "majority": lambda _: DummyClassifier(strategy="most_frequent")}
+     "majority": lambda _: DummyClassifier(strategy="most_frequent"),
+     "always": lambda _: DummyClassifier(strategy="constant",
+                                         constant=1),
+     "never": lambda _: DummyClassifier(strategy="constant",
+                                        constant=-1),
+     "sk-perceptron": lambda _: SkPerceptron(),
+     "sk-pasagg": lambda _: SkPassiveAggressiveClassifier()}
 
-ATTACH_LEARNERS = copy.copy(_LEARNERS)
+
 '''
 learners that can be used for the attachment task
 
@@ -98,13 +106,6 @@ The wrappers must accept a :py:class:LearnerArgs: tuple,
 the idea being that it would pick out any parameters relevant to it
 and ignore the rest
 '''
-ATTACH_LEARNERS["always"] = lambda _: DummyClassifier(strategy="constant",
-                                                      constant=1)
-ATTACH_LEARNERS["never"] = lambda _: DummyClassifier(strategy="constant",
-                                                     constant=-1)
-ATTACH_LEARNERS["sk-perceptron"] = lambda _: SkPerceptron()
-ATTACH_LEARNERS["sk-pasagg"] = lambda _: SkPassiveAggressiveClassifier()
-
 # # local reimplemented learners
 # ATTACH_LEARNERS["perc"] = lambda c: Perceptron( c.perc_args )
 # ATTACH_LEARNERS["pa"] = lambda c: PassiveAggressive( c.perc_args )
@@ -113,7 +114,13 @@ ATTACH_LEARNERS["sk-pasagg"] = lambda _: SkPassiveAggressiveClassifier()
 # ATTACH_LEARNERS["perc-struct"] = lambda c: StructuredPerceptron( c.perc_args )
 # ATTACH_LEARNERS["pa-struct"] = lambda c: StructuredPassiveAggressive( c.perc_args )
 
-RELATE_LEARNERS = copy.copy(_LEARNERS)
+RELATE_LEARNERS =\
+    {"oracle": lambda _: LabelOracle(),
+     "bayes": lambda _: ScikitLabelClassifier(MultinomialNB()),
+     "maxent": lambda _: ScikitLabelClassifier(LogisticRegression()),
+     "svm": lambda _: ScikitLabelClassifier(SVC()),
+     "majority": lambda _: ScikitLabelClassifier(DummyClassifier(strategy="most_frequent"))}
+
 '''
 learners that can be used for the relation labelling task
 
