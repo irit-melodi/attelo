@@ -62,7 +62,8 @@ def _add_labels(dpack, models, predictions):
     :rtype: [prediction]
     """
 
-    labels, scores_l = models.relate.transform(dpack)
+    relate_pack = for_labelling(dpack)
+    labels, scores_l = models.relate.transform(relate_pack)
     # pylint: disable=no-member
     lbls = np.argmax(scores_l, axis=1)
     # pylint: enable=no-member
@@ -110,8 +111,9 @@ def build_lpack(dpack, models, mode):
                                    'know how to predict probabilities')
 
         attach_pack = for_attachment(dpack)
+        relate_pack = for_labelling(dpack)
         scores_ad = _get_attach_scores(attach_pack, models)
-        labels, scores_l = models.relate.transform(dpack)
+        labels, scores_l = models.relate.transform(relate_pack)
         return LinkPack(edus=dpack.edus,
                         pairings=dpack.pairings,
                         labels=labels,

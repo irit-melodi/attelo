@@ -8,8 +8,7 @@ Oracles: return probabilities and values directly from gold data
 from scipy.sparse import dok_matrix
 
 from attelo.table import (UNRELATED,
-                          UNKNOWN,
-                          for_labelling)
+                          UNKNOWN)
 from .interface import (LabelClassifier)
 
 
@@ -33,7 +32,6 @@ class LabelOracle(LabelClassifier):
         return self
 
     def transform(self, dpack):
-        dpack = for_labelling(dpack)
         labels = [UNKNOWN] + dpack.labels
         scores_l = dok_matrix((len(dpack), len(labels)))
         lbl_unrelated = dpack.label_number(UNRELATED)

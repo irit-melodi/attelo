@@ -40,6 +40,8 @@ def learn_task(mpack, learners, task):
             dpack = DataPack.vstack(mpack.values())
             return learner.fit(dpack.data, dpack.target)
     elif task == Task.relate:
+        mpack = {k: for_labelling(v.attached_only())
+                 for k, v in mpack.items()}
         dpacks = mpack.values()
         targets = [d.target for d in dpacks]
         return learners.relate.fit(dpacks, targets)

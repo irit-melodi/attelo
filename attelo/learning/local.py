@@ -3,13 +3,10 @@ Local classifiers
 """
 
 # pylint: disable=no-name-in-module
-from numpy import (concatenate as np_concatenate,
-                   take as np_take,
-                   where as np_where)
+from numpy import (concatenate as np_concatenate)
 # pylint: enable=no-name-in-module
 
 from attelo.table import (DataPack,
-                          UNRELATED,
                           for_labelling)
 from .interface import (LabelClassifier)
 
@@ -40,14 +37,6 @@ class SklearnLabelClassifier(LabelClassifier):
     def fit(self, dpacks, targets):
         dpack = DataPack.vstack(dpacks)
         target = np_concatenate(targets)
-        # select attached, apply label filter
-        # we can't just use dpack.attached_only, because we need
-        # to retrieve the indices to select the targets with
-        unrelated = dpack.label_number(UNRELATED)
-        indices = np_where(dpack.target != unrelated)[0]
-        dpack = for_labelling(dpack.selected(indices))
-        target = np_take(target, indices)
-        # now go
         self._learner.fit(dpack.data, target)
         self.labels = [dpack.get_label(x) for x in self._learner.classes_]
         self._fitted = True
