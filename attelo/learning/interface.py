@@ -20,14 +20,27 @@ class LabelClassifier(with_metaclass(ABCMeta, object)):
         True if scores should be interpreted as probabilities
     '''
     @abstractmethod
-    def fit(self, mpack):
+    def fit(self, dpacks, targets):
         """
         Learns a classifier and the labels attribute from a
         multipack of documents
 
         Parameters
         ----------
-        mpack: Multipack
+        dpacks: [DataPack]
+
+            A list of documents
+
+        targets: [[int]]
+
+            For each datapack, a list of label numbers, one per
+            sample. All datapacks are expected to use the same
+            label numbering scheme. Use `DataPack.get_label`
+            to recover the string values.
+
+            Each list must have the same number items as there
+            are samples in its its datapack counterpart.
+
 
         Returns
         -------

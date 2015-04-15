@@ -40,7 +40,9 @@ def learn_task(mpack, learners, task):
             dpack = DataPack.vstack(mpack.values())
             return learner.fit(dpack.data, dpack.target)
     elif task == Task.relate:
-        return learners.relate.fit(mpack)
+        dpacks = mpack.values()
+        targets = [d.target for d in dpacks]
+        return learners.relate.fit(dpacks, targets)
     else:
         raise ValueError('Unknown learning task: {}'.format(task))
 
