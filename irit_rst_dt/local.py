@@ -28,6 +28,9 @@ from attelo.learning.perceptron import (Perceptron,
                                         StructuredPerceptron,
                                         StructuredPassiveAggressive)
 from attelo.learning import (can_predict_proba)
+from attelo.learning.local import (LabelOracle,
+                                   SklearnLabelClassifier)
+
 from sklearn.linear_model import (LogisticRegression,
                                   Perceptron as SkPerceptron,
                                   PassiveAggressiveClassifier as
@@ -114,9 +117,20 @@ def learner_oracle():
     return Keyed('oracle', 'oracle')
 
 
+def label_learner_oracle():
+    "return a keyed instance of the oracle (virtual) learner"
+    return Keyed('oracle', LabelOracle())
+
+
+
 def learner_maxent():
     "return a keyed instance of maxent learner"
     return Keyed('maxent', LogisticRegression())
+
+def label_learner_maxent():
+    "return a keyed instance of maxent learner"
+    return Keyed('maxent', SklearnLabelClassifier(LogisticRegression()))
+
 
 LOCAL_PERC_ARGS = PerceptronArgs(iterations=20,
                                  averaging=True,
@@ -140,11 +154,11 @@ STRUCT_PA_ARGS = PerceptronArgs(iterations=50,
 
 _LOCAL_LEARNERS = [
     LearnerConfig(attach=learner_oracle(),
-                  relate=learner_oracle()),
+                  relate=label_learner_oracle()),
     LearnerConfig(attach=learner_maxent(),
-                  relate=learner_maxent()),
+                  relate=label_learner_maxent()),
     LearnerConfig(attach=learner_maxent(),
-                  relate=learner_oracle()),
+                  relate=label_learner_oracle()),
 #    LearnerConfig(attach=Keyed('sk-perceptron',
 #                               SkPerceptron(n_iter=20)),
 #                  relate=learner_maxent()),
