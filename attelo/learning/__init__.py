@@ -59,7 +59,7 @@ from .control import (Task,
                       learn,
                       learn_task,
                       can_predict_proba)
-from .local import (ScikitLabelClassifier,
+from .local import (SklearnLabelClassifier,
                     LabelOracle)
 from .perceptron import (PerceptronArgs,
                          Perceptron,
@@ -116,10 +116,10 @@ and ignore the rest
 
 RELATE_LEARNERS =\
     {"oracle": lambda _: LabelOracle(),
-     "bayes": lambda _: ScikitLabelClassifier(MultinomialNB()),
-     "maxent": lambda _: ScikitLabelClassifier(LogisticRegression()),
-     "svm": lambda _: ScikitLabelClassifier(SVC()),
-     "majority": lambda _: ScikitLabelClassifier(DummyClassifier(strategy="most_frequent"))}
+     "bayes": lambda _: SklearnLabelClassifier(MultinomialNB()),
+     "maxent": lambda _: SklearnLabelClassifier(LogisticRegression()),
+     "svm": lambda _: SklearnLabelClassifier(SVC()),
+     "majority": lambda _: SklearnLabelClassifier(DummyClassifier(strategy="most_frequent"))}
 
 '''
 learners that can be used for the relation labelling task

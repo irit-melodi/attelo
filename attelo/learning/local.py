@@ -11,7 +11,7 @@ from attelo.table import (DataPack,
 from .interface import (LabelClassifier)
 
 
-class ScikitLabelClassifier(LabelClassifier):
+class SklearnLabelClassifier(LabelClassifier):
     '''
     A relative simple way to get a label classifier: just
     pass in a scikit classifier
@@ -28,7 +28,7 @@ class ScikitLabelClassifier(LabelClassifier):
         learner: scikit-compatible classifier
             Use the given learner for label prediction.
         """
-        super(ScikitLabelClassifier, self).__init__()
+        super(SklearnLabelClassifier, self).__init__()
         self._learner = learner
         pfunc = getattr(learner, "predict_proba", None)
         self.can_predict_proba = callable(pfunc)

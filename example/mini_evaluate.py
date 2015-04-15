@@ -12,7 +12,7 @@ from attelo.decoding import (DecodingMode, decode)
 from attelo.decoding.mst import (MstDecoder,
                                  MstRootStrategy)
 from attelo.learning import (learn)
-from attelo.learning.local import (ScikitLabelClassifier)
+from attelo.learning.local import (SklearnLabelClassifier)
 from attelo.fold import (make_n_fold,
                          select_testing,
                          select_training)
@@ -48,7 +48,7 @@ fold_dict = make_n_fold(mpack, num_folds, mk_rng())
 # select a decoder and a learner team
 decoder = MstDecoder(root_strategy=MstRootStrategy.fake_root)
 learners = Team(attach=LogisticRegression(),
-                relate=ScikitLabelClassifier(LogisticRegression()))
+                relate=SklearnLabelClassifier(LogisticRegression()))
 
 # cross-fold evaluation
 scores = []
