@@ -8,7 +8,43 @@ from numpy import (concatenate as np_concatenate)
 
 from attelo.table import (DataPack,
                           for_labelling)
-from .interface import (LabelClassifier)
+from .interface import (AttachClassifier,
+                        LabelClassifier)
+
+class SklearnAttachClassifier(AttachClassifier):
+    '''
+    A relatively simple way to get an attachment classifier:
+    just pass in a scikit classifier
+    '''
+
+    def __init__(self, learner):
+        """
+        learner: scikit-compatible classifier
+            Use the given learner for label prediction.
+        """
+        super(SklearnAttachClassifier, self).__init__()
+        self._learner = learner
+        pfunc = getattr(learner, "predict_proba", None)
+        self.can_predict_proba = callable(pfunc)
+        self._fitted = False
+
+    def fit(self, dpacks, targets):
+        dpack = DataPack.vstack(dpacks)
+        target = np_concatenate(targets)
+        self._learner.fit(dpack.data, target)
+        self._fitted = True
+        return self
+
+    def transform(self, dpack):
+        if not self._fitted:
+            raise ValueError('Fit not yet called')
+        elif self.can_predict_proba:
+            attach_idx = list(self._learner.classes_).index(1)
+            probs = self._learner.predict_proba(dpack.data)
+            return probs[:, attach_idx]
+        else:
+            return self._learner.decision_function(dpack.data)
+
 
 class SklearnLabelClassifier(LabelClassifier):
     '''

@@ -8,7 +8,6 @@ from enum import Enum
 import numpy as np
 from scipy.sparse import dok_matrix
 
-from attelo.learning import (can_predict_proba)
 from attelo.table import (for_attachment, for_labelling, for_intra,
                           UNRELATED, UNKNOWN)
 from .interface import (LinkPack)
@@ -31,25 +30,6 @@ class DecodingMode(Enum):
 # ---------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------
-
-
-def _get_attach_scores(dpack, models):
-    """
-    Return an array either of probabilities (or in the case of
-    non-probability-capable models), confidence scores
-    """
-    if models.attach == 'oracle':
-        to_prob = lambda x: 1.0 if x == 1.0 else 0.0
-        # pylint: disable=no-member
-        return np.vectorize(to_prob)(dpack.target)
-        # pylint: enable=no-member
-    elif can_predict_proba(models.attach):
-        attach_idx = list(models.attach.classes_).index(1)
-        probs = models.attach.predict_proba(dpack.data)
-        res = probs[:, attach_idx]
-        return res
-    else:
-        return models.attach.decision_function(dpack.data)
 
 
 def _add_labels(dpack, models, predictions):
@@ -101,7 +81,7 @@ def build_lpack(dpack, models, mode):
     :rtype: LinkPack
     """
     if mode == DecodingMode.joint:
-        if not can_predict_proba(models.attach):
+        if not models.attach.can_predict_proba:
             oops = ('Attachment model does not know how to predict '
                     'probabilities. It should only be used in post '
                     'labelling mode')
@@ -112,7 +92,7 @@ def build_lpack(dpack, models, mode):
 
         attach_pack = for_attachment(dpack)
         relate_pack = for_labelling(dpack)
-        scores_ad = _get_attach_scores(attach_pack, models)
+        scores_ad = models.attach.transform(attach_pack)
         labels, scores_l = models.relate.transform(relate_pack)
         return LinkPack(edus=dpack.edus,
                         pairings=dpack.pairings,
@@ -121,7 +101,7 @@ def build_lpack(dpack, models, mode):
                         scores_l=scores_l)
     elif mode == DecodingMode.post_label:
         attach_pack = for_attachment(dpack)
-        scores_ad = _get_attach_scores(attach_pack, models)
+        scores_ad = models.attach.transform(attach_pack)
         # pylint: disable=no-member
         scores_l = np.ones((len(dpack), 1))
         # pylint: enable=no-member

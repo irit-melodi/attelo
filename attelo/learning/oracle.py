@@ -5,11 +5,37 @@ Oracles: return probabilities and values directly from gold data
 # Author: Eric Kow
 # License: CeCILL-B (French BSD3)
 
+# pylint: disable=no-name-in-module
+from numpy import (vectorize as np_vectorize)
+# pylint: enable=no-name-in-module
+
 from scipy.sparse import dok_matrix
 
 from attelo.table import (UNRELATED,
                           UNKNOWN)
-from .interface import (LabelClassifier)
+from .interface import (AttachClassifier,
+                        LabelClassifier)
+
+
+class AttachOracle(AttachClassifier):
+    '''
+    A faux attachment classifier that returns "probabilities"
+    1.0 for gold attached links and 0.0 for gold unattached
+
+    Naturally, this would only do something useful if the
+    test datapack comes with gold predictions
+    '''
+    def __init__(self):
+        super(AttachOracle, self).__init__()
+        self.can_predict_proba = True
+
+    def fit(self, dpacks, targets):
+        return self
+
+    def transform(self, dpack):
+        # nb: this isn't actually faster with vectorize
+        to_prob = lambda x: 1.0 if x == 1.0 else 0.0
+        return np_vectorize(to_prob)(dpack.target)
 
 
 class LabelOracle(LabelClassifier):

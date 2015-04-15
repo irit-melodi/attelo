@@ -57,10 +57,13 @@ from sklearn.svm import SVC
 
 from .control import (Task,
                       learn,
-                      learn_task,
-                      can_predict_proba)
-from .local import (SklearnLabelClassifier,
-                    LabelOracle)
+                      learn_task)
+from .local import (SklearnAttachClassifier,
+                    SklearnLabelClassifier)
+from .oracle import (AttachOracle,
+                     LabelOracle)
+
+
 from .perceptron import (PerceptronArgs,
                          Perceptron,
                          PassiveAggressive,
@@ -83,17 +86,17 @@ class LearnerArgs(namedtuple("LearnerArgs",
 
 
 ATTACH_LEARNERS =\
-    {"oracle": lambda _: 'oracle',
-     "bayes": lambda _: MultinomialNB(),
-     "maxent": lambda _: LogisticRegression(),
-     "svm": lambda _: SVC(),
-     "majority": lambda _: DummyClassifier(strategy="most_frequent"),
-     "always": lambda _: DummyClassifier(strategy="constant",
-                                         constant=1),
-     "never": lambda _: DummyClassifier(strategy="constant",
-                                        constant=-1),
-     "sk-perceptron": lambda _: SkPerceptron(),
-     "sk-pasagg": lambda _: SkPassiveAggressiveClassifier()}
+    {"oracle": lambda _: AttachOracle(),
+     "bayes": lambda _: SklearnAttachClassifier(MultinomialNB()),
+     "maxent": lambda _: SklearnAttachClassifier(LogisticRegression()),
+     "svm": lambda _: SklearnAttachClassifier(SVC()),
+     "majority": lambda _: SklearnAttachClassifier(DummyClassifier(strategy="most_frequent")),
+     "always": lambda _: SklearnAttachClassifier(DummyClassifier(strategy="constant",
+                                                                 constant=1)),
+     "never": lambda _: SklearnAttachClassifier(DummyClassifier(strategy="constant",
+                                                                constant=-1)),
+     "sk-perceptron": lambda _: SklearnAttachClassifier(SkPerceptron()),
+     "sk-pasagg": lambda _: SklearnAttachClassifier(SkPassiveAggressiveClassifier())}
 
 
 '''

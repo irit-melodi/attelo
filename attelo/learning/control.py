@@ -4,8 +4,7 @@ Central interface to the learners
 
 from enum import Enum
 
-from attelo.table import (DataPack,
-                          for_attachment,
+from attelo.table import (for_attachment,
                           for_labelling)
 from attelo.util import Team
 
@@ -31,14 +30,9 @@ def learn_task(mpack, learners, task):
     if task == Task.attach:
         mpack = {k: for_attachment(v)
                  for k, v in mpack.items()}
-        learner = learners.attach
-        if can_fit_structured(learner):
-            subpacks = mpack.values()
-            targets = [d.target for d in subpacks]
-            return learner.fit_structured(subpacks, targets)
-        else:
-            dpack = DataPack.vstack(mpack.values())
-            return learner.fit(dpack.data, dpack.target)
+        dpacks = mpack.values()
+        targets = [d.target for d in dpacks]
+        return learners.attach.fit(dpacks, targets)
     elif task == Task.relate:
         mpack = {k: for_labelling(v.attached_only())
                  for k, v in mpack.items()}
@@ -70,16 +64,3 @@ def can_fit_structured(learner):
     """
     func = getattr(learner, "fit_structured", None)
     return callable(func)
-
-
-def can_predict_proba(model):
-    """
-    True if a model is capable of returning a probability for
-    a given instance. The alternative would be for it to
-    implement `decision_function` which associates
-    """
-    if model == 'oracle':
-        return True
-    else:
-        func = getattr(model, "predict_proba", None)
-        return callable(func)

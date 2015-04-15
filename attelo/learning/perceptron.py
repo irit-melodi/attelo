@@ -211,11 +211,14 @@ class StructuredPerceptron(Perceptron):
         self.avg_weights = zeros(dim, 'd')
         return
 
-    def fit_structured(self, datapacks, _targets): # datapacks is an datapack iterable
+    def fit(self, datapacks, _targets): # datapacks is an datapack iterable
         """ learn struct. perceptron weights """        
         self.init_model( datapacks[0].data.shape[1] )
         self.learn( datapacks ) 
         return self
+
+    def transform(self, dpack):
+        return self.decision_function(dpack.data)
 
     def learn(self, datapacks):
         start_time = time.time()
