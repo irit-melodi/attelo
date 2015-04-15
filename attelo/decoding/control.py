@@ -6,10 +6,9 @@ from __future__ import print_function
 from enum import Enum
 
 import numpy as np
-from scipy.sparse import dok_matrix
 
 from attelo.table import (for_attachment, for_labelling, for_intra,
-                          UNRELATED, UNKNOWN)
+                          UNKNOWN)
 from .interface import (LinkPack)
 from .intra import (IntraInterPair, partition_subgroupings)
 from .util import (DecoderException)
@@ -63,11 +62,6 @@ def _add_labels(dpack, models, predictions):
     for pred in predictions:
         res.append(update(p) for p in pred)
     return res
-
-
-# ---------------------------------------------------------------------
-# helpers
-# ---------------------------------------------------------------------
 
 
 def build_lpack(dpack, models, mode):
