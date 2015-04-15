@@ -1,5 +1,5 @@
 '''
-Control over attelo decoders as might be needed for a test harness
+Control over attelo parsers as might be needed for a test harness
 '''
 
 from __future__ import print_function
@@ -9,7 +9,7 @@ import os
 from joblib import (delayed)
 
 from ..io import (write_predictions_output)
-from ..decoding import (DecoderException, decode)
+from attelo.decoding.util import (prediction_to_triples)
 
 
 def _tmp_output_filename(path, suffix):
@@ -37,25 +37,21 @@ def concatenate_outputs(mpack, output_path):
         os.remove(tmpfile)
 
 
-def _decode_group(dpack, models, decoder, mode,
-                  output_path):
+def _parse_group(dpack, parser, output_path):
     '''
-    decode a single group and write its output
+    parse a single group and write its output
 
     score the predictions if we have
 
     :rtype Count or None
     '''
-    predictions = decode(dpack, models, decoder, mode)
-    if not predictions:
-        raise DecoderException('decoder must make at least one prediction')
-
-    # we trust the decoder to select what it thinks is its best prediction
-    first_prediction = predictions[0]
-    write_predictions_output(dpack, first_prediction, output_path)
+    dpack = parser.transform(dpack)
+    # we trust the parser to select what it thinks is its best prediction
+    prediction = prediction_to_triples(dpack)
+    write_predictions_output(dpack, prediction, output_path)
 
 
-def jobs(mpack, models, decoder, mode, output_path):
+def jobs(mpack, parser, output_path):
     """
     Return a list of delayed decoding jobs for the various
     documents in this group
@@ -68,6 +64,5 @@ def jobs(mpack, models, decoder, mode, output_path):
             os.remove(tmpfile)
     for onedoc, dpack in mpack.items():
         tmp_output_path = _tmp_output_filename(output_path, onedoc)
-        res.append(delayed(_decode_group)(dpack, models, decoder, mode,
-                                          tmp_output_path))
+        res.append(delayed(_parse_group)(dpack, parser, tmp_output_path))
     return res

@@ -5,7 +5,6 @@ Common interface(s) to Attelo classifiers.
 from abc import ABCMeta, abstractmethod
 from six import with_metaclass
 
-# pylint: disable=abstract-class-not-used
 
 class AttachClassifier(with_metaclass(ABCMeta, object)):
     '''
@@ -120,11 +119,8 @@ class LabelClassifier(with_metaclass(ABCMeta, object)):
 
         Returns
         -------
-        labels: [string]
-            List of labels used in the scores array
-
-        scores: array(float)
+        weights: array(float)
             A 2D array (sample x label) associating each label with
-            a score
+            a score. Mind your array dimensions.
         """
         return NotImplementedError

@@ -40,7 +40,7 @@ class LearnerConfig(Team):
 
 
 class EvaluationConfig(namedtuple("EvaluationConfig",
-                                  "key settings learner decoder")):
+                                  "key settings learner parser")):
     """
     Combination of learners, decoders and decoder settings
     for an attelo evaluation
@@ -49,9 +49,16 @@ class EvaluationConfig(namedtuple("EvaluationConfig",
     field; but you should have a way of extracting at
     least a :py:class:`DecodingMode` from it
 
-    :type learner: Keyed (Team learner)
-    :type decoder: Keyed Decoder
-    :type settings: Keyed (???)
+    Parameters
+    ----------
+    learner: Keyed learnercfg
+        Some sort of keyed learner configuration. This is usually
+        of type `LearnerConfig` but there are cases where you have
+        fancier objects in place
+    parser: Keyed (learnercfg -> Parser)
+        A (keyed) function that builds a parser from whatever
+        learner configuration you used in `learner`
+    settings: Keyed (???)
     """
     @classmethod
     def simple_key(cls, learner, decoder):

@@ -18,9 +18,6 @@ from __future__ import print_function
 from collections import namedtuple
 import sys
 
-# pylint: disable=wildcard-import
-# (just for re-export)
-from .control import *
 from .interface import (Decoder)
 from .util import DecoderException
 
@@ -94,7 +91,7 @@ DECODERS = {"last": lambda _: LastBaseline(),
             "astar": lambda c: AstarDecoder(c.astar),
             "asmany": lambda _: AsManyDecoder(),
             "bestin": lambda _: BestIncomingDecoder(),
-}
+           }
 """
 Dictionary (`string -> DecoderAgs -> Decoder`) of decoder names (recognised by
 the command line interface) to wrappers. Wrappers smooth out the differences

@@ -4,21 +4,29 @@ if they are separated by more than a certain number of EDUs
 '''
 # pylint: disable=too-few-public-methods
 
-from .interface import (PruningDecoder)
-from ..table import (select_window)
+from .interface import (Decoder)
+from attelo.table import (select_window)
 
 
-class WindowPruningDecoder(PruningDecoder):
+class WindowPruner(Decoder):
     '''
-    Note that we assume that the probability distribution includes every
-    EDU in its grouping.
+    Notes
+    -----
+    We assume that the datapack includes every EDU in its
+    grouping.
 
     If there are any gaps, the window will be a bit messed up
+
+    As decoders are parsers like any other, if you just want
+    to apply this as preprocessing to a decoder, you could
+    construct a mini pipeline consisting of this plus the
+    decoder. Alternatively, if you already have a larger
+    pipeline of which the decoder is already part, you can
+    just insert this before the decoder.
     '''
-    def __init__(self, decoder, window):
-        super(WindowPruningDecoder, self).__init__(decoder)
+    def __init__(self, window):
+        super(WindowPruner, self).__init__()
         self._window = window
 
-    def prune(self, lpack):
-        # select_window will work for LinkPacks via duck typing
-        return select_window(lpack, self._window)
+    def decode(self, dpack):
+        return select_window(dpack, self._window)

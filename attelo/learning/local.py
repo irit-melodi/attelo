@@ -10,6 +10,7 @@ from attelo.table import (DataPack,
                           for_labelling)
 from .interface import (AttachClassifier,
                         LabelClassifier)
+from .util import (relabel)
 
 class SklearnAttachClassifier(AttachClassifier):
     '''
@@ -68,20 +69,21 @@ class SklearnLabelClassifier(LabelClassifier):
         pfunc = getattr(learner, "predict_proba", None)
         self.can_predict_proba = callable(pfunc)
         self._fitted = False
-        self.labels = None  # not yet learned
+        self._labels = None  # not yet learned
 
     def fit(self, dpacks, targets):
         dpack = DataPack.vstack(dpacks)
         target = np_concatenate(targets)
         self._learner.fit(dpack.data, target)
-        self.labels = [dpack.get_label(x) for x in self._learner.classes_]
+        self._labels = [dpack.get_label(x) for x in self._learner.classes_]
         self._fitted = True
         return self
 
     def transform(self, dpack):
-        dpack = for_labelling(dpack)
-        if self.labels is None:
+        dpack, _ = for_labelling(dpack, dpack.target)
+        if self._labels is None:
             raise ValueError('No labels associated with this classifier')
         if not self._fitted:
             raise ValueError('Fit not yet called')
-        return self.labels, self._learner.predict_proba(dpack.data)
+        weights = self._learner.predict_proba(dpack.data)
+        return relabel(self._labels, weights, dpack.labels)

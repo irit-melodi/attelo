@@ -16,7 +16,8 @@ import joblib
 from sklearn.datasets import load_svmlight_file
 
 from .edu import (EDU, FAKE_ROOT_ID, FAKE_ROOT)
-from .table import (DataPack, DataPackException, UNRELATED,
+from .table import (DataPack, DataPackException,
+                    UNKNOWN, UNRELATED,
                     get_label_string, groupings)
 from .util import truncate
 
@@ -227,7 +228,7 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
                                             load_pairings(pairings_file))
 
     with Torpor("Reading features", quiet=not verbose):
-        labels = load_labels(feature_file)
+        labels = [UNKNOWN] + load_labels(feature_file)
         # pylint: disable=unbalanced-tuple-unpacking
         data, targets = load_svmlight_file(feature_file,
                                            n_features=len(vocab))

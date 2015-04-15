@@ -58,14 +58,12 @@ class LabelOracle(LabelClassifier):
         return self
 
     def transform(self, dpack):
-        labels = [UNKNOWN] + dpack.labels
-        scores_l = dok_matrix((len(dpack), len(labels)))
+        weights = dok_matrix((len(dpack), len(dpack.labels)))
         lbl_unrelated = dpack.label_number(UNRELATED)
         lbl_unk = dpack.label_number(UNKNOWN)
         for i, lbl in enumerate(dpack.target):
             if lbl == lbl_unrelated:
-                scores_l[i, lbl_unk] = 1.0
+                weights[i, lbl_unk] = 1.0
             else:
-                scores_l[i, lbl] = 1.0
-        scores_l = scores_l.todense()
-        return labels, scores_l
+                weights[i, lbl] = 1.0
+        return weights.todense()

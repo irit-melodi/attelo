@@ -5,8 +5,7 @@ Manipulating data tables (taking slices, etc)
 from __future__ import print_function
 from collections import defaultdict, namedtuple
 
-import numpy
-import numpy.ma
+import numpy as np
 import scipy.sparse
 
 from .edu import FAKE_ROOT_ID
@@ -30,8 +29,88 @@ class DataPackException(Exception):
         super(DataPackException, self).__init__(msg)
 
 
+class Graph(namedtuple('Graph',
+                       'prediction attach label')):
+    '''
+    A graph can only be interpreted in light of a datapack.
+
+    It has predictions and attach/label weights. Predictions work like
+    `DataPack.target`. The weights are useful within parsing pipelines,
+    where it is sometimes useful for an intermediary parser to manipulate
+    the weight vectors that a parser may calculate downstream.
+
+    See the parser interface for more details.
+
+    Parameters
+    ----------
+    prediction: array(int)
+        label for each edge (each cell corresponds to edge)
+    attach: array(float)
+        attachment weights (each cell corresponds to an edge)
+    label: 2D array(float)
+        label attachment weights (edge by label)
+
+    Notes
+    -----
+    Predictions are always labels; however, datapack targets may also
+    be -1/0/1 when adapted to binary attachment task
+    '''
+    def selected(self, indices):
+        '''
+        Return a subset of the links indicated by the list/array
+        of indices
+        '''
+        return Graph(prediction=self.prediction[indices],
+                     attach=self.attach[indices],
+                     label=self.label[indices])
+
+
+    @classmethod
+    def vstack(cls, graphs):
+        '''
+        Combine several graphs into one.
+        '''
+        if not graphs:
+            raise ValueError('need non-empty list of graphs')
+        graphs = list(graphs) # handle generater exp
+        gzero = graphs[0]
+        if gzero is None:
+            return None
+        return cls(prediction=np.concatenate(x.prediction for x in graphs),
+                   attach=np.concatenate(x.attach for x in graphs),
+                   label=np.concatenate(x.label for x in graphs))
+
+    def tweak(self,
+              prediction=None,
+              attach=None,
+              label=None):
+        '''
+        Return a variant of the current graph with some values
+        changed
+        '''
+        # I superstitiously believe that datapacks and graphs should
+        # be immutable as much as possible, and that mutability in
+        # the parsing pipeline would lead to confusion; hence this
+        # and namedtuples instead of simple getting and setitng
+        if prediction is None:
+            prediction = self.prediction
+        if attach is None:
+            attach = self.attach
+        if label is None:
+            label = self.label
+        return self.__class__(prediction=prediction,
+                              attach=attach,
+                              label=label)
+
+
 class DataPack(namedtuple('DataPack',
-                          'edus pairings data target labels vocab')):
+                          ['edus',
+                           'pairings',
+                           'data',
+                           'target',
+                           'labels',
+                           'vocab',
+                           'graph'])):
     '''
     A set of data that can be said to belong together.
 
@@ -40,27 +119,38 @@ class DataPack(namedtuple('DataPack',
     this distinction does not matter, it can also be convenient
     to combine data from multiple documents into a single pack.
 
-    :param edus: effectively a set of edus
-    :type edus: [:py:class:`EDU`]
+    Notes
+    -----
+    A datapack is said to be
 
-    :param pairings: list of edu id pairs
-    :type pairings: [(EDU, EDU)]
+    * single document (the usual case) it corresponds to a single
+      document or "stacked" if it is made by joining multiple
+      datapacks together. Some functions may only behave correctly
+      on single-document datapacks
+    * weighted if the graphs tuple is set. You should never see
+      weighted datapacks outside of a learner or decoder
 
-    :param data: sparse matrix of features, each
-                 row corresponding to a pairing
-
-    :param target: array of predictions for each pairing
-
-    :param labels: list of relation labels
-                   (length should be the same as largest value
-                   for target)
-    :type labels: [string]
-
-    :param vocab: feature names (corresponds to the feature
-                  indices) in data
-    :type vocab: [string]
+    Parameters
+    ----------
+    edus (EDU)
+        effectively a set of edus
+    pairings ([(EDU, EDU)])
+        edu pairs
+    data 2D array(float)
+        sparse matrix of features, each
+        row corresponding to a pairing
+    target 1D array (should be int, really)
+        array of predictions for each pairing
+    labels ([string])
+        list of relation labels (NB: by convention label zero
+        is always the unknown label)
+    vocab ([string])
+        feature names (corresponds to the feature
+        indices) in data
+    graph (None or Graph)
+        if set, arrays representing the probabilities (or
+        confidence scores) of attachment and labelling
     '''
-
     def __len__(self):
         return len(self.pairings)
 
@@ -74,7 +164,13 @@ class DataPack(namedtuple('DataPack',
 
         :rtype: :py:class:`DataPack`
         '''
-        pack = cls(edus, pairings, data, target, labels, vocab)
+        pack = cls(edus=edus,
+                   pairings=pairings,
+                   data=data,
+                   target=target,
+                   labels=labels,
+                   vocab=vocab,
+                   graph=None)
         pack.sanity_check()
         return pack
     # pylint: enable=too-many-arguments
@@ -90,14 +186,14 @@ class DataPack(namedtuple('DataPack',
         '''
         if not dpacks:
             raise ValueError('need non-empty list of datapacks')
-        # pylint: disable=no-member
+        dzero = dpacks[0]
         return DataPack(edus=concat_l(d.edus for d in dpacks),
                         pairings=concat_l(d.pairings for d in dpacks),
                         data=scipy.sparse.vstack(d.data for d in dpacks),
-                        target=numpy.concatenate([d.target for d in dpacks]),
-                        labels=dpacks[0].labels,
-                        vocab=dpacks[0].vocab)
-        # pylint: enable=no-member
+                        target=np.concatenate([d.target for d in dpacks]),
+                        labels=dzero.labels,
+                        vocab=dzero.vocab,
+                        graph=Graph.vstack(d.graph for d in dpacks))
 
     def _check_target(self):
         '''
@@ -146,6 +242,13 @@ class DataPack(namedtuple('DataPack',
         this datapack seems wrong, for example if the number of
         rows in one table is not the same as in another
         '''
+        if self.labels is not None:
+            if not self.labels:
+                oops = 'DataPack has no labels'
+                raise DataPackException(oops)
+            if self.labels[0] != UNKNOWN:
+                oops = 'DataPack does not have {unk} as its first label'
+                raise DataPackException(oops.format(unk=UNKNOWN))
         self._check_target()
         self._check_table_shape()
 
@@ -153,9 +256,7 @@ class DataPack(namedtuple('DataPack',
         '''
         Return only the items in the specified rows
         '''
-        # pylint: disable=no-member
-        sel_targets = numpy.take(self.target, indices)
-        # pylint: enable=no-member
+        sel_targets = np.take(self.target, indices)
         if self.labels is None:
             sel_labels = None
         else:
@@ -167,24 +268,51 @@ class DataPack(namedtuple('DataPack',
             sel_edus_.add(edu2)
         sel_edus = [e for e in self.edus if e in sel_edus_]
         sel_data = self.data[indices]
+        if self.graph is None:
+            graph = None
+        else:
+            graph = self.graph.selected(indices)
         return DataPack(edus=sel_edus,
                         pairings=sel_pairings,
                         data=sel_data,
                         target=sel_targets,
                         labels=sel_labels,
-                        vocab=self.vocab)
+                        vocab=self.vocab,
+                        graph=graph)
 
-    def attached_only(self):
+    def set_graph(self, graph):
         '''
-        Return only the instances which are labelled as
-        attached (ie. this would presumably return an empty
-        pack on completely unseen data)
+        Return a copy of the datapack with weights set
         '''
-        # pylint: disable=no-member
-        unrelated = self.label_number(UNRELATED)
-        indices = numpy.where(self.target != unrelated)[0]
-        # pylint: enable=no-member
-        return self.selected(indices)
+        num_edges = len(self)
+        num_labels = len(self.labels)
+        want_shape_1d = (num_edges,)
+        want_shape_2d = (num_edges, num_labels)
+        if graph.prediction.shape != want_shape_1d:
+            oops = ('Tried to plug a {got} predictions array into a '
+                    'datapack expecting {want}'
+                    '').format(got=graph.prediction.shape,
+                               want=want_shape_1d)
+            raise ValueError(oops)
+        if graph.attach.shape != want_shape_1d:
+            oops = ('Tried to plug a {got} attachment weights into a '
+                    'datapack expecting {want}'
+                    '').format(got=graph.attach.shape,
+                               want=want_shape_1d)
+            raise ValueError(oops)
+        if graph.label.shape != want_shape_2d:
+            oops = ('Tried to plug {got} label weights into a '
+                    'datapack expecting {want}'
+                    '').format(got=graph.label.shape,
+                               want=want_shape_2d)
+            raise ValueError(oops)
+        return DataPack(edus=self.edus,
+                        pairings=self.pairings,
+                        data=self.data,
+                        target=self.target,
+                        labels=self.labels,
+                        vocab=self.vocab,
+                        graph=graph)
 
     def get_label(self, i):
         '''
@@ -199,10 +327,7 @@ class DataPack(namedtuple('DataPack',
 
         :rtype: float
         '''
-        if label == UNKNOWN:
-            return 0
-        else:
-            return self.labels.index(label) + 1
+        return self.labels.index(label)
 
 
 def groupings(pairings):
@@ -233,7 +358,25 @@ def groupings(pairings):
     return res
 
 
-def for_attachment(pack):
+def attached_only(dpack, target):
+    '''
+    Return only the instances which are labelled as
+    attached (ie. this would presumably return an empty
+    pack on completely unseen data)
+
+    Returns
+    -------
+    dpack (DataPack)
+    target (array(int))
+    '''
+    unrelated = dpack.label_number(UNRELATED)
+    indices = np.where(target != unrelated)[0]
+    dpack = dpack.selected(indices)
+    target = target[indices]
+    return dpack, target
+
+
+def for_attachment(dpack, target):
     '''
     Adapt a datapack to the attachment task. This could involve
 
@@ -242,21 +385,25 @@ def for_attachment(pack):
         * modifying the features/labels in some way
           (we binarise them to 0 vs not-0)
 
-    :rtype: :py:class:`DataPack`
+    Returns
+    -------
+    dpack (DataPack)
+    target (array(int))
     '''
-    # pylint: disable=no-member
-    unrelated = pack.label_number(UNRELATED)
-    tweak = numpy.vectorize(lambda x: -1 if x == unrelated else 1)
-    # pylint: enable=no-member
-    return DataPack(edus=pack.edus,
-                    pairings=pack.pairings,
-                    data=pack.data,
-                    target=tweak(pack.target),
-                    labels=None,
-                    vocab=pack.vocab)
+    unrelated = dpack.label_number(UNRELATED)
+    tweak = np.vectorize(lambda x: -1 if x == unrelated else 1)
+    dpack = DataPack(edus=dpack.edus,
+                     pairings=dpack.pairings,
+                     data=dpack.data,
+                     target=tweak(dpack.target),
+                     labels=[UNKNOWN, UNRELATED],
+                     vocab=dpack.vocab,
+                     graph=dpack.graph)
+    target = tweak(target)
+    return dpack, target
 
 
-def for_labelling(pack):
+def for_labelling(dpack, target):
     '''
     Adapt a datapack to the relation labelling task (currently a no-op).
     This could involve
@@ -266,9 +413,12 @@ def for_labelling(pack):
         * modifying the features/labels in some way (in practice
           no change)
 
-    :rtype: :py:class:`DataPack`
+    Returns
+    -------
+    dpack (DataPack)
+    target (array(int))
     '''
-    return pack
+    return dpack, target
 
 
 def select_fakeroot(dpack):
@@ -319,7 +469,7 @@ def select_intersentential(dpack, include_fake_root=False):
     return dpack.selected(retain)
 
 
-def for_intra(pack):
+def for_intra(dpack, target):
     '''
     Adapt a datapack to intrasentential decoding. An intrasenential
     datapack is almost identical to its original, except that we
@@ -330,13 +480,16 @@ def for_intra(pack):
     This should be done before either :py:func:`for_labelling` or
     :py:func:`for_attachment`
 
-    :rtype: :py:class:`DataPack`
+    Returns
+    -------
+    dpack (DataPack)
+    target (array(int))
     '''
     # pack = _select_intrasentential(pack)
     local_heads = defaultdict(set)
     ruled_out = defaultdict(set)
     indices = {}
-    for i, (edu1, edu2) in enumerate(pack.pairings):
+    for i, (edu1, edu2) in enumerate(dpack.pairings):
         subgrouping = edu1.subgrouping or edu2.subgrouping
         if edu1.id == FAKE_ROOT_ID:
             if edu2.id not in ruled_out[subgrouping]:
@@ -353,16 +506,20 @@ def for_intra(pack):
         all_heads.extend(indices[x] for x in heads
                          if x not in ruled_out[subgrouping])
 
-    # pylint: disable=no-member
-    new_target = numpy.copy(pack.target)
-    new_target[all_heads] = pack.label_number('ROOT')
-    # pylint: enable=no-member
-    return DataPack(edus=pack.edus,
-                    pairings=pack.pairings,
-                    data=pack.data,
-                    target=new_target,
-                    labels=pack.labels,
-                    vocab=pack.vocab)
+    new_target = np.copy(dpack.target)
+    new_target[all_heads] = dpack.label_number('ROOT')
+
+    dpack = DataPack(edus=dpack.edus,
+                     pairings=dpack.pairings,
+                     data=dpack.data,
+                     target=new_target,
+                     labels=dpack.labels,
+                     vocab=dpack.vocab,
+                     graph=dpack.graph)
+
+    target = np.copy(target)
+    target[all_heads] = dpack.label_number('ROOT')
+    return dpack, target
 
 
 class Multipack(dict):
@@ -458,4 +615,25 @@ def get_label_string(labels, i):
     '''
     Return the class label for the given target value.
     '''
-    return labels[int(i) - 1] if i else UNKNOWN
+    return labels[int(i)]
+
+
+def locate_in_subpacks(dpack, subpacks):
+    """
+    Given a datapack and some of its subpacks, return a
+    list of tuples identifying for each pair, its subpack
+    and index in that subpack.
+
+    If a pair is not found in the list of subpacks, we
+    return None instead of tuple
+
+    Returns
+    -------
+    [None or (DataPack, float)]
+    """
+    subpacks = list(subpacks)  # in case of iterable
+    pmap = {}
+    for subpack in subpacks:
+        for i, pair in enumerate(subpack.pairings):
+            pmap[pair] = subpack, i
+    return [pmap.get(x) for x in dpack.pairings]

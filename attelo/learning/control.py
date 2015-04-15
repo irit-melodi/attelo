@@ -4,7 +4,8 @@ Central interface to the learners
 
 from enum import Enum
 
-from attelo.table import (for_attachment,
+from attelo.table import (attached_only,
+                          for_attachment,
                           for_labelling)
 from attelo.util import Team
 
@@ -27,15 +28,20 @@ def learn_task(mpack, learners, task):
     """
     Train attachment learner
     """
+    def for_lab(dpack):
+        'select for learning task'
+        dpack, _ = attached_only(dpack, dpack.target)
+        dpack, _ = for_labelling(dpack, dpack.target)
+        return dpack
+
     if task == Task.attach:
-        mpack = {k: for_attachment(v)
+        mpack = {k: for_attachment(v, v.target)[0]
                  for k, v in mpack.items()}
         dpacks = mpack.values()
         targets = [d.target for d in dpacks]
         return learners.attach.fit(dpacks, targets)
     elif task == Task.relate:
-        mpack = {k: for_labelling(v.attached_only())
-                 for k, v in mpack.items()}
+        mpack = {k: for_lab(v) for k, v in mpack.items()}
         dpacks = mpack.values()
         targets = [d.target for d in dpacks]
         return learners.relate.fit(dpacks, targets)

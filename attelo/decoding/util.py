@@ -2,6 +2,10 @@
 Utility classes functions shared by decoders
 """
 
+import numpy as np
+
+from attelo.table import (Graph, UNRELATED)
+
 class DecoderException(Exception):
     """
     Exceptions that arise during the decoding process
@@ -38,3 +42,66 @@ def get_prob_map(instances):
     """
     return {(e1.id, e2.id): (rel, prob)
             for e1, e2, prob, rel in instances}
+
+
+def convert_prediction(dpack, triples):
+    """
+    Convert the given predictions into a DataPack where
+    each predicted edge is assigned an attachment
+    score of 1.0 (and the others 0.0), and likewise for
+    its label
+
+    Parameters
+    ----------
+    prediction: [(string, string, string)]
+
+        List of EDU id, EDU id, label triples
+
+    Returns
+    -------
+    dpack: A new DataPack
+    """
+    link_map = {(id1, id2): lab for id1, id2, lab in triples}
+    def get_lbl(pair):
+        'from edu pair to label number'
+        edu1, edu2 = pair
+        key = edu1.id, edu2.id
+        lbl = link_map.get(key, UNRELATED)
+        return dpack.label_number(lbl)
+    prediction = np.fromiter((get_lbl(pair) for pair in dpack.pairings),
+                             dtype=np.dtype(np.int16))
+    graph = Graph(prediction=prediction,
+                  attach=dpack.graph.attach,
+                  label=dpack.graph.label)
+    return dpack.set_graph(graph)
+
+
+def simple_candidates(dpack):
+    '''
+    Translate the links into a list of (EDU, EDU, float, string)
+    quadruplets representing the attachment probability and the
+    the best label for each EDU pair.  This is often good enough
+    for simplistic decoders
+    '''
+    if dpack.graph is None:
+        raise ValueError("Tried to extract weights from an "
+                         "unweighted datapack")
+    wts = dpack.graph
+    best_lbls = np.ravel(np.argmax(wts.label, axis=1))
+    return [(pair[0], pair[1], score, dpack.get_label(lbl))
+            for pair, score, lbl
+            in zip(dpack.pairings, wts.attach, best_lbls)]
+
+def prediction_to_triples(dpack):
+    """
+    Returns
+    -------
+    triples: prediction: [(string, string, string)]
+
+        List of EDU id, EDU id, label triples
+    """
+    if dpack.graph is None:
+        raise ValueError("Not a weighted datapack")
+    return [(edu1.id, edu2.id, dpack.get_label(lbl))
+            for (edu1, edu2), lbl in
+            zip(dpack.pairings, dpack.graph.prediction)]

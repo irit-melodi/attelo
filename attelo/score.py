@@ -7,7 +7,9 @@ from collections import (defaultdict, namedtuple)
 import numpy
 from sklearn.metrics import confusion_matrix
 
-from .table import (UNRELATED, get_label_string)
+from .table import (UNRELATED,
+                    attached_only,
+                    get_label_string)
 
 # pylint: disable=too-few-public-methods
 
@@ -94,7 +96,7 @@ def score_edges(dpack, predictions):
 
     :rtype: :py:class:`attelo.report.CountPair`
     """
-    att_pack = dpack.attached_only()
+    att_pack, _ = attached_only(dpack, dpack.target)
     dict_predicted = {(arg1, arg2): rel for arg1, arg2, rel in predictions
                       if rel != UNRELATED}
 
