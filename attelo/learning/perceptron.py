@@ -18,6 +18,7 @@ from scipy.special import expit  # aka the logistic function
 # pylint: enable-no-name-in-module
 
 from attelo.edu import EDU
+from attelo.metrics.tree import tree_loss
 from attelo.table import UNKNOWN
 from attelo.decoding.interface import LinkPack
 
@@ -348,11 +349,6 @@ class StructuredPassiveAggressive(StructuredPerceptron):
         if self.avg:
             self.avg_weights = self.avg_weights + W
         return loss
-
-
-
-def tree_loss(ref_tree, pred_tree):
-    return 1.0 - (len(set(pred_tree) & set(ref_tree))/ float(len(ref_tree)))
 
 
 def _score(w_vect, feat_vect, use_prob=False):
