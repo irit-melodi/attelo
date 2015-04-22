@@ -14,7 +14,7 @@ import sys
 from numpy import inf
 # pylint: enable-no-name-in-module
 
-from .decoding import (DecodingMode, DecoderArgs, DECODERS)
+from .decoding import (DecoderArgs, DECODERS)
 from .decoding.astar import (AstarArgs, RfcConstraint, Heuristic)
 from .decoding.mst import (MstRootStrategy)
 from .learning import (LearnerArgs, PerceptronArgs,
@@ -44,11 +44,9 @@ DEFAULT_MST_ROOT = MstRootStrategy.fake_root
 DEFAULT_ASTAR_ARGS = AstarArgs(heuristics=Heuristic.average,
                                rfc=RfcConstraint.full,
                                beam=None,
-                               nbest=1,
                                use_prob=True)
 DEFAULT_HEURISTIC = DEFAULT_ASTAR_ARGS.heuristics
 DEFAULT_BEAMSIZE = DEFAULT_ASTAR_ARGS.beam
-DEFAULT_NBEST = DEFAULT_ASTAR_ARGS.nbest
 DEFAULT_RFC = DEFAULT_ASTAR_ARGS.rfc
 
 #
@@ -70,7 +68,6 @@ def args_to_decoder(args):
     astar_args = AstarArgs(rfc=args.rfc,
                            heuristics=args.heuristics,
                            beam=args.beamsize,
-                           nbest=args.nbest,
                            use_prob=not args.non_prob_scores)
 
     config = DecoderArgs(threshold=args.threshold,
@@ -323,13 +320,6 @@ def _add_decoder_args(psr):
                            type=int,
                            help="with astar decoding, set a beamsize "
                            "default: None -> full astar with")
-
-    astar_grp.add_argument("--nbest", "-N",
-                           default=DEFAULT_NBEST,
-                           type=int,
-                           help="with astar decoding, set a nbest oracle, "
-                           "keeping n solutions "
-                           "default: 1-best = simple astar")
 
     perc_grp = psr.add_argument_group('perceptron arguments')
 
