@@ -67,6 +67,7 @@ class Perceptron(object):
         self.use_prob = pconfig.use_prob
         self.weights = None
         self.avg_weights = None
+        self.can_predict_proba = False
         return
     
     def fit(self, X, Y): # X contains all EDU pairs for corpus
