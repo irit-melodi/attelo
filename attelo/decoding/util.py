@@ -99,9 +99,12 @@ def prediction_to_triples(dpack):
     triples: prediction: [(string, string, string)]
 
         List of EDU id, EDU id, label triples
+        omitting the unrelated triples
     """
     if dpack.graph is None:
         raise ValueError("Not a weighted datapack")
+    unrelated = dpack.label_number(UNRELATED)
     return [(edu1.id, edu2.id, dpack.get_label(lbl))
             for (edu1, edu2), lbl in
-            zip(dpack.pairings, dpack.graph.prediction)]
+            zip(dpack.pairings, dpack.graph.prediction)
+            if lbl != unrelated]
