@@ -299,7 +299,7 @@ class StructuredPerceptron(Perceptron):
                                       attach=scores,
                                       label=label))
         # print "SCORES:", scores
-        graph = decoder.decode(dpack)
+        graph = decoder.transform(dpack)
         return prediction_to_triples(graph)
 
 
