@@ -32,6 +32,8 @@ from sklearn.linear_model import (LogisticRegression,
                                   Perceptron as SkPerceptron,
                                   PassiveAggressiveClassifier as
                                   SkPassiveAggressiveClassifier)
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from .attelo_cfg import (combined_key,
                          Settings,
                          KeyedDecoder,
@@ -118,6 +120,17 @@ def learner_maxent():
     "return a keyed instance of maxent learner"
     return Keyed('maxent', LogisticRegression())
 
+
+def learner_dectree():
+    "return a keyed instance of decision tree learner"
+    return Keyed('dectree', DecisionTreeClassifier())
+
+
+def learner_rndforest():
+    "return a keyed instance of random forest learner"
+    return Keyed('rndforest', RandomForestClassifier())
+
+
 LOCAL_PERC_ARGS = PerceptronArgs(iterations=20,
                                  averaging=True,
                                  use_prob=False,
@@ -145,6 +158,8 @@ _LOCAL_LEARNERS = [
                   relate=learner_maxent()),
     LearnerConfig(attach=learner_maxent(),
                   relate=learner_oracle()),
+    LearnerConfig(attach=learner_rndforest(),
+                  relate=learner_rndforest()),
 #    LearnerConfig(attach=Keyed('sk-perceptron',
 #                               SkPerceptron(n_iter=20)),
 #                  relate=learner_maxent()),
