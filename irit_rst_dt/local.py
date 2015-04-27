@@ -17,27 +17,35 @@ from attelo.harness.config import (EvaluationConfig,
                                    LearnerConfig,
                                    Keyed)
 
-from attelo.decoding import (DecodingMode)
 from attelo.decoding.baseline import (LocalBaseline)
 from attelo.decoding.local import (AsManyDecoder, BestIncomingDecoder)
 from attelo.decoding.mst import (MstDecoder, MstRootStrategy)
-from attelo.decoding.intra import (IntraInterDecoder, IntraStrategy)
 from attelo.learning.perceptron import (Perceptron,
                                         PerceptronArgs,
                                         PassiveAggressive,
                                         StructuredPerceptron,
                                         StructuredPassiveAggressive)
-from attelo.learning import (can_predict_proba)
-from attelo.learning.local import (LabelOracle,
+from attelo.learning.local import (SklearnAttachClassifier,
                                    SklearnLabelClassifier)
+from attelo.learning.oracle import (AttachOracle, LabelOracle)
+
+from attelo.parser.intra import (HeadToHeadParser,
+                                 IntraInterPair,
+                                 SentOnlyParser,
+                                 SoftParser)
+from attelo.parser.full import (JointPipeline,
+                                PostlabelPipeline)
+
 
 from sklearn.linear_model import (LogisticRegression,
                                   Perceptron as SkPerceptron,
                                   PassiveAggressiveClassifier as
                                   SkPassiveAggressiveClassifier)
 from .attelo_cfg import (combined_key,
+                         DecodingMode,
+                         IntraStrategy,
                          Settings,
-                         KeyedDecoder,
+                         ParserConfig,
                          IntraFlag)
 
 # PATHS
@@ -112,9 +120,9 @@ def decoder_mst(settings):
     return MstDecoder(MstRootStrategy.fake_root,
                       use_prob)
 
-def learner_oracle():
+def attach_learner_oracle():
     "return a keyed instance of the oracle (virtual) learner"
-    return Keyed('oracle', 'oracle')
+    return Keyed('oracle', AttachOracle())
 
 
 def label_learner_oracle():
@@ -123,9 +131,9 @@ def label_learner_oracle():
 
 
 
-def learner_maxent():
+def attach_learner_maxent():
     "return a keyed instance of maxent learner"
-    return Keyed('maxent', LogisticRegression())
+    return Keyed('maxent', SklearnAttachClassifier(LogisticRegression()))
 
 def label_learner_maxent():
     "return a keyed instance of maxent learner"
@@ -153,11 +161,11 @@ STRUCT_PA_ARGS = PerceptronArgs(iterations=50,
                                 aggressiveness=inf)
 
 _LOCAL_LEARNERS = [
-    LearnerConfig(attach=learner_oracle(),
+    LearnerConfig(attach=attach_learner_oracle(),
                   relate=label_learner_oracle()),
-    LearnerConfig(attach=learner_maxent(),
+    LearnerConfig(attach=attach_learner_maxent(),
                   relate=label_learner_maxent()),
-    LearnerConfig(attach=learner_maxent(),
+    LearnerConfig(attach=attach_learner_maxent(),
                   relate=label_learner_oracle()),
 #    LearnerConfig(attach=Keyed('sk-perceptron',
 #                               SkPerceptron(n_iter=20)),
@@ -269,26 +277,56 @@ def _is_junk(klearner, kdecoder):
             return True
 
     # skip any config which tries to use a non-prob learner with
-    if not can_predict_proba(klearner.attach.payload):
+    if not klearner.attach.payload.can_predict_proba:
         if kdecoder.settings.mode != DecodingMode.post_label:
             return True
 
     return False
 
 
-def _mk_keyed_decoder(kdecoder, settings):
+def _mk_intra(mk_parser, strategy):
+    """
+    Return an intra/inter parser that would be wrapped
+    around a core parser
+    """
+    def _inner(lcfg):
+        "the actual parser factory"
+        parsers = IntraInterPair(intra=mk_parser(lcfg.intra),
+                                 inter=mk_parser(lcfg.inter))
+        if strategy == IntraStrategy.only:
+            return SentOnlyParser(parsers)
+        elif strategy == IntraStrategy.heads:
+            return HeadToHeadParser(parsers)
+        elif strategy == IntraStrategy.soft:
+            return SoftParser(parsers)
+        else:
+            raise ValueError("Unknown strategy: " + str(strategy))
+    return _inner
+
+
+def _mk_parser_config(kdecoder, settings):
     """construct a decoder from the settings
 
     :type k_decoder: Keyed(Settings -> Decoder)
 
-    :rtype: KeyedDecoder
+    :rtype: ParserConfig
     """
     decoder_key = combined_key([settings, kdecoder])
     decoder = kdecoder.payload(settings)
-    if settings.intra:
-        decoder = IntraInterDecoder(decoder, settings.intra.strategy)
-    return KeyedDecoder(key=decoder_key,
-                        payload=decoder,
+    if settings.mode == DecodingMode.joint:
+        mk_parser = lambda t: JointPipeline(learner_attach=t.attach,
+                                            learner_label=t.relate,
+                                            decoder=decoder)
+    elif settings.mode == DecodingMode.post_label:
+        mk_parser = lambda t: PostlabelPipeline(learner_attach=t.attach,
+                                                learner_label=t.relate,
+                                                decoder=decoder)
+    if settings.intra is not None:
+        mk_parser = _mk_intra(mk_parser, settings.intra.strategy)
+
+    return ParserConfig(key=decoder_key,
+                        decoder=decoder,
+                        payload=mk_parser,
                         settings=settings)
 
 
@@ -328,23 +366,23 @@ def _mk_evaluations():
     :rtype [(Keyed(learner), KeyedDecoder)]
     """
 
-    kdecoders = [_mk_keyed_decoder(d, s)
-                 for d, s in itr.product(_CORE_DECODERS, _SETTINGS)]
-    kdecoders = [k for k in kdecoders if k is not None]
+    kparsers = [_mk_parser_config(d, s)
+                for d, s in itr.product(_CORE_DECODERS, _SETTINGS)]
+    kparsers = [k for k in kparsers if k is not None]
 
     # all learner/decoder pairs
     pairs = []
-    pairs.extend(itr.product(_LOCAL_LEARNERS, kdecoders))
+    pairs.extend(itr.product(_LOCAL_LEARNERS, kparsers))
     for klearner in _STRUCTURED_LEARNERS:
-        pairs.extend((klearner(d.payload), d) for d in kdecoders)
+        pairs.extend((klearner(x.decoder), x) for x in kparsers)
 
     # boxing this up a little bit more conveniently
-    return [EvaluationConfig(key=combined_key([klearner, kdecoder]),
-                             settings=kdecoder.settings,
+    return [EvaluationConfig(key=combined_key([klearner, kparser]),
+                             settings=kparser.settings,
                              learner=klearner,
-                             decoder=kdecoder)
-            for klearner, kdecoder in pairs
-            if not _is_junk(klearner, kdecoder)]
+                             parser=kparser)
+            for klearner, kparser in pairs
+            if not _is_junk(klearner, kparser)]
 
 
 EVALUATIONS = _mk_evaluations()
@@ -367,7 +405,7 @@ Set to None to graph everything
 
 DETAILED_EVALUATIONS = [e for e in EVALUATIONS if
                         'maxent' in e.learner.key and
-                        ('mst' in e.decoder.key or 'astar' in e.decoder.key)
+                        ('mst' in e.parser.key or 'astar' in e.parser.key)
                         and 'jnt' in e.settings.key
                         and 'orc' not in e.settings.key]
 """

@@ -41,9 +41,7 @@ def _get_learn_job(lconf, rconf, subpack, paths, task):
     else:
         raise ValueError('Unknown learning task: {}'.format(task))
 
-    if sub_rconf.key == 'oracle':
-        return None
-    elif fp.exists(output_path):
+    if fp.exists(output_path):
         print(("reusing {key} {task} model (already built): {path}"
                "").format(key=sub_rconf.key,
                           task=task.name,
@@ -80,7 +78,7 @@ def delayed_learn(lconf, dconf, rconf, fold, include_intra):
         jobs.append(_get_learn_job(lconf, rconf, subpack, paths, Task.attach))
         jobs.append(_get_learn_job(lconf, rconf, subpack, paths, Task.relate))
     if include_intra:
-        subpack = {k: for_intra(v)
+        subpack = {k: for_intra(v, v.target)[0]
                    for k, v in get_subpack(dconf.pack).items()}
         paths = attelo_sent_model_paths(lconf, rconf, fold)
         jobs.append(_get_learn_job(lconf, rconf, subpack, paths, Task.attach))

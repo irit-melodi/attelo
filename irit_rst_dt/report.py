@@ -49,7 +49,7 @@ def _report_key(econf):
     :rtype tuple(string)
     """
     return (econf.learner.key,
-            econf.decoder.key[len(econf.settings.key) + 1:],
+            econf.parser.key[len(econf.settings.key) + 1:],
             econf.settings.key)
 
 
