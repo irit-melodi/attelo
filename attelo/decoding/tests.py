@@ -11,7 +11,7 @@ from ..table import (DataPack, Graph)
 from ..edu import EDU
 from . import astar, greedy, mst
 from .astar import (AstarArgs, Heuristic, RfcConstraint)
-from .util import simple_candidates
+from .util import (prediction_to_triples, simple_candidates)
 
 # pylint: disable=too-few-public-methods
 # default values for perceptron learner
@@ -60,22 +60,23 @@ class DecoderTest(unittest.TestCase):
                 (edus[0], edus[3]),
                 (edus[1], edus[3]),
                 (edus[2], edus[3])]
-    graph = Graph(predictions=[0, 0, 0, 0, 0, 0],
-                  attach=[0.8, 0.4, 0.5, 0.2, 0.2, 0.2],
-                  label=[[0.8, 0.1, 0.1, 0.0],
-                         [0.1, 0.9, 0.0, 0.0],
-                         [0.0, 0.0, 0.8, 0.2],
-                         [0.0, 0.0, 0.3, 0.7],
-                         [0.0, 0.0, 0.3, 0.7],
-                         [0.0, 0.0, 0.3, 0.7]])
-    dpack = DataPack(labels=['elaboration',
+    graph = Graph(prediction=np.array([0, 0, 0, 0, 0, 0]),
+                  attach=np.array([0.8, 0.4, 0.5, 0.2, 0.2, 0.2]),
+                  label=np.array([[0.1, 0.8, 0.1, 0.1, 0.0],
+                                  [0.2, 0.1, 0.9, 0.0, 0.0],
+                                  [0.1, 0.0, 0.0, 0.8, 0.2],
+                                  [0.0, 0.0, 0.0, 0.3, 0.7],
+                                  [0.0, 0.0, 0.0, 0.3, 0.7],
+                                  [0.0, 0.0, 0.0, 0.3, 0.7]]))
+    dpack = DataPack(labels=['UNRELATED',
+                             'elaboration',
                              'narration',
                              'continuation',
                              'acknowledgement'],
                      edus=edus,
                      pairings=pairings,
-                     features=[[], [], [], [], [], []],
-                     target=[0, 0, 0, 0, 0, 0],
+                     data=np.array([[], [], [], [], [], []]),
+                     target=np.array([0, 0, 0, 0, 0, 0]),
                      graph=graph,
                      vocab=None)
 
@@ -106,13 +107,12 @@ class AstarTest(DecoderTest):
         # print "cost:", endstate.cost()
         # print search.iterations
 
-    def test_search(self, nbest):
+    def test_search(self):
         'n-best A* search'
         astar_args = astar.AstarArgs(heuristics=DEFAULT_ASTAR_ARGS.heuristics,
                                      # FIXME full broken
                                      rfc=astar.RfcConstraint.simple,
                                      beam=DEFAULT_ASTAR_ARGS.beam,
-                                     nbest=nbest,
                                      use_prob=DEFAULT_ASTAR_ARGS.use_prob)
         decoder = astar.AstarDecoder(astar_args)
         return decoder.decode(self.dpack)
@@ -138,18 +138,18 @@ class MstTest(DecoderTest):
     def test_mst(self):
         'check plain MST decoder'
         decoder1 = mst.MstDecoder(mst.MstRootStrategy.fake_root)
-        edges = decoder1.decode(self.dpack)[0]
+        edges = prediction_to_triples(decoder1.decode(self.dpack))
         # Is it a tree ? (One edge less than number of vertices)
         self.assertEqual(len(edges), len(self.edus) - 1)
 
         decoder2 = mst.MstDecoder(mst.MstRootStrategy.leftmost)
-        edges = decoder2.decode(self.dpack)[0]
+        edges = prediction_to_triples(decoder2.decode(self.dpack))
         # Is it a tree ? (One edge less than number of vertices)
         self.assertEqual(len(edges), len(self.edus) - 1)
 
     def test_msdag(self):
         'check MSDAG decoder'
         decoder = mst.MsdagDecoder(mst.MstRootStrategy.fake_root)
-        edges = decoder.decode(self.dpack)[0]
+        edges = prediction_to_triples(decoder.decode(self.dpack))
         # Are all links included ? (already given a MSDAG...)
         self.assertEqual(len(edges), len(self.dpack))

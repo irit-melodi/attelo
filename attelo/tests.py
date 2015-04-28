@@ -16,7 +16,10 @@ import attelo.fold
 
 from .edu import EDU, FAKE_ROOT
 from .fold import select_training
-from .table import (DataPack, DataPackException, groupings)
+from .table import (DataPack,
+                    DataPackException,
+                    attached_only,
+                    groupings)
 
 MAX_FOLDS = 2
 
@@ -37,7 +40,8 @@ class DataPackTest(unittest.TestCase):
                        pairings=[(edus[0], edus[1])],
                        data=scipy.sparse.csr_matrix([[6, 8]]),
                        target=numpy.array([1]),
-                       labels=['x', 'UNRELATED'],
+                       labels=['__UNK__', 'x', 'UNRELATED'],
+                       graph=None,
                        vocab=None)
     trivial_bidi = DataPack(edus,
                             pairings=[(edus[0], edus[1]),
@@ -45,7 +49,8 @@ class DataPackTest(unittest.TestCase):
                             data=scipy.sparse.csr_matrix([[6, 8],
                                                           [7, 0]]),
                             target=numpy.array([1, 0]),
-                            labels=['x', 'UNRELATED'],
+                            labels=['__UNK__', 'x', 'UNRELATED'],
+                            graph=None,
                             vocab=None)
 
     # pylint: disable=invalid-name
@@ -82,7 +87,7 @@ class DataPackTest(unittest.TestCase):
                           triv.pairings,
                           triv.data,
                           [1, 1],
-                          ['UNRELATED', 'foo'],
+                          ['__UNK__', 'UNRELATED', 'foo'],
                           None)
 
         # check grouping of edus
@@ -118,7 +123,8 @@ class DataPackTest(unittest.TestCase):
                                   (self.edus[2], self.edus[0])],
                         data=scipy.sparse.csr_matrix([[6], [7], [1], [5]]),
                         target=numpy.array([2, 1, 1, 3]),
-                        labels=['x', 'y', 'UNRELATED'],
+                        labels=['__UNK__', 'x', 'y', 'UNRELATED'],
+                        graph=None,
                         vocab=None)
         labels = [pack.get_label(t) for t in pack.target]
         self.assertEqual(['y', 'x', 'x', 'UNRELATED'], labels)
@@ -132,7 +138,7 @@ class DataPackTest(unittest.TestCase):
         b2 = EDU('b2', 'is', 6, 8, 'b', 's2')
         # pylint: enable=invalid-name
 
-        orig_classes = ['there', 'are', 'four', 'UNRELATED', 'lights']
+        orig_classes = ['__UNK__', 'there', 'are', 'four', 'UNRELATED', 'lights']
         pack = DataPack.load(edus=[a1, a2,
                                    b1, b2],
                              pairings=[(a1, a2),
@@ -145,7 +151,7 @@ class DataPackTest(unittest.TestCase):
                              labels=orig_classes,
                              vocab=None)
 
-        pack1 = pack.attached_only()
+        pack1, _ = attached_only(pack, pack.target)
         self.assertEqual(orig_classes, pack1.labels)
         self.assertEqual(list(pack1.target), [3, 2])
 
@@ -169,7 +175,7 @@ class DataPackTest(unittest.TestCase):
         d2 = EDU('d2', '?', 6, 7, 'd', 's4')
         # pylint: enable=invalid-name
 
-        labels = ['x', 'y', 'UNRELATED']
+        labels = ['__UNK__', 'x', 'y', 'UNRELATED']
         mpack = {'a': DataPack.load(edus=[a1, a2],
                                     pairings=[(a1, a2)],
                                     data=scipy.sparse.csr_matrix([[6, 8]]),
