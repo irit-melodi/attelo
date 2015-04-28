@@ -83,6 +83,15 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
 
     This is an abstract class
 
+    Cache keys
+    ----------
+    Same as whatever included parsers would use.
+
+    This parser will divide the dictionary into keys that
+    have an 'intra:' prefix or not. The intra prefixed keys
+    will be passed onto the intrasentential parser (with
+    the prefix stripped). The other keys will be passed onto
+    the intersentential parser
     """
     def __init__(self, parsers):
         """
@@ -92,10 +101,32 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         """
         self._parsers = parsers
 
-    def fit(self, dpacks, targets):
+    @staticmethod
+    def _split_cache(cache):
+        """
+        Returns
+        -------
+        caches: IntraInterPair(dict(string, filepath))
+        """
+        if cache is None:
+            return IntraInterPair(None, None)
+        else:
+            intra_cache = {}
+            inter_cache = {}
+            pref_len = len('intra:')
+            for key in cache:
+                if key.startswith('intra:'):
+                    intra_cache[key[pref_len:]] = cache[key]
+                else:
+                    inter_cache[key] = cache[key]
+            return IntraInterPair(intra=intra_cache,
+                                  inter=inter_cache)
+
+    def fit(self, dpacks, targets, cache=None):
+        caches = self._split_cache(cache)
         dpacks_intra, targets_intra = self.dzip(for_intra, dpacks, targets)
-        self._parsers.intra.fit(dpacks_intra, targets_intra)
-        self._parsers.inter.fit(dpacks, targets)
+        self._parsers.intra.fit(dpacks_intra, targets_intra, cache=caches.intra)
+        self._parsers.inter.fit(dpacks, targets, cache=caches.inter)
         return self
 
     def transform(self, dpack):

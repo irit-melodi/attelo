@@ -22,7 +22,7 @@ class AttachTimesBestLabel(Parser):
     and something downstream to make predictions (otherwise
     it's UNKNOWN everywhere)
     """
-    def fit(self, dpacks, targets):
+    def fit(self, dpacks, targets, cache=None):
         return
 
     def transform(self, dpack):
@@ -46,6 +46,11 @@ class JointPipeline(Pipeline):
     ie. one that has separate attach-direct model and label
     model (AD.L); but which treats decoding as a joint-prediction
     task.
+
+    Cache keys
+    ----------
+    attach: attach model path
+    label: label model path
 
     Caveats
     -------
@@ -92,6 +97,11 @@ class PostlabelPipeline(Pipeline):
     unweighted it will initalise it from the classifier.
     Also, if there are pre-existing weights, they will be
     multiplied with the new weights
+
+    Cache keys
+    ----------
+    attach: attach model path
+    label: label model path
     """
     def __init__(self,
                  learner_attach,

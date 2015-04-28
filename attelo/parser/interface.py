@@ -82,7 +82,7 @@ class Parser(with_metaclass(ABCMeta, object)):
         return zip(*pairs)
 
     @abstractmethod
-    def fit(self, dpacks, targets):
+    def fit(self, dpacks, targets, cache=None):
         """
         Extract whatever models or other information from the multipack
         that is necessary to make the parser operational
@@ -94,6 +94,20 @@ class Parser(with_metaclass(ABCMeta, object)):
         targets: [array(int)]
             A block of labels for each datapack. Each block should
             have the same length as its corresponding datapack
+
+        cache: dict(string, object), optional
+            Paths to submodels. If set, this dictionary associates
+            submodel names with filenames. The submodel names are
+            arbitrary strings like "attach" or "label" (check the
+            documentation for the parser itself to see what
+            submodels it recognises) with some sort of cache.
+
+            This usage is necessarily loose. The parser should be
+            prepared to ignore a key if it does not exist in the
+            cache. The typical cache value is a filepath containing
+            a pickle to load or dump; but other objects may sometimes
+            be used depending on the parser (eg. other caches if it's
+            a parser that somehow combines other parsers together)
         """
         raise NotImplementedError
 

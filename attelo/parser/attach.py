@@ -4,6 +4,9 @@ is directed or not depends on the underlying datapack and decoder).
 You could also combine this with the label parser
 """
 
+from os import path as fp
+
+from attelo.io import (load_model, save_model)
 from attelo.table import (for_attachment)
 from .interface import (Parser)
 from .pipeline import (Pipeline)
@@ -21,6 +24,10 @@ class AttachClassifierWrapper(Parser):
     If you use it in standalone mode, it will just provide the
     standard unknown prediction everywhere
 
+    Cache keys
+    ----------
+    attach: attachment model path
+
     Caveats
     -------
     For the moment, parsers work with cached models only. There is a fit
@@ -37,7 +44,7 @@ class AttachClassifierWrapper(Parser):
         """
         self._learner_attach = learner_attach
 
-    def fit(self, dpacks, targets):
+    def fit(self, dpacks, targets, cache=None):
         """
         Extract whatever models or other information from the multipack
         that is necessary to make the parser operational
@@ -46,8 +53,17 @@ class AttachClassifierWrapper(Parser):
         ----------
         mpack : MultiPack
         """
-        dpacks, targets = self.dzip(for_attachment, dpacks, targets)
-        self._learner_attach.fit(dpacks, targets)
+        cache = cache or {}
+        cache_file = cache.get('attach')
+        if cache_file is not None and fp.exists(cache_file):
+            self._learner_attach = load_model(cache_file)
+            return self
+        else:
+            dpacks, targets = self.dzip(for_attachment, dpacks, targets)
+            self._learner_attach.fit(dpacks, targets)
+            if cache_file is not None:
+                save_model(cache_file, self._learner_attach)
+            return self
 
     def transform(self, dpack):
         attach_pack, _ = for_attachment(dpack, dpack.target)
@@ -67,6 +83,10 @@ class AttachPipeline(Pipeline):
     unweighted it will initalise it from the classifier.
     Also, if there are pre-existing weights, they will be
     multiplied with the new weights
+
+    Cache keys
+    ----------
+    attach: attachment model path
 
     Caveats
     -------

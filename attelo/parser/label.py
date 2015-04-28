@@ -2,9 +2,12 @@
 Labelling
 """
 
+from os import path as fp
+
 import numpy as np
 
 from .interface import (Parser)
+from attelo.io import (load_model, save_model)
 from attelo.table import (UNKNOWN,
                           attached_only,
                           for_labelling)
@@ -18,6 +21,10 @@ class LabelClassifierWrapper(Parser):
 
     If you use it in standalone mode, it will just provide the
     standard unknown prediction everywhere
+
+    Cache keys
+    ----------
+    label: label model path
     """
     def __init__(self, learner):
         """
@@ -28,7 +35,7 @@ class LabelClassifierWrapper(Parser):
         super(LabelClassifierWrapper, self).__init__()
         self._learner = learner
 
-    def fit(self, dpacks, targets):
+    def fit(self, dpacks, targets, cache=None):
         """
         Extract whatever models or other information from the multipack
         that is necessary to make the labeller operational
@@ -37,10 +44,18 @@ class LabelClassifierWrapper(Parser):
         -------
         self: object
         """
-        dpacks, targets = self.dzip(attached_only, dpacks, targets)
-        dpacks, targets = self.dzip(for_labelling, dpacks, targets)
-        self._learner.fit(dpacks, targets)
-        return self
+        cache = cache or {}
+        cache_file = cache.get('label')
+        if cache_file is not None and fp.exists(cache_file):
+            self._learner = load_model(cache_file)
+            return self
+        else:
+            dpacks, targets = self.dzip(attached_only, dpacks, targets)
+            dpacks, targets = self.dzip(for_labelling, dpacks, targets)
+            self._learner.fit(dpacks, targets)
+            if cache_file is not None:
+                save_model(cache_file, self._learner)
+            return self
 
     def transform(self, dpack):
         dpack, _ = for_labelling(dpack, dpack.target)
@@ -54,6 +69,10 @@ class SimpleLabeller(LabelClassifierWrapper):
 
     This can be used as a standalone parser if the underlying
     classfier predicts UNRELATED
+
+    Cache keys
+    ----------
+    label: label model path
     """
 
     def __init__(self, learner):
@@ -64,7 +83,7 @@ class SimpleLabeller(LabelClassifierWrapper):
         """
         super(SimpleLabeller, self).__init__(learner)
 
-    def fit(self, dpacks, targets):
+    def fit(self, dpacks, targets, cache=None):
         """
         Extract whatever models or other information from the multipack
         that is necessary to make the labeller operational
@@ -73,7 +92,7 @@ class SimpleLabeller(LabelClassifierWrapper):
         -------
         self: object
         """
-        return super(SimpleLabeller, self).fit(dpacks, targets)
+        return super(SimpleLabeller, self).fit(dpacks, targets, cache=cache)
 
     def transform(self, dpack):
         dpack = super(SimpleLabeller, self).transform(dpack)

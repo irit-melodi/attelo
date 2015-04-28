@@ -48,7 +48,7 @@ class Decoder(with_metaclass(ABCMeta, Parser)):
         '''
         raise NotImplementedError
 
-    def fit(self, dpacks, targets):
+    def fit(self, dpacks, targets, cache=None):
         return
 
     def transform(self, dpack):
