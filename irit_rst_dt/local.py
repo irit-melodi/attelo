@@ -284,15 +284,20 @@ def _is_junk(klearner, kdecoder):
     return False
 
 
-def _mk_intra(mk_parser, strategy):
+def _mk_intra(mk_parser, settings):
     """
     Return an intra/inter parser that would be wrapped
     around a core parser
     """
+    strategy = settings.strategy
     def _inner(lcfg):
         "the actual parser factory"
-        parsers = IntraInterPair(intra=mk_parser(lcfg.intra),
-                                 inter=mk_parser(lcfg.inter))
+        oracle_cfg = LearnerConfig(attach=attach_learner_oracle(),
+                                   relate=label_learner_oracle())
+        intra_cfg = oracle_cfg if settings.intra_oracle else lcfg
+        inter_cfg = oracle_cfg if settings.inter_oracle else lcfg
+        parsers = IntraInterPair(intra=mk_parser(intra_cfg),
+                                 inter=mk_parser(inter_cfg))
         if strategy == IntraStrategy.only:
             return SentOnlyParser(parsers)
         elif strategy == IntraStrategy.heads:
@@ -314,15 +319,15 @@ def _mk_parser_config(kdecoder, settings):
     decoder_key = combined_key([settings, kdecoder])
     decoder = kdecoder.payload(settings)
     if settings.mode == DecodingMode.joint:
-        mk_parser = lambda t: JointPipeline(learner_attach=t.attach,
-                                            learner_label=t.relate,
+        mk_parser = lambda t: JointPipeline(learner_attach=t.attach.payload,
+                                            learner_label=t.relate.payload,
                                             decoder=decoder)
     elif settings.mode == DecodingMode.post_label:
-        mk_parser = lambda t: PostlabelPipeline(learner_attach=t.attach,
-                                                learner_label=t.relate,
+        mk_parser = lambda t: PostlabelPipeline(learner_attach=t.attach.payload,
+                                                learner_label=t.relate.payload,
                                                 decoder=decoder)
     if settings.intra is not None:
-        mk_parser = _mk_intra(mk_parser, settings.intra.strategy)
+        mk_parser = _mk_intra(mk_parser, settings.intra)
 
     return ParserConfig(key=decoder_key,
                         decoder=decoder,
@@ -377,12 +382,20 @@ def _mk_evaluations():
         pairs.extend((klearner(x.decoder), x) for x in kparsers)
 
     # boxing this up a little bit more conveniently
-    return [EvaluationConfig(key=combined_key([klearner, kparser]),
-                             settings=kparser.settings,
-                             learner=klearner,
-                             parser=kparser)
-            for klearner, kparser in pairs
-            if not _is_junk(klearner, kparser)]
+    configs = []
+    for klearner, kparser_ in pairs:
+        if _is_junk(klearner, kparser_):
+            continue
+        kparser = ParserConfig(key=kparser_.key,
+                               decoder=kparser_.decoder,
+                               payload=kparser_.payload(klearner),
+                               settings=kparser_.settings)
+        cfg = EvaluationConfig(key=combined_key([klearner, kparser]),
+                               settings=kparser.settings,
+                               learner=klearner,
+                               parser=kparser)
+        configs.append(cfg)
+    return configs
 
 
 EVALUATIONS = _mk_evaluations()

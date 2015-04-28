@@ -11,17 +11,10 @@ from os import path as fp
 import sys
 
 from attelo.fold import (select_testing)
-from attelo.io import (load_model)
 from attelo.harness.util import (makedirs)
-from attelo.parser.intra import (IntraInterPair)
-from attelo.util import (Team)
-from attelo.learning.oracle import (AttachOracle,
-                                    LabelOracle)
 import attelo.harness.parse as ath_parse
 
-from .path import (attelo_doc_model_paths,
-                   attelo_sent_model_paths,
-                   decode_output_path)
+from .path import (decode_output_path)
 from .util import (test_evaluation)
 
 
@@ -73,26 +66,7 @@ def delayed_decode(lconf, dconf, econf, fold):
     else:
         subpack = select_testing(dconf.pack, dconf.folds, fold)
 
-
-    doc_model_paths = attelo_doc_model_paths(lconf, econf.learner, fold)
-    intra_flag = econf.settings.intra
-    if intra_flag is not None:
-        sent_model_paths = \
-            attelo_sent_model_paths(lconf, econf.learner, fold)
-
-        intra_model = Team(AttachOracle(), LabelOracle())\
-            if intra_flag.intra_oracle\
-            else sent_model_paths.fmap(load_model)
-        inter_model = Team(AttachOracle(), LabelOracle())\
-            if intra_flag.inter_oracle\
-            else doc_model_paths.fmap(load_model)
-
-        models = IntraInterPair(intra=intra_model,
-                                inter=inter_model)
-    else:
-        models = doc_model_paths.fmap(load_model)
-
-    parser = econf.parser.payload(models)
+    parser = econf.parser.payload
     return ath_parse.jobs(subpack, parser, output_path)
 
 
