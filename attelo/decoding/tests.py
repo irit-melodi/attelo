@@ -5,13 +5,34 @@ attelo.decoding tests
 from __future__ import print_function
 import unittest
 
-from ..args import DEFAULT_ASTAR_ARGS
+import numpy as np
+
 from ..table import (DataPack, Graph)
 from ..edu import EDU
 from . import astar, greedy, mst
+from .astar import (AstarArgs, Heuristic, RfcConstraint)
 from .util import simple_candidates
 
 # pylint: disable=too-few-public-methods
+# default values for perceptron learner
+
+#DEFAULT_USE_PROB = True
+#DEFAULT_PERCEPTRON_ARGS = PerceptronArgs(iterations=20,
+#                                         averaging=True,
+#                                         use_prob=DEFAULT_USE_PROB,
+#                                         aggressiveness=inf)
+
+# DEFAULT_MST_ROOT = MstRootStrategy.fake_root
+
+# default values for A* decoder
+# (NB: not the same as in the default initialiser)
+DEFAULT_ASTAR_ARGS = AstarArgs(heuristics=Heuristic.average,
+                               rfc=RfcConstraint.full,
+                               beam=None,
+                               use_prob=True)
+DEFAULT_HEURISTIC = DEFAULT_ASTAR_ARGS.heuristics
+DEFAULT_BEAMSIZE = DEFAULT_ASTAR_ARGS.beam
+DEFAULT_RFC = DEFAULT_ASTAR_ARGS.rfc
 
 
 def mk_fake_edu(start, end=None, edu_file="x", sentence='s1'):

@@ -45,15 +45,6 @@ implement the following functions
 '''
 
 from collections import namedtuple
-import copy
-
-from sklearn.dummy import DummyClassifier
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.linear_model import (LogisticRegression,
-                                  Perceptron as SkPerceptron,
-                                  PassiveAggressiveClassifier as
-                                  SkPassiveAggressiveClassifier)
-from sklearn.svm import SVC
 
 from .control import (Task,
                       learn,
@@ -74,58 +65,3 @@ from .interface import *
 # pylint: enable=wildcard-import
 
 # pylint: disable=too-few-public-methods
-
-
-class LearnerArgs(namedtuple("LearnerArgs",
-                             ["decoder",
-                              "perc_args"])):
-    '''
-    Parameters used to instantiate attelo learners.
-    Not all parameters are used by all learners
-    '''
-
-
-ATTACH_LEARNERS =\
-    {"oracle": lambda _: AttachOracle(),
-     "bayes": lambda _: SklearnAttachClassifier(MultinomialNB()),
-     "maxent": lambda _: SklearnAttachClassifier(LogisticRegression()),
-     "svm": lambda _: SklearnAttachClassifier(SVC()),
-     "majority": lambda _: SklearnAttachClassifier(DummyClassifier(strategy="most_frequent")),
-     "always": lambda _: SklearnAttachClassifier(DummyClassifier(strategy="constant",
-                                                                 constant=1)),
-     "never": lambda _: SklearnAttachClassifier(DummyClassifier(strategy="constant",
-                                                                constant=-1)),
-     "sk-perceptron": lambda _: SklearnAttachClassifier(SkPerceptron()),
-     "sk-pasagg": lambda _: SklearnAttachClassifier(SkPassiveAggressiveClassifier())}
-
-
-'''
-learners that can be used for the attachment task
-
-dictionary from learner names (recognised by the attelo command
-line interface) to learner wrappers
-
-The wrappers must accept a :py:class:LearnerArgs: tuple,
-the idea being that it would pick out any parameters relevant to it
-and ignore the rest
-'''
-# # local reimplemented learners
-# ATTACH_LEARNERS["perc"] = lambda c: Perceptron( c.perc_args )
-# ATTACH_LEARNERS["pa"] = lambda c: PassiveAggressive( c.perc_args )
-
-# # structured learners
-# ATTACH_LEARNERS["perc-struct"] = lambda c: StructuredPerceptron( c.perc_args )
-# ATTACH_LEARNERS["pa-struct"] = lambda c: StructuredPassiveAggressive( c.perc_args )
-
-RELATE_LEARNERS =\
-    {"oracle": lambda _: LabelOracle(),
-     "bayes": lambda _: SklearnLabelClassifier(MultinomialNB()),
-     "maxent": lambda _: SklearnLabelClassifier(LogisticRegression()),
-     "svm": lambda _: SklearnLabelClassifier(SVC()),
-     "majority": lambda _: SklearnLabelClassifier(DummyClassifier(strategy="most_frequent"))}
-
-'''
-learners that can be used for the relation labelling task
-
-(see `ATTACH_LEARNERS`)
-'''
