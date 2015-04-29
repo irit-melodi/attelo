@@ -128,10 +128,8 @@ def parallel(lconf, n_jobs=None, verbose=None):
         run jobs in truly sequential fashion without any of
         this parallel nonsense
         """
-        # pylint: disable=star-args
         for func, args, kwargs in jobs:
             func(*args, **kwargs)
-        # pylint: enable=star-args
 
     if n_jobs == 0:
         return sequential
