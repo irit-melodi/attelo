@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --output=irit-rst-dt-evaluate-%j.out
-#SBATCH --cpus-per-task=64
+#SBATCH --cpus-per-task=31
 IRIT_RST_DT=$HOME/irit-rst-dt
 cd "$IRIT_RST_DT"
 set -e
