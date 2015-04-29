@@ -1,5 +1,3 @@
-# pylint: disable=W0105
-# pylint: disable=star-args
 """
 Paths and settings used for this experimental harness
 In the future we may move this to a proper configuration file.
@@ -15,6 +13,7 @@ from numpy import inf
 
 from attelo.harness.config import (EvaluationConfig,
                                    LearnerConfig,
+                                   ParserConfig,
                                    Keyed)
 
 from attelo.decoding.baseline import (LocalBaseline)
@@ -47,7 +46,6 @@ from .attelo_cfg import (combined_key,
                          DecodingMode,
                          IntraStrategy,
                          Settings,
-                         ParserConfig,
                          IntraFlag)
 
 # PATHS

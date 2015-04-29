@@ -58,25 +58,3 @@ Settings = namedtuple('Settings',
 """
 Global settings for decoding and for decoder construction
 """
-
-
-ParserConfig = namedtuple('ParserConfig',
-                          ['key',
-                           'decoder',
-                           'payload',
-                           'settings'])
-"""
-A decoder and some decoder settings that together with it
-"""
-
-
-def _attelo_fold_args(lconf, fold):
-    """
-    Return flags for picking out the attelo fold file (and fold
-    number), if relevant
-    """
-    if fold is None:
-        return []
-    else:
-        return ["--fold", str(fold),
-                "--fold-file", lconf.fold_file]
