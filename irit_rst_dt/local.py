@@ -41,6 +41,8 @@ from sklearn.linear_model import (LogisticRegression,
                                   Perceptron as SkPerceptron,
                                   PassiveAggressiveClassifier as
                                   SkPassiveAggressiveClassifier)
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from .attelo_cfg import (combined_key,
                          DecodingMode,
                          IntraStrategy,
@@ -140,6 +142,27 @@ def label_learner_maxent():
     return Keyed('maxent', SklearnLabelClassifier(LogisticRegression()))
 
 
+
+def attach_learner_dectree():
+    "return a keyed instance of decision tree learner"
+    return Keyed('dectree', SklearnAttachClassifier(DecisionTreeClassifier()))
+
+
+def label_learner_dectree():
+    "return a keyed instance of decision tree learner"
+    return Keyed('dectree', SklearnLabelClassifier(DecisionTreeClassifier()))
+
+
+def attach_learner_rndforest():
+    "return a keyed instance of random forest learner"
+    return Keyed('rndforest', SklearnAttachClassifier(RandomForestClassifier()))
+
+def label_learner_rndforest():
+    "return a keyed instance of decision tree learner"
+    return Keyed('rndforest', SklearnLabelClassifier(RandomForestClassifier()))
+
+
+
 LOCAL_PERC_ARGS = PerceptronArgs(iterations=20,
                                  averaging=True,
                                  use_prob=False,
@@ -167,6 +190,8 @@ _LOCAL_LEARNERS = [
                   relate=label_learner_maxent()),
     LearnerConfig(attach=attach_learner_maxent(),
                   relate=label_learner_oracle()),
+    LearnerConfig(attach=attach_learner_rndforest(),
+                  relate=label_learner_rndforest()),
 #    LearnerConfig(attach=Keyed('sk-perceptron',
 #                               SkPerceptron(n_iter=20)),
 #                  relate=learner_maxent()),
