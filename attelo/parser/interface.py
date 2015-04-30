@@ -7,7 +7,7 @@ import numpy as np
 from abc import ABCMeta, abstractmethod
 from six import with_metaclass
 
-from attelo.table import (Graph, UNKNOWN)
+from attelo.table import (Graph, UNKNOWN, UNRELATED)
 
 # pylint: disable=too-few-public-methods
 
@@ -60,6 +60,29 @@ class Parser(with_metaclass(ABCMeta, object)):
         graph = Graph(prediction=prediction,
                       attach=attach,
                       label=label)
+        return dpack.set_graph(graph)
+
+    @staticmethod
+    def deselect(dpack, idxes):
+        """
+        Common parsing pattern: mark all edges at the given indices
+        as unrelated with attachment score of 0. This should normally
+        exclude them from attachment by a decoder.
+
+        Warning: assumes a weighted datapack
+
+        This is often a better bet than using something like
+        `DataPack.selected` because it keeps the unwanted edges in
+        the datapack
+        """
+        if dpack.graph is None:
+            raise ValueError("Need a weighted datapack")
+        attach = np.copy(dpack.graph.attach)
+        prediction = np.copy(dpack.graph.prediction)
+        attach[idxes] = 0
+        prediction[idxes] = dpack.label_number(UNRELATED)
+        graph = dpack.graph.tweak(attach=attach,
+                                  prediction=prediction)
         return dpack.set_graph(graph)
 
     @staticmethod
