@@ -199,6 +199,18 @@ def _generate_fold_file(lconf, mpack):
     return fold_dict
 
 
+def _decode_on_the_fly(lconf, dconf, econfs, fold):
+    """
+    Learn each parser, returning decoder jobs as each is learned.
+    Return a decoder job generator that should hopefully allow us
+    to effectively learn and decode in parallel.
+    """
+    for econf in econfs:
+        learn(lconf, econf, dconf, fold)
+        for job in delayed_decode(lconf, dconf, econf, fold):
+            yield job
+
+
 def _do_fold(lconf, dconf, fold):
     """
     Run all learner/decoder combos within this fold
@@ -208,11 +220,8 @@ def _do_fold(lconf, dconf, fold):
     if not os.path.exists(fold_dir):
         os.makedirs(fold_dir)
 
-    # learn all models
-    for econf in EVALUATIONS:
-        learn(lconf, econf, dconf, fold)
-    decoder_jobs = concat_i(delayed_decode(lconf, dconf, econf, fold)
-                            for econf in EVALUATIONS)
+    # learn/decode for all models
+    decoder_jobs = _decode_on_the_fly(lconf, dconf, EVALUATIONS, fold)
     parallel(lconf)(decoder_jobs)
     for econf in EVALUATIONS:
         post_decode(lconf, dconf, econf, fold)
