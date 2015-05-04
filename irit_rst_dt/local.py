@@ -9,7 +9,7 @@ In the future we may move this to a proper configuration file.
 from __future__ import print_function
 import itertools as itr
 
-from numpy import inf
+import numpy as np
 
 from attelo.harness.config import (EvaluationConfig,
                                    LearnerConfig,
@@ -115,10 +115,11 @@ def decoder_local(settings):
 
 
 def decoder_mst(settings):
-    "our instantiation of the local baseline decoder"
+    "our instantiation of the mst decoder"
     use_prob = settings.mode != DecodingMode.post_label
     return MstDecoder(MstRootStrategy.fake_root,
                       use_prob)
+
 
 def attach_learner_oracle():
     "return a keyed instance of the oracle (virtual) learner"
@@ -164,22 +165,22 @@ def label_learner_rndforest():
 LOCAL_PERC_ARGS = PerceptronArgs(iterations=20,
                                  averaging=True,
                                  use_prob=False,
-                                 aggressiveness=inf)
+                                 aggressiveness=np.inf)
 
 LOCAL_PA_ARGS = PerceptronArgs(iterations=20,
                                averaging=True,
                                use_prob=False,
-                               aggressiveness=inf)
+                               aggressiveness=np.inf)
 
 STRUCT_PERC_ARGS = PerceptronArgs(iterations=50,
                                   averaging=True,
                                   use_prob=False,
-                                  aggressiveness=inf)
+                                  aggressiveness=np.inf)
 
 STRUCT_PA_ARGS = PerceptronArgs(iterations=50,
                                 averaging=True,
                                 use_prob=False,
-                                aggressiveness=inf)
+                                aggressiveness=np.inf)
 
 _LOCAL_LEARNERS = [
     LearnerConfig(attach=attach_learner_oracle(),
