@@ -2,9 +2,7 @@
 Local classifiers
 """
 
-# pylint: disable=no-name-in-module
-from numpy import (concatenate as np_concatenate)
-# pylint: enable=no-name-in-module
+import numpy as np
 
 from attelo.table import (DataPack,
                           for_labelling)
@@ -31,7 +29,7 @@ class SklearnAttachClassifier(AttachClassifier):
 
     def fit(self, dpacks, targets):
         dpack = DataPack.vstack(dpacks)
-        target = np_concatenate(targets)
+        target = np.concatenate(targets)
         self._learner.fit(dpack.data, target)
         self._fitted = True
         return self
@@ -73,7 +71,7 @@ class SklearnLabelClassifier(LabelClassifier):
 
     def fit(self, dpacks, targets):
         dpack = DataPack.vstack(dpacks)
-        target = np_concatenate(targets)
+        target = np.concatenate(targets)
         self._learner.fit(dpack.data, target)
         self._labels = [dpack.get_label(x) for x in self._learner.classes_]
         self._fitted = True
