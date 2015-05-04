@@ -280,6 +280,8 @@ EVALUATIONS list below in order to exclude these
 possibilities
 """
 
+HARNESS_NAME = 'irit-rst-dt'
+
 
 def _is_junk(klearner, kdecoder):
     """

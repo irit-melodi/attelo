@@ -15,8 +15,7 @@ from ..local import (TEST_CORPUS,
                      TRAINING_CORPUS,
                      PTB_DIR,
                      FEATURE_SET)
-from ..util import\
-    current_tmp, latest_tmp
+from ..util import (current_tmp, latest_tmp)
 
 NAME = 'gather'
 
@@ -85,4 +84,4 @@ def main(args):
         call(["pip", "freeze"], stdout=stream)
     if not args.skip_training:
         latest_dir = latest_tmp()
-        force_symlink(os.path.basename(tdir), latest_dir)
+        force_symlink(fp.basename(tdir), latest_dir)

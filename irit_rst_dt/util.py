@@ -15,7 +15,8 @@ import sys
 from attelo.harness.util import timestamp
 from joblib import (Parallel)
 
-from .local import (LOCAL_TMP,
+from .local import (HARNESS_NAME,
+                    LOCAL_TMP,
                     EVALUATIONS,
                     TEST_CORPUS,
                     TEST_EVALUATION_KEY)
@@ -64,7 +65,7 @@ def exit_ungathered():
     You don't seem to have run the gather command
     """
     sys.exit("""No data to run experiments on.
-Please run `irit-rst-dt gather`""")
+Please run `{} gather`""".format(HARNESS_NAME))
 
 
 def test_evaluation():
