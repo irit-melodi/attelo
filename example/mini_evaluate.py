@@ -78,12 +78,12 @@ decoder = Pipeline(steps=[('window pruner', WindowPruner(2)),
 # decoder = MstDecoder(root_strategy=MstRootStrategy.fake_root)
 # decoder = LocalBaseline(0.5, use_prob=False)
 learners = Team(attach=StructuredPerceptron(decoder, LOCAL_PERC_ARGS),
-                relate=SklearnLabelClassifier(LogisticRegression()))
+                label=SklearnLabelClassifier(LogisticRegression()))
 #parser = JointPipeline(learner_attach=learners.attach,
-#                       learner_label=learners.relate,
+#                       learner_label=learners.label,
 #                       decoder=decoder)
 parser = PostlabelPipeline(learner_attach=learners.attach,
-                           learner_label=learners.relate,
+                           learner_label=learners.label,
                            decoder=decoder)
 
 # cross-fold evaluation
