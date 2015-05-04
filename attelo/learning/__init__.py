@@ -46,9 +46,6 @@ implement the following functions
 
 from collections import namedtuple
 
-from .control import (Task,
-                      learn,
-                      learn_task)
 from .local import (SklearnAttachClassifier,
                     SklearnLabelClassifier)
 from .oracle import (AttachOracle,
