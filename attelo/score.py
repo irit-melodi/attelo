@@ -257,11 +257,11 @@ def discriminating_features(models, labels, vocab, top_n):
     """
     best_idxes = lambda m, i: _best_feature_indices(vocab, m, i, top_n)
     if (not hasattr(models.attach, 'coef_') or
-            not hasattr(models.relate, 'coef_')):
+            not hasattr(models.label, 'coef_')):
         return None
     rows = []
     rows.append((UNRELATED, best_idxes(models.attach, 0)))
-    for i, class_ in enumerate(models.relate.classes_):
+    for i, class_ in enumerate(models.label.classes_):
         label = get_label_string(labels, class_)
-        rows.append((label, best_idxes(models.relate, i)))
+        rows.append((label, best_idxes(models.label, i)))
     return rows
