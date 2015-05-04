@@ -22,9 +22,11 @@ class LabelClassifierWrapper(Parser):
     If you use it in standalone mode, it will just provide the
     standard unknown prediction everywhere
 
-    Cache keys
-    ----------
-    label: label model path
+    Notes
+    -----
+    *Cache keys*:
+
+    * label: label model path
     """
     def __init__(self, learner):
         """
@@ -70,8 +72,10 @@ class SimpleLabeller(LabelClassifierWrapper):
     This can be used as a standalone parser if the underlying
     classfier predicts UNRELATED
 
-    Cache keys
-    ----------
+    Notes
+    -----
+    *Cache keys*
+
     label: label model path
     """
 

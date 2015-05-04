@@ -11,6 +11,7 @@ from .pipeline import (Pipeline)
 
 # pylint: disable=too-few-public-methods
 
+
 class AttachTimesBestLabel(Parser):
     """
     Intermediary parser that adjusts the attachment weight
@@ -47,18 +48,12 @@ class JointPipeline(Pipeline):
     model (AD.L); but which treats decoding as a joint-prediction
     task.
 
-    Cache keys
-    ----------
-    attach: attach model path
-    label: label model path
+    Notes
+    -----
+    *Cache keys*
 
-    Caveats
-    -------
-    For the moment, parsers work with cached models only. There is a fit
-    function which could be used to pull things out of the training datapacks,
-    but it does not currently act on the learners. This could be activated once
-    we work out what to do about sharing models across parsers (for example, to
-    forget about it altogether)
+    * attach: attach model path
+    * label: label model path
     """
     def __init__(self,
                  learner_attach,
@@ -98,10 +93,12 @@ class PostlabelPipeline(Pipeline):
     Also, if there are pre-existing weights, they will be
     multiplied with the new weights
 
-    Cache keys
-    ----------
-    attach: attach model path
-    label: label model path
+    Notes
+    -----
+    *Cache keys*
+
+    * attach: attach model path
+    * label: label model path
     """
     def __init__(self,
                  learner_attach,

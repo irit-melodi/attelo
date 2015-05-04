@@ -13,6 +13,7 @@ from .pipeline import (Pipeline)
 
 # pylint: disable=too-few-public-methods
 
+
 class AttachClassifierWrapper(Parser):
     """
     Parser that extracts attachments weights from an attachment
@@ -24,17 +25,11 @@ class AttachClassifierWrapper(Parser):
     If you use it in standalone mode, it will just provide the
     standard unknown prediction everywhere
 
-    Cache keys
-    ----------
-    attach: attachment model path
+    Notes
+    -----
+    /Cache keys/:
 
-    Caveats
-    -------
-    For the moment, parsers work with cached models only. There is a fit
-    function which could be used to pull things out of the training datapacks,
-    but it does not currently act on the learners. This could be activated once
-    we work out what to do about sharing models across parsers (for example, to
-    forget about it altogether)
+    * attach: attachment model path
     """
     def __init__(self, learner_attach):
         """
@@ -84,17 +79,11 @@ class AttachPipeline(Pipeline):
     Also, if there are pre-existing weights, they will be
     multiplied with the new weights
 
-    Cache keys
-    ----------
-    attach: attachment model path
+    Notes
+    -----
+    *Cache keys*:
 
-    Caveats
-    -------
-    For the moment, parsers work with cached models only. There is a fit
-    function which could be used to pull things out of the training datapacks,
-    but it does not currently act on the learners. This could be activated once
-    we work out what to do about sharing models across parsers (for example, to
-    forget about it altogether)
+    * attach: attachment model path
     """
     def __init__(self, learner, decoder):
         """

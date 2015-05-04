@@ -72,7 +72,6 @@ def partition_subgroupings(dpack):
         yield dpack.selected(idxs)
 
 
-
 class IntraInterParser(with_metaclass(ABCMeta, Parser)):
     """
     Parser that performs attach, direction, and labelling tasks;
@@ -83,10 +82,9 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
 
     This is an abstract class
 
-    Cache keys
-    ----------
-    Same as whatever included parsers would use.
-
+    Notes
+    -----
+    /Cache keys/: Same as whatever included parsers would use.
     This parser will divide the dictionary into keys that
     have an 'intra:' prefix or not. The intra prefixed keys
     will be passed onto the intrasentential parser (with
@@ -125,7 +123,8 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
     def fit(self, dpacks, targets, cache=None):
         caches = self._split_cache(cache)
         dpacks_intra, targets_intra = self.dzip(for_intra, dpacks, targets)
-        self._parsers.intra.fit(dpacks_intra, targets_intra, cache=caches.intra)
+        self._parsers.intra.fit(dpacks_intra, targets_intra,
+                                cache=caches.intra)
         self._parsers.inter.fit(dpacks, targets, cache=caches.inter)
         return self
 
@@ -155,6 +154,7 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         get_lbl: int -> int or None
         """
         sub_idxes = np.array(locate_in_subpacks(dpack, subpacks))
+
         def get_lbl(i):
             'retrieve lbl if present'
             if sub_idxes[i] is None:
@@ -182,6 +182,7 @@ class SentOnlyParser(IntraInterParser):
         "join sentences by parsing their heads"
         unrelated_lbl = dpack.label_number(UNRELATED)
         sent_lbl = self._mk_get_lbl(dpack, spacks)
+
         def merged_lbl(i, pair):
             'doc label where relevant else sentence label'
             edu1, _ = pair
@@ -212,8 +213,8 @@ class HeadToHeadParser(IntraInterParser):
         unrelated_lbl = dpack.label_number(UNRELATED)
         sent_lbl = self._mk_get_lbl(dpack, spacks)
         head_ids = [edu2.id for i, (edu1, edu2) in enumerate(dpack.dpairings)
-                    if edu1.id == FAKE_ROOT_ID
-                    and sent_lbl(i) != unrelated_lbl]
+                    if edu1.id == FAKE_ROOT_ID and
+                    sent_lbl(i) != unrelated_lbl]
 
         # pick out edges where both elements are
         # a sentence head (or the fake root)
@@ -230,6 +231,7 @@ class HeadToHeadParser(IntraInterParser):
         dpack_inter = self._parsers.inter.transform(dpack_inter)
         doc_lbl = self._mk_get_lbl(dpack, [dpack_inter])
         sent_lbl = self._mk_get_lbl(dpack, spacks)
+
         def merged_lbl(i):
             'doc label where relevant else sentence label'
             lbl = doc_lbl(i)
@@ -243,9 +245,10 @@ class HeadToHeadParser(IntraInterParser):
 class SoftParser(IntraInterParser):
     """
     Intra/inter parser in which sentence recombination consists of
-    (1) passing intra-sentential edges through but
-    (2) marking 1.0 attachment probabilities if they are attached
-        and 1.0 label probabilities on the resulting edge
+
+    1. passing intra-sentential edges through but
+    2. marking 1.0 attachment probabilities if they are attached
+       and 1.0 label probabilities on the resulting edge
     """
     def _recombine(self, dpack, spacks):
         "soft decoding - pass sentence edges through the prob dist"
