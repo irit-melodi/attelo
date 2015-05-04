@@ -10,7 +10,78 @@ from .interface import (AttachClassifier,
                         LabelClassifier)
 from .util import (relabel)
 
-class SklearnAttachClassifier(AttachClassifier):
+# pylint: disable=too-few-public-methods
+
+
+class SkClassifier(object):
+    '''
+    An scikit classifier used for any purpose
+    '''
+    def __init__(self, learner):
+        self._learner = learner
+        pfunc = getattr(learner, "predict_proba", None)
+        self.can_predict_proba = callable(pfunc)
+
+    @staticmethod
+    def _best_weights(weights, top_n):
+        """
+        Given an array of weights, return the `top_n` most important
+        ones and the associated weight
+
+        Return
+        ------
+        best: [(int, float)]
+            index within the input weight array, and score
+        """
+        best_idxes = np.argsort(np.absolute(weights))[-top_n:][::-1]
+        best_weights = np.take(weights, best_idxes)
+        return zip(best_idxes, best_weights)
+
+    def important_features(self, top_n):
+        """
+        If possible, return a list of important features with
+        their weights.
+
+        The underlying classifier must provide either a coef_
+        or feature_importances_ property
+
+        Return
+        ------
+        features: None or [(int, float)]
+            the features themselves are indices into some vocabulary
+        """
+        model = self._learner
+        if hasattr(model, 'coef_') and len(model.classes_) <= 2:
+            return self._best_weights(model.coef_[0], top_n)
+        elif hasattr(model, 'feature_importances_'):
+            return self._best_weights(model.feature_importances_, top_n)
+        else:
+            return None
+
+    def important_features_multi(self, top_n):
+        """
+        If possible, return a dictionary mapping class indices
+        to important features
+
+        The underlying classifier must provide a coef_ property
+
+        Return
+        ------
+        feature_map: None or dict(int, [(int, float)])
+            keys are label (indices) as you would find in a
+            datapack; features are indices into a vocabulary
+        """
+        model = self._learner
+        if hasattr(model, 'coef_'):
+            res = {}
+            for i, lbl in enumerate(model.classes_):
+                res[lbl] = self._best_weights(model.coef_[i], top_n)
+            return res
+        else:
+            return None
+
+
+class SklearnAttachClassifier(AttachClassifier, SkClassifier):
     '''
     A relatively simple way to get an attachment classifier:
     just pass in a scikit classifier
@@ -21,10 +92,8 @@ class SklearnAttachClassifier(AttachClassifier):
         learner: scikit-compatible classifier
             Use the given learner for label prediction.
         """
-        super(SklearnAttachClassifier, self).__init__()
-        self._learner = learner
-        pfunc = getattr(learner, "predict_proba", None)
-        self.can_predict_proba = callable(pfunc)
+        AttachClassifier.__init__(self)
+        SkClassifier.__init__(self, learner)
         self._fitted = False
 
     def fit(self, dpacks, targets):
@@ -45,7 +114,7 @@ class SklearnAttachClassifier(AttachClassifier):
             return self._learner.decision_function(dpack.data)
 
 
-class SklearnLabelClassifier(LabelClassifier):
+class SklearnLabelClassifier(LabelClassifier, SkClassifier):
     '''
     A relative simple way to get a label classifier: just
     pass in a scikit classifier
@@ -62,10 +131,8 @@ class SklearnLabelClassifier(LabelClassifier):
         learner: scikit-compatible classifier
             Use the given learner for label prediction.
         """
-        super(SklearnLabelClassifier, self).__init__()
-        self._learner = learner
-        pfunc = getattr(learner, "predict_proba", None)
-        self.can_predict_proba = callable(pfunc)
+        LabelClassifier.__init__(self)
+        SkClassifier.__init__(self, learner)
         self._fitted = False
         self._labels = None  # not yet learned
 
