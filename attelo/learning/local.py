@@ -42,8 +42,8 @@ class SkClassifier(object):
         If possible, return a list of important features with
         their weights.
 
-        The underlying classifier must provide either a coef_
-        or feature_importances_ property
+        The underlying classifier must provide either a `coef_`
+        or `feature_importances_` property
 
         Return
         ------
@@ -63,7 +63,7 @@ class SkClassifier(object):
         If possible, return a dictionary mapping class indices
         to important features
 
-        The underlying classifier must provide a coef_ property
+        The underlying classifier must provide a `coef_` property
 
         Return
         ------
