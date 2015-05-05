@@ -76,9 +76,9 @@ class Graph(namedtuple('Graph',
         gzero = graphs[0]
         if gzero is None:
             return None
-        return cls(prediction=np.concatenate(x.prediction for x in graphs),
-                   attach=np.concatenate(x.attach for x in graphs),
-                   label=np.concatenate(x.label for x in graphs))
+        return cls(prediction=np.concatenate([x.prediction for x in graphs]),
+                   attach=np.concatenate([x.attach for x in graphs]),
+                   label=np.concatenate([x.label for x in graphs]))
 
     def tweak(self,
               prediction=None,
