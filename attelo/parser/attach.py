@@ -27,7 +27,7 @@ class AttachClassifierWrapper(Parser):
 
     Notes
     -----
-    /Cache keys/:
+    *Cache keys*
 
     * attach: attachment model path
     """
