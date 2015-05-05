@@ -9,28 +9,14 @@ import os
 import sys
 
 from sklearn.linear_model import (LogisticRegression)
-import numpy as np
 
-from attelo.decoding.astar import (AstarArgs,
-                                   Heuristic,
-                                   RfcConstraint,
-                                   AstarDecoder)
-from attelo.decoding.baseline import (LastBaseline,
-                                      LocalBaseline)
 from attelo.decoding.mst import (MstDecoder,
                                  MstRootStrategy)
-from attelo.decoding.greedy import (LocallyGreedy)
 from attelo.decoding.util import (prediction_to_triples)
-from attelo.decoding.window import (WindowPruner)
 
 from attelo.learning.local import (SklearnAttachClassifier,
                                    SklearnLabelClassifier)
-from attelo.learning.perceptron import (PerceptronArgs,
-                                        StructuredPerceptron)
-from attelo.parser.full import (JointPipeline,
-                                PostlabelPipeline)
-from attelo.parser.label import (SimpleLabeller)
-from attelo.parser.pipeline import (Pipeline)
+from attelo.parser.full import (JointPipeline)
 
 from attelo.fold import (make_n_fold,
                          select_testing,
@@ -62,31 +48,17 @@ mpack = load_multipack(PREFIX + '.edus',
 num_folds = min((10, len(mpack)))
 fold_dict = make_n_fold(mpack, num_folds, mk_rng())
 
-LOCAL_PERC_ARGS = PerceptronArgs(iterations=20,
-                                 averaging=True,
-                                 use_prob=False,
-                                 aggressiveness=np.inf)
-DEFAULT_ASTAR_ARGS = AstarArgs(heuristics=Heuristic.average,
-                               rfc=RfcConstraint.none,
-                               beam=None,
-                               use_prob=True)
-
 # select a decoder and a learner team
-decoder = Pipeline(steps=[('window pruner', WindowPruner(2)),
-                          ('decoder', AstarDecoder(DEFAULT_ASTAR_ARGS))])
-# decoder = LocallyGreedy()
-# decoder = MstDecoder(root_strategy=MstRootStrategy.fake_root)
-# decoder = LocalBaseline(0.5, use_prob=False)
-learners = Team(attach=StructuredPerceptron(decoder, LOCAL_PERC_ARGS),
+decoder = MstDecoder(root_strategy=MstRootStrategy.fake_root)
+learners = Team(attach=SklearnAttachClassifier(LogisticRegression()),
                 label=SklearnLabelClassifier(LogisticRegression()))
-#parser = JointPipeline(learner_attach=learners.attach,
-#                       learner_label=learners.label,
-#                       decoder=decoder)
-parser = PostlabelPipeline(learner_attach=learners.attach,
-                           learner_label=learners.label,
-                           decoder=decoder)
 
-# cross-fold evaluation
+# put them together as a parser
+parser = JointPipeline(learner_attach=learners.attach,
+                       learner_label=learners.label,
+                       decoder=decoder)
+
+# run cross-fold evaluation
 scores = []
 for fold in range(num_folds):
     print(">>> doing fold ", fold + 1, file=sys.stderr)
@@ -103,7 +75,7 @@ for fold in range(num_folds):
         print("decoding on file : ", onedoc, file=sys.stderr)
         dpack = parser.transform(dpack)
         prediction = prediction_to_triples(dpack)
-        print("Predictions: ", prediction)
+        # print("Predictions: ", prediction)
         # record the prediction score
         scores.append(score_edges(dpack, prediction))
         # optional: save the predictions for further inspection
