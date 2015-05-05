@@ -24,6 +24,7 @@ from ..decode import (delayed_decode, post_decode)
 from ..learn import (learn,
                      mk_combined_models)
 from ..local import (EVALUATIONS,
+                     FIXED_FOLD_FILE,
                      TRAINING_CORPUS,
                      TEST_CORPUS)
 from ..path import (fold_dir_path,
@@ -193,10 +194,13 @@ def _generate_fold_file(lconf, mpack):
     """
     Generate the folds file; return the resulting folds
     """
-    rng = mk_rng()
-    fold_dict = attelo.fold.make_n_fold(mpack, 10, rng)
-    save_fold_dict(fold_dict, lconf.fold_file)
-    return fold_dict
+    if FIXED_FOLD_FILE is None:
+        rng = mk_rng()
+        fold_dict = attelo.fold.make_n_fold(mpack, 10, rng)
+        save_fold_dict(fold_dict, lconf.fold_file)
+        return fold_dict
+    else:
+        return load_fold_dict(FIXED_FOLD_FILE)
 
 
 def _decode_on_the_fly(lconf, dconf, econfs, fold):
