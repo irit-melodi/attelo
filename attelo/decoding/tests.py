@@ -6,6 +6,7 @@ from __future__ import print_function
 import unittest
 
 import numpy as np
+from scipy.sparse import csr_matrix
 
 from ..table import (DataPack, Graph)
 from ..edu import EDU
@@ -62,24 +63,28 @@ class DecoderTest(unittest.TestCase):
                 (edus[2], edus[3])]
     graph = Graph(prediction=np.array([0, 0, 0, 0, 0, 0]),
                   attach=np.array([0.8, 0.4, 0.5, 0.2, 0.2, 0.2]),
-                  label=np.array([[0.1, 0.8, 0.1, 0.1, 0.0],
-                                  [0.2, 0.1, 0.9, 0.0, 0.0],
-                                  [0.1, 0.0, 0.0, 0.8, 0.2],
-                                  [0.0, 0.0, 0.0, 0.3, 0.7],
-                                  [0.0, 0.0, 0.0, 0.3, 0.7],
-                                  [0.0, 0.0, 0.0, 0.3, 0.7]]))
-    dpack = DataPack(labels=['UNRELATED',
+                  label=np.array([[0.0, 0.1, 0.8, 0.1, 0.0],
+                                  [0.0, 0.2, 0.1, 0.9, 0.0],
+                                  [0.0, 0.1, 0.0, 0.0, 0.2],
+                                  [0.0, 0.0, 0.0, 0.0, 0.7],
+                                  [0.0, 0.0, 0.0, 0.0, 0.7],
+                                  [0.0, 0.0, 0.0, 0.0, 0.7]]))
+    dpack = DataPack(labels=['__UNK__',
+                             'UNRELATED',
                              'elaboration',
                              'narration',
-                             'continuation',
                              'acknowledgement'],
                      edus=edus,
                      pairings=pairings,
-                     data=np.array([[], [], [], [], [], []]),
+                     data=csr_matrix(np.array([[1, 3, 8],
+                                               [9, 2, 0],
+                                               [7, 9, 1],
+                                               [3, 1, 1],
+                                               [3, 3, 1],
+                                               [0, 6, 3]])),
                      target=np.array([0, 0, 0, 0, 0, 0]),
                      graph=graph,
                      vocab=None)
-
 
 
 class AstarTest(DecoderTest):
