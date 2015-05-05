@@ -20,14 +20,6 @@ attelo.decoding.baseline module
     :undoc-members:
     :show-inheritance:
 
-attelo.decoding.control module
-------------------------------
-
-.. automodule:: attelo.decoding.control
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 attelo.decoding.greedy module
 -----------------------------
 
@@ -44,10 +36,10 @@ attelo.decoding.interface module
     :undoc-members:
     :show-inheritance:
 
-attelo.decoding.intra module
+attelo.decoding.local module
 ----------------------------
 
-.. automodule:: attelo.decoding.intra
+.. automodule:: attelo.decoding.local
     :members:
     :undoc-members:
     :show-inheritance:

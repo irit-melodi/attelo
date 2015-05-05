@@ -45,74 +45,20 @@ implement the following functions
 '''
 
 from collections import namedtuple
-import copy
 
-from sklearn.dummy import DummyClassifier
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.linear_model import (LogisticRegression,
-                                  Perceptron as SkPerceptron,
-                                  PassiveAggressiveClassifier as
-                                  SkPassiveAggressiveClassifier)
-from sklearn.svm import SVC
+from .local import (SklearnAttachClassifier,
+                    SklearnLabelClassifier)
+from .oracle import (AttachOracle,
+                     LabelOracle)
 
-from .control import (Task,
-                      learn,
-                      learn_task,
-                      can_predict_proba)
+
 from .perceptron import (PerceptronArgs,
                          Perceptron,
                          PassiveAggressive,
                          StructuredPerceptron,
                          StructuredPassiveAggressive)
+# pylint: disable=wildcard-import
+from .interface import *
+# pylint: enable=wildcard-import
 
 # pylint: disable=too-few-public-methods
-
-
-class LearnerArgs(namedtuple("LearnerArgs",
-                             ["decoder",
-                              "perc_args"])):
-    '''
-    Parameters used to instantiate attelo learners.
-    Not all parameters are used by all learners
-    '''
-
-
-_LEARNERS =\
-    {"oracle": lambda _: 'oracle',
-     "bayes": lambda _: MultinomialNB(),
-     "maxent": lambda _: LogisticRegression(),
-     "svm": lambda _: SVC(),
-     "majority": lambda _: DummyClassifier(strategy="most_frequent")}
-
-ATTACH_LEARNERS = copy.copy(_LEARNERS)
-'''
-learners that can be used for the attachment task
-
-dictionary from learner names (recognised by the attelo command
-line interface) to learner wrappers
-
-The wrappers must accept a :py:class:LearnerArgs: tuple,
-the idea being that it would pick out any parameters relevant to it
-and ignore the rest
-'''
-ATTACH_LEARNERS["always"] = lambda _: DummyClassifier(strategy="constant",
-                                                      constant=1)
-ATTACH_LEARNERS["never"] = lambda _: DummyClassifier(strategy="constant",
-                                                     constant=-1)
-ATTACH_LEARNERS["sk-perceptron"] = lambda _: SkPerceptron()
-ATTACH_LEARNERS["sk-pasagg"] = lambda _: SkPassiveAggressiveClassifier()
-
-# # local reimplemented learners
-# ATTACH_LEARNERS["perc"] = lambda c: Perceptron( c.perc_args )
-# ATTACH_LEARNERS["pa"] = lambda c: PassiveAggressive( c.perc_args )
-
-# # structured learners
-# ATTACH_LEARNERS["perc-struct"] = lambda c: StructuredPerceptron( c.perc_args )
-# ATTACH_LEARNERS["pa-struct"] = lambda c: StructuredPassiveAggressive( c.perc_args )
-
-RELATE_LEARNERS = copy.copy(_LEARNERS)
-'''
-learners that can be used for the relation labelling task
-
-(see `ATTACH_LEARNERS`)
-'''

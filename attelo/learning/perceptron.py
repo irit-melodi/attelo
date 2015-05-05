@@ -8,19 +8,14 @@ import sys
 import time
 from collections import defaultdict, namedtuple
 from numpy.linalg import norm
-# pylint: disable=no-name-in-module
-# pylint at the time of this writing doesn't deal well with
-# packages that dynamically generate methods
-# https://bitbucket.org/logilab/pylint/issue/58/false-positive-no-member-on-numpy-imports
 from numpy import dot, zeros, sign
 from scipy.sparse import csr_matrix
 from scipy.special import expit  # aka the logistic function
-# pylint: enable-no-name-in-module
+import numpy as np
 
-from attelo.edu import EDU
+from attelo.decoding.util import (prediction_to_triples)
 from attelo.metrics.tree import tree_loss
-from attelo.table import UNKNOWN
-from attelo.decoding.interface import LinkPack
+from attelo.table import (Graph, UNKNOWN)
 
 # pylint: disable=too-few-public-methods
 # pylint: disable=invalid-name
@@ -70,6 +65,7 @@ class Perceptron(object):
         self.use_prob = pconfig.use_prob
         self.weights = None
         self.avg_weights = None
+        self.can_predict_proba = False
         return
     
     def fit(self, X, Y): # X contains all EDU pairs for corpus
@@ -84,7 +80,9 @@ class Perceptron(object):
 
     def decision_function(self, X):
         W = self.avg_weights if self.avg else self.weights
-        return X.dot(W.T)
+        scores = X.dot(W.T)
+        scores = scores.reshape(X.shape[0]) # lose 2nd dimension (== 1)
+        return scores
     
     def init_model(self, X):
         dim = X.shape[1]
@@ -212,11 +210,14 @@ class StructuredPerceptron(Perceptron):
         self.avg_weights = zeros(dim, 'd')
         return
 
-    def fit_structured(self, datapacks, _targets): # datapacks is an datapack iterable
+    def fit(self, datapacks, _targets): # datapacks is an datapack iterable
         """ learn struct. perceptron weights """        
         self.init_model( datapacks[0].data.shape[1] )
         self.learn( datapacks ) 
         return self
+
+    def transform(self, dpack):
+        return self.decision_function(dpack.data)
 
     def learn(self, datapacks):
         start_time = time.time()
@@ -236,10 +237,10 @@ class StructuredPerceptron(Perceptron):
                 # construct ref graph and mapping {edu_pair => index in X}
                 ref_tree = []
                 fv_index_map = {}
-                for i,(id1,id2) in enumerate(dpack.pairings):
-                    fv_index_map[id1,id2] = i
+                for i, (edu1, edu2) in enumerate(dpack.pairings):
+                    fv_index_map[edu1.id, edu2.id] = i
                     if Y[i] == 1:
-                        ref_tree.append( (id1, id2, UNKNOWN) )
+                        ref_tree.append((edu1.id, edu2.id, UNKNOWN))
                 # predict tree based on current weight vector
                 pred_tree = self._classify(dpack, X, self.weights)
                 # print doc_id,  predicted_graph
@@ -283,13 +284,21 @@ class StructuredPerceptron(Perceptron):
     def _classify(self, dpack, X, W):
         """ return predicted tree """
         decoder = self.decoder
-        scores = X.dot(W.T)
-        lpack = LinkPack.unlabelled(edus=dpack.edus,
-                                    pairings=dpack.pairings,
-                                    scores_ad=scores)
+        num_items = len(dpack)
+        scores = X.dot(W.T) # TODO: should this be self.decision_function?
+        scores = scores.reshape(num_items) # lose 2nd dimension (shape[1] == 1)
+        # unlabelled
+        unk = dpack.label_number(UNKNOWN)
+        label = np.zeros((num_items, len(dpack.labels)))
+        label[:, unk] = 1.0
+        prediction = np.empty(num_items)
+        prediction[:] = unk
+        dpack = dpack.set_graph(Graph(prediction=prediction,
+                                      attach=scores,
+                                      label=label))
         # print "SCORES:", scores
-        pred_tree = decoder.decode(lpack)[0]
-        return pred_tree
+        graph = decoder.transform(dpack)
+        return prediction_to_triples(graph)
 
 
 

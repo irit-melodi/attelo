@@ -23,7 +23,10 @@ from enum import Enum
 
 from attelo.optimisation.astar import State, Search, BeamSearch
 from .interface import Decoder
-from .util import get_sorted_edus, get_prob_map
+from .util import (convert_prediction,
+                   get_sorted_edus,
+                   get_prob_map,
+                   simple_candidates)
 
 # pylint: disable=too-few-public-methods
 
@@ -485,7 +488,6 @@ class AstarArgs(namedtuple('AstarArgs',
                            ['heuristics',
                             'rfc',
                             'beam',
-                            'nbest',
                             'use_prob'])):
     """
     Configuration options for the A* decoder
@@ -538,14 +540,14 @@ def preprocess_heuristics(cands):
 #   the original strategy should be called simpleNRO or NRO
 class AstarDecoder(Decoder):
     """wrapper for astar decoder to be used by processing pipeline
-    returns a structure, or nbest structures
+    returns the best structure
     """
     def __init__(self, astar_args):
         self._heuristic = astar_args.heuristics
         self._args = astar_args
 
-    def decode(self, lpack):
-        cands = lpack.simple_candidates()
+    def decode(self, dpack):
+        cands = simple_candidates(dpack)
         probs = get_prob_map(cands)
         edus = [x.id for x in get_sorted_edus(cands)]
         print("\t %s nodes to attach"%(len(edus)-1), file=sys.stderr)
@@ -564,11 +566,6 @@ class AstarDecoder(Decoder):
                                     shared=search_shared)
             genall = astar.launch(DiscData(accessible=[edus[0]], tolink=edus[1:]),
                                   norepeat=True, verbose=False)
-        # nbest solutions handling
-        all_solutions = []
-        for _ in range(self._args.nbest):
-            endstate = genall.next()
-            sol = astar.recover_solution(endstate)
-            all_solutions.append(sol)
-            print("nbest=%d" % self._args.nbest, file=sys.stderr)
-        return all_solutions
+        endstate = genall.next()
+        sol = astar.recover_solution(endstate)
+        return convert_prediction(dpack, sol)

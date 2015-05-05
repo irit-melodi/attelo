@@ -2,12 +2,13 @@
 
 from __future__ import print_function
 
-from ..args import (add_common_args, DEFAULT_NFOLD)
+from ..args import (add_common_args)
 from ..fold import make_n_fold
 from ..io import (save_fold_dict)
 from ..util import (mk_rng)
 from .util import (load_args_multipack)
 
+DEFAULT_NFOLD = 10
 
 def config_argparser(psr):
     "add subcommand arguments to subparser"

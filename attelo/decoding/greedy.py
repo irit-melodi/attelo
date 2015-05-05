@@ -12,7 +12,10 @@ from __future__ import print_function
 import sys
 
 from .interface import Decoder
-from .util import get_sorted_edus, get_prob_map
+from .util import (convert_prediction,
+                   get_sorted_edus,
+                   get_prob_map,
+                   simple_candidates)
 
 # pylint: disable=too-few-public-methods
 
@@ -160,6 +163,8 @@ class LocallyGreedy(Decoder):
     '''
     The locally greedy decoder
     '''
-    def decode(self, lpack):
-        return [LocallyGreedyState(lpack.simple_candidates()).decode()]
+    def decode(self, dpack):
+        cands = simple_candidates(dpack)
+        prediction = LocallyGreedyState(cands).decode()
+        return convert_prediction(dpack, prediction)
 # pylint: enable=unused-argument

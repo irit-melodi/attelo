@@ -7,19 +7,13 @@ attelo subcommands
 
 # pylint: disable=import-self
 from . import\
-    (decode,
-     enfold,
-     evaluate,
+    (enfold,
      inspect,
      graph,
      rewrite,
-     learn,
      report)
 
-SUBCOMMANDS = [learn,
-               decode,
-               enfold,
-               evaluate,
+SUBCOMMANDS = [enfold,
                inspect,
                graph,
                rewrite,

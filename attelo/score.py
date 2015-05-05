@@ -7,7 +7,9 @@ from collections import (defaultdict, namedtuple)
 import numpy
 from sklearn.metrics import confusion_matrix
 
-from .table import (UNRELATED, get_label_string)
+from .table import (UNRELATED,
+                    attached_only,
+                    get_label_string)
 
 # pylint: disable=too-few-public-methods
 
@@ -94,7 +96,7 @@ def score_edges(dpack, predictions):
 
     :rtype: :py:class:`attelo.report.CountPair`
     """
-    att_pack = dpack.attached_only()
+    att_pack, _ = attached_only(dpack, dpack.target)
     dict_predicted = {(arg1, arg2): rel for arg1, arg2, rel in predictions
                       if rel != UNRELATED}
 
@@ -220,20 +222,6 @@ def empty_confusion_matrix(dpack):
     # pylint: disable=no-member
 
 
-def _best_feature_indices(vocab, model, class_index, top_n):
-    """
-    Return a list of strings representing the best features in
-    a model for a given class index
-    """
-    weights = model.coef_[class_index]   # higher is better?
-    # pylint: disable=no-member
-    best_idxes = numpy.argsort(weights)[-top_n:][::-1]
-    best_weights = numpy.take(weights, best_idxes)
-    # pylint: enable=no-member
-    return [(vocab[j], w)
-            for j, w in zip(best_idxes, best_weights)]
-
-
 def discriminating_features(models, labels, vocab, top_n):
     """return the most discriminating features (and their weights)
     for each label in the models; or None if the model does not
@@ -253,13 +241,28 @@ def discriminating_features(models, labels, vocab, top_n):
 
     :rtype: [(string, [(string, float)])] or None
     """
-    best_idxes = lambda m, i: _best_feature_indices(vocab, m, i, top_n)
-    if (not hasattr(models.attach, 'coef_') or
-            not hasattr(models.relate, 'coef_')):
-        return None
-    rows = []
-    rows.append((UNRELATED, best_idxes(models.attach, 0)))
-    for i, class_ in enumerate(models.relate.classes_):
-        label = get_label_string(labels, class_)
-        rows.append((label, best_idxes(models.relate, i)))
+    def fmt(features):
+        'label important features'
+        return [(vocab[f], w) for f, w in features]
+
+    rows = None
+    if hasattr(models.attach, 'important_features'):
+        imp = models.attach.important_features(top_n)
+        if imp is not None:
+            rows = rows or []
+            rows.append(('(attach)', fmt(imp)))
+
+    if hasattr(models.label, 'important_features_multi'):
+        per_label = models.label.important_features_multi(top_n)
+        if per_label is not None:
+            rows = rows or []
+            for lnum in sorted(per_label):
+                label = get_label_string(labels, lnum)
+                rows.append((label, fmt(per_label[lnum])))
+    if hasattr(models.label, 'important_features'):
+        imp = models.label.important_features(top_n)
+        if imp is not None:
+            rows = rows or []
+            rows.append(('(label)', fmt(imp)))
+
     return rows

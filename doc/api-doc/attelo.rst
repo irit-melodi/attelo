@@ -9,7 +9,9 @@ Subpackages
     attelo.decoding
     attelo.harness
     attelo.learning
+    attelo.metrics
     attelo.optimisation
+    attelo.parser
 
 Submodules
 ----------

@@ -5,12 +5,34 @@ attelo.decoding tests
 from __future__ import print_function
 import unittest
 
-from ..args import DEFAULT_ASTAR_ARGS
+import numpy as np
+
+from ..table import (DataPack, Graph)
 from ..edu import EDU
 from . import astar, greedy, mst
-from .interface import LinkPack
+from .astar import (AstarArgs, Heuristic, RfcConstraint)
+from .util import (prediction_to_triples, simple_candidates)
 
 # pylint: disable=too-few-public-methods
+# default values for perceptron learner
+
+#DEFAULT_USE_PROB = True
+#DEFAULT_PERCEPTRON_ARGS = PerceptronArgs(iterations=20,
+#                                         averaging=True,
+#                                         use_prob=DEFAULT_USE_PROB,
+#                                         aggressiveness=inf)
+
+# DEFAULT_MST_ROOT = MstRootStrategy.fake_root
+
+# default values for A* decoder
+# (NB: not the same as in the default initialiser)
+DEFAULT_ASTAR_ARGS = AstarArgs(heuristics=Heuristic.average,
+                               rfc=RfcConstraint.full,
+                               beam=None,
+                               use_prob=True)
+DEFAULT_HEURISTIC = DEFAULT_ASTAR_ARGS.heuristics
+DEFAULT_BEAMSIZE = DEFAULT_ASTAR_ARGS.beam
+DEFAULT_RFC = DEFAULT_ASTAR_ARGS.rfc
 
 
 def mk_fake_edu(start, end=None, edu_file="x", sentence='s1'):
@@ -38,21 +60,25 @@ class DecoderTest(unittest.TestCase):
                 (edus[0], edus[3]),
                 (edus[1], edus[3]),
                 (edus[2], edus[3])]
-    scores_ad = [0.8, 0.4, 0.5, 0.2, 0.2, 0.2]
-    scores_l = [[0.8, 0.1, 0.1, 0.0],
-                [0.1, 0.9, 0.0, 0.0],
-                [0.0, 0.0, 0.8, 0.2],
-                [0.0, 0.0, 0.3, 0.7],
-                [0.0, 0.0, 0.3, 0.7],
-                [0.0, 0.0, 0.3, 0.7]]
-    lpack = LinkPack(labels=['elaboration',
+    graph = Graph(prediction=np.array([0, 0, 0, 0, 0, 0]),
+                  attach=np.array([0.8, 0.4, 0.5, 0.2, 0.2, 0.2]),
+                  label=np.array([[0.1, 0.8, 0.1, 0.1, 0.0],
+                                  [0.2, 0.1, 0.9, 0.0, 0.0],
+                                  [0.1, 0.0, 0.0, 0.8, 0.2],
+                                  [0.0, 0.0, 0.0, 0.3, 0.7],
+                                  [0.0, 0.0, 0.0, 0.3, 0.7],
+                                  [0.0, 0.0, 0.0, 0.3, 0.7]]))
+    dpack = DataPack(labels=['UNRELATED',
+                             'elaboration',
                              'narration',
                              'continuation',
                              'acknowledgement'],
                      edus=edus,
                      pairings=pairings,
-                     scores_ad=scores_ad,
-                     scores_l=scores_l)
+                     data=np.array([[], [], [], [], [], []]),
+                     target=np.array([0, 0, 0, 0, 0, 0]),
+                     graph=graph,
+                     vocab=None)
 
 
 
@@ -62,7 +88,7 @@ class AstarTest(DecoderTest):
         '''
         Run an A* search with the given heuristic
         '''
-        cands = self.lpack.simple_candidates()
+        cands = simple_candidates(self.dpack)
         prob = {(a1, a2): (l, p) for a1, a2, p, l in cands}
         pre_heurist = astar.preprocess_heuristics(cands)
         config = {"probs": prob,
@@ -81,31 +107,20 @@ class AstarTest(DecoderTest):
         # print "cost:", endstate.cost()
         # print search.iterations
 
-    def _test_nbest(self, nbest):
+    def test_search(self):
         'n-best A* search'
         astar_args = astar.AstarArgs(heuristics=DEFAULT_ASTAR_ARGS.heuristics,
                                      # FIXME full broken
                                      rfc=astar.RfcConstraint.simple,
                                      beam=DEFAULT_ASTAR_ARGS.beam,
-                                     nbest=nbest,
                                      use_prob=DEFAULT_ASTAR_ARGS.use_prob)
         decoder = astar.AstarDecoder(astar_args)
-        soln = decoder.decode(self.lpack)
-        self.assertEqual(nbest, len(soln))
-        return soln
+        return decoder.decode(self.dpack)
 
     # FAILS: it's something to do with the initial state not having
     # any to do links..., would need to check with PM about this
     # def test_h_average(self):
     #     self._test_heuristic(astar.DiscourseState.h_average)
-
-    def test_nbest_1(self):
-        '1-best search'
-        self._test_nbest(1)
-
-    def test_nbest_2(self):
-        '2-best search'
-        self._test_nbest(2)
 
 
 class LocallyGreedyTest(DecoderTest):
@@ -114,11 +129,7 @@ class LocallyGreedyTest(DecoderTest):
     def test_locally_greedy(self):
         'check that the locally greedy decoder works'
         decoder = greedy.LocallyGreedy()
-        predictions = decoder.decode(self.lpack)
-        # made one prediction
-        self.assertEqual(1, len(predictions))
-        # predicted some attachments in that prediction
-        self.assertTrue(predictions[0])
+        decoder.decode(self.dpack)
 
 
 class MstTest(DecoderTest):
@@ -127,18 +138,18 @@ class MstTest(DecoderTest):
     def test_mst(self):
         'check plain MST decoder'
         decoder1 = mst.MstDecoder(mst.MstRootStrategy.fake_root)
-        edges = decoder1.decode(self.lpack)[0]
+        edges = prediction_to_triples(decoder1.decode(self.dpack))
         # Is it a tree ? (One edge less than number of vertices)
         self.assertEqual(len(edges), len(self.edus) - 1)
 
         decoder2 = mst.MstDecoder(mst.MstRootStrategy.leftmost)
-        edges = decoder2.decode(self.lpack)[0]
+        edges = prediction_to_triples(decoder2.decode(self.dpack))
         # Is it a tree ? (One edge less than number of vertices)
         self.assertEqual(len(edges), len(self.edus) - 1)
 
     def test_msdag(self):
         'check MSDAG decoder'
         decoder = mst.MsdagDecoder(mst.MstRootStrategy.fake_root)
-        edges = decoder.decode(self.lpack)[0]
+        edges = prediction_to_triples(decoder.decode(self.dpack))
         # Are all links included ? (already given a MSDAG...)
-        self.assertEqual(len(edges), len(self.lpack))
+        self.assertEqual(len(edges), len(self.dpack))

@@ -16,7 +16,8 @@ import joblib
 from sklearn.datasets import load_svmlight_file
 
 from .edu import (EDU, FAKE_ROOT_ID, FAKE_ROOT)
-from .table import (DataPack, DataPackException, UNRELATED,
+from .table import (DataPack, DataPackException,
+                    UNKNOWN, UNRELATED,
                     get_label_string, groupings)
 from .util import truncate
 
@@ -227,7 +228,7 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
                                             load_pairings(pairings_file))
 
     with Torpor("Reading features", quiet=not verbose):
-        labels = load_labels(feature_file)
+        labels = [UNKNOWN] + load_labels(feature_file)
         # pylint: disable=unbalanced-tuple-unpacking
         data, targets = load_svmlight_file(feature_file,
                                            n_features=len(vocab))
@@ -334,19 +335,19 @@ def load_model(filename):
     Instead of loading a model, we simply return the virtual
     oracle decoder
 
-    :rtype: sklearn classifier
+    Returns
+    -------
+    model: object
+
+        some sort of classifier (eg, an attelo.learn.AttachClassifier
+        or an attelo.learn.LabelClassifier)
     """
-    if filename == 'oracle':
-        return 'oracle'
-    else:
-        return joblib.load(filename)
+    return joblib.load(filename)
 
 
 def save_model(filename, model):
     """
     Dump model into a file
-
-    :type: model: sklearn classifier
     """
     joblib.dump(model, filename)
 

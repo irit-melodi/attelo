@@ -6,10 +6,6 @@ attelo tests
 # no-member: numpy
 
 from __future__ import print_function
-from os import path as fp
-import argparse
-import shutil
-import tempfile
 import unittest
 
 import scipy.sparse
@@ -20,7 +16,10 @@ import attelo.fold
 
 from .edu import EDU, FAKE_ROOT
 from .fold import select_training
-from .table import (DataPack, DataPackException, groupings)
+from .table import (DataPack,
+                    DataPackException,
+                    attached_only,
+                    groupings)
 
 MAX_FOLDS = 2
 
@@ -41,7 +40,8 @@ class DataPackTest(unittest.TestCase):
                        pairings=[(edus[0], edus[1])],
                        data=scipy.sparse.csr_matrix([[6, 8]]),
                        target=numpy.array([1]),
-                       labels=['x', 'UNRELATED'],
+                       labels=['__UNK__', 'x', 'UNRELATED'],
+                       graph=None,
                        vocab=None)
     trivial_bidi = DataPack(edus,
                             pairings=[(edus[0], edus[1]),
@@ -49,7 +49,8 @@ class DataPackTest(unittest.TestCase):
                             data=scipy.sparse.csr_matrix([[6, 8],
                                                           [7, 0]]),
                             target=numpy.array([1, 0]),
-                            labels=['x', 'UNRELATED'],
+                            labels=['__UNK__', 'x', 'UNRELATED'],
+                            graph=None,
                             vocab=None)
 
     # pylint: disable=invalid-name
@@ -86,7 +87,7 @@ class DataPackTest(unittest.TestCase):
                           triv.pairings,
                           triv.data,
                           [1, 1],
-                          ['UNRELATED', 'foo'],
+                          ['__UNK__', 'UNRELATED', 'foo'],
                           None)
 
         # check grouping of edus
@@ -122,7 +123,8 @@ class DataPackTest(unittest.TestCase):
                                   (self.edus[2], self.edus[0])],
                         data=scipy.sparse.csr_matrix([[6], [7], [1], [5]]),
                         target=numpy.array([2, 1, 1, 3]),
-                        labels=['x', 'y', 'UNRELATED'],
+                        labels=['__UNK__', 'x', 'y', 'UNRELATED'],
+                        graph=None,
                         vocab=None)
         labels = [pack.get_label(t) for t in pack.target]
         self.assertEqual(['y', 'x', 'x', 'UNRELATED'], labels)
@@ -136,7 +138,7 @@ class DataPackTest(unittest.TestCase):
         b2 = EDU('b2', 'is', 6, 8, 'b', 's2')
         # pylint: enable=invalid-name
 
-        orig_classes = ['there', 'are', 'four', 'UNRELATED', 'lights']
+        orig_classes = ['__UNK__', 'there', 'are', 'four', 'UNRELATED', 'lights']
         pack = DataPack.load(edus=[a1, a2,
                                    b1, b2],
                              pairings=[(a1, a2),
@@ -149,7 +151,7 @@ class DataPackTest(unittest.TestCase):
                              labels=orig_classes,
                              vocab=None)
 
-        pack1 = pack.attached_only()
+        pack1, _ = attached_only(pack, pack.target)
         self.assertEqual(orig_classes, pack1.labels)
         self.assertEqual(list(pack1.target), [3, 2])
 
@@ -173,7 +175,7 @@ class DataPackTest(unittest.TestCase):
         d2 = EDU('d2', '?', 6, 7, 'd', 's4')
         # pylint: enable=invalid-name
 
-        labels = ['x', 'y', 'UNRELATED']
+        labels = ['__UNK__', 'x', 'y', 'UNRELATED']
         mpack = {'a': DataPack.load(edus=[a1, a2],
                                     pairings=[(a1, a2)],
                                     data=scipy.sparse.csr_matrix([[6, 8]]),
@@ -214,228 +216,3 @@ class DataPackTest(unittest.TestCase):
                                ['a1', 'a2', 'c1', 'c2'])
         self.assertEqualEduIds(attelo.fold.select_testing(mpack, fold_dict, 1),
                                ['b1', 'b2', 'd1', 'd2'])
-
-
-# ---------------------------------------------------------------------
-#
-# ---------------------------------------------------------------------
-
-class TmpDir(object):
-    "crude context manager for creating, deleting tmpdir"
-    def __init__(self):
-        self.tmpdir = tempfile.mkdtemp()
-
-    def __enter__(self):
-        return self.tmpdir
-
-    # pylint: disable=unused-argument
-    def __exit__(self, ctype, value, traceback):
-        shutil.rmtree(self.tmpdir)
-    # pylint: enable=unused-argument
-
-
-class TestArgs(object):
-    "arguments in test harness"
-
-    def __init__(self, tmpdir):
-        self._tmpdir = tmpdir
-        super(TestArgs, self).__init__()
-
-    @classmethod
-    def module(cls):
-        'attelo command module'
-        raise NotImplementedError()
-
-    def eg_path(self, subpath):
-        "path to example dir"
-        return fp.join('example', subpath)
-
-    def tmp_path(self, subpath):
-        "path within tmpdir"
-        return fp.join(self._tmpdir, subpath)
-
-    def argv(self):
-        "command line args"
-        return [self.eg_path('tiny.edus'),
-                self.eg_path('tiny.pairings'),
-                self.eg_path('tiny.features.sparse'),
-                self.eg_path('tiny.features.sparse.vocab')]
-
-    @classmethod
-    def run(cls, *args, **kwargs):
-        "run the attelo command that goes with these args"
-        cli_args = cls(*args, **kwargs)
-        psr = argparse.ArgumentParser()
-        cli_args.module().config_argparser(psr)
-        args = psr.parse_args(cli_args.argv())
-        cls.module().main(args)
-
-
-class EvaluateArgs(TestArgs):
-    "args to attelo evaluate"
-
-    def __init__(self, *args, **kwargs):
-        super(EvaluateArgs, self).__init__(*args, **kwargs)
-
-    def argv(self):
-        args = super(EvaluateArgs, self).argv()
-        args.extend(['--nfold', str(MAX_FOLDS)])
-        return args
-
-    @classmethod
-    def module(cls):
-        return attelo.cmd.evaluate
-
-
-class EnfoldArgs(TestArgs):
-    "args to attelo enfold"
-
-    # pylint: disable=unused-argument
-    def __init__(self, *args, **kwargs):
-        super(EnfoldArgs, self).__init__(*args, **kwargs)
-    # pylint: enable=unused-argument
-
-    def argv(self):
-        args = super(EnfoldArgs, self).argv()
-        args += ['--nfold', str(MAX_FOLDS),
-                 '--output', self.tmp_path('folds.json')]
-        return args
-
-    @classmethod
-    def module(cls):
-        return attelo.cmd.enfold
-
-
-class LearnDecodeArgs(TestArgs):
-    "args to either attelo learn or decode"
-    # pylint: disable=unused-argument
-    def __init__(self, fold=None, extra_args=None, *args, **kwargs):
-        self._fold = fold
-        self._extra_args = extra_args or []
-        super(LearnDecodeArgs, self).__init__(*args, **kwargs)
-    # pylint: enable=unused-argument
-
-    def argv(self):
-        args = super(LearnDecodeArgs, self).argv()
-        if self._fold is not None:
-            args.extend(['--fold-file', self.tmp_path('folds.json'),
-                         '--fold', str(self._fold)])
-        args.extend(['--quiet',
-                     '--attachment-model', self.tmp_path('attach.model'),
-                     '--relation-model', self.tmp_path('relate.model')])
-        args.extend(self._extra_args)
-        return args
-
-    @classmethod
-    def module(cls):
-        return NotImplementedError
-
-
-class LearnArgs(LearnDecodeArgs):
-    "args to attelo learn"
-
-    # pylint: disable=unused-argument
-    def __init__(self, *args, **kwargs):
-        super(LearnArgs, self).__init__(*args, **kwargs)
-    # pylint: enable=unused-argument
-
-    @classmethod
-    def module(cls):
-        return attelo.cmd.learn
-
-
-class DecodeArgs(LearnDecodeArgs):
-    "args to attelo decode"
-
-    # pylint: disable=unused-argument
-    def __init__(self, *args, **kwargs):
-        super(DecodeArgs, self).__init__(*args, **kwargs)
-    # pylint: enable=unused-argument
-
-    def argv(self):
-        args = super(DecodeArgs, self).argv()
-        args.extend(['--output', fp.join(self._tmpdir, 'output')])
-        return args
-
-    @classmethod
-    def module(cls):
-        return attelo.cmd.decode
-
-
-class ReportArgs(TestArgs):
-    "args to attelo report"
-
-    def __init__(self, idx_path, *args, **kwargs):
-        self._idx_path = idx_path
-        super(ReportArgs, self).__init__(*args, **kwargs)
-
-    def argv(self):
-        return [self._idx_path]
-
-    @classmethod
-    def module(cls):
-        return attelo.cmd.report
-
-
-def fake_harness(enfold_kwargs=None,
-                 learner_kwargs=None,
-                 decoder_kwargs=None,
-                 *args,
-                 **kwargs):
-    '''sequence of attelo commands that fit together like they
-    might in a harness'''
-
-    # set/expand the kwargs dictionaries for each command
-    enfold_kwargs = enfold_kwargs or {}
-    learner_kwargs = learner_kwargs or {}
-    decoder_kwargs = decoder_kwargs or {}
-    for sub_kwargs in [enfold_kwargs, learner_kwargs, decoder_kwargs]:
-        for key, val in kwargs.items():
-            sub_kwargs[key] = val
-
-    # generate folds
-    EnfoldArgs.run(*args, **enfold_kwargs)
-
-    for i in range(0, MAX_FOLDS):
-        LearnArgs.run(*args, fold=i, **learner_kwargs)
-        DecodeArgs.run(*args, fold=i, **decoder_kwargs)
-    # ReportArgs.run(idx_path=idx_filename, *args, **kwargs)
-
-
-class CliTest(unittest.TestCase):
-    """
-    Run command line utilities on sample data
-    """
-    def _vary(self, test, **kwargs):
-        '''
-        run a test through whatever systematic variations we can
-        think of
-        '''
-        with TmpDir() as tmpdir:
-            test(tmpdir=tmpdir, **kwargs)
-
-    def test_evaluate(self):
-        'attelo evaluate'
-        self._vary(EvaluateArgs.run)
-
-    def test_enfold(self):
-        'attelo enfold'
-        self._vary(EnfoldArgs.run)
-
-    def test_learn(self):
-        'attelo learn'
-        self._vary(LearnArgs.run)
-        for learner in ["maxent",
-                        "svm",
-                        "majority",
-                        "bayes"]:
-            self._vary(LearnArgs.run, extra_args=["--learner", learner])
-
-    def test_harness(self):
-        'attelo enfold, learn, decode, report'
-        self._vary(fake_harness)
-
-    def test_harness_postlabel(self):
-        'attelo enfold, learn, decode, report'
-        self._vary(fake_harness,
-                   decoder_kwargs={'extra_args': ['--post-label']})

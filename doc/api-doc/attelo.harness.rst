@@ -12,18 +12,10 @@ attelo.harness.config module
     :undoc-members:
     :show-inheritance:
 
-attelo.harness.decode module
-----------------------------
-
-.. automodule:: attelo.harness.decode
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-attelo.harness.learn module
+attelo.harness.parse module
 ---------------------------
 
-.. automodule:: attelo.harness.learn
+.. automodule:: attelo.harness.parse
     :members:
     :undoc-members:
     :show-inheritance:

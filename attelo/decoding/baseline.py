@@ -3,7 +3,11 @@ Baseline decoders
 """
 
 from .interface import Decoder
-from .util import get_sorted_edus, get_prob_map, DecoderException
+from .util import (convert_prediction,
+                   get_sorted_edus,
+                   get_prob_map,
+                   DecoderException,
+                   simple_candidates)
 
 # pylint: disable=too-few-public-methods
 
@@ -11,24 +15,20 @@ from .util import get_sorted_edus, get_prob_map, DecoderException
 class LocalBaseline(Decoder):
     """just attach locally if prob is > threshold"""
     def __init__(self, threshold, use_prob=True):
-        self._threshold = threshold
-        self._use_prob = use_prob
+        self._threshold = threshold if use_prob else 0.0
 
-    def decode(self, lpack):
-        predicted = []
-        for arg1, arg2, probs, label in lpack.simple_candidates():
-            attach = probs
-            threshold = self._threshold if self._use_prob else 0.0
-            if attach > threshold:
-                predicted.append((arg1.id, arg2.id, label))
-        return [predicted]
+    def decode(self, dpack):
+        cands = simple_candidates(dpack)
+        results = [(e1.id, e2.id, lab) for e1, e2, w, lab in cands
+                   if w > self._threshold]
+        return convert_prediction(dpack, results)
 
 
 class LastBaseline(Decoder):
     "attach to last, always"
 
-    def decode(self, lpack):
-        cands = lpack.simple_candidates()
+    def decode(self, dpack):
+        cands = simple_candidates(dpack)
         labels_probs = get_prob_map(cands)
 
         def get_prediction(edu1, edu2):
@@ -53,4 +53,4 @@ class LastBaseline(Decoder):
             prediction = get_prediction(edu1, edu2)
             if prediction:
                 results.append(prediction)
-        return [results]
+        return convert_prediction(dpack, results)

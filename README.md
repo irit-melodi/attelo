@@ -4,17 +4,10 @@
 
 ## About
 
-Attelo is a discourse parser. It predicts a discourse graph out of a set
-of elementary discourse units. These predictions are informed by models
-that allow the parser to assign probabilities to the links.
-
-Attelo can be used as a library, or (more likely) as a standalone
-program with the following subcommands:
-
-* attelo learn: Build attachment/relation models from (CSV) feature files
-* attelo decode: (the parser proper) Predict links given models (from
-  `attelo learn`) and a set of features
-* attelo evaluate: Cross-fold evaluation a pair of feature files
+Attelo is a discourse parsing library. The parsers predict a a discourse
+graph out of a set of elementary discourse units. These predictions are
+informed by models that allow the parser to assign probabilities to the
+links.
 
 ## Documentation
 

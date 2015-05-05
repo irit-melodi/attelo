@@ -38,7 +38,7 @@ def config_argparser(psr):
 def main(args):
     "subcommand main (invoked from outer script)"
     models = Team(attach=load_model(args.attachment_model),
-                  relate=load_model(args.relation_model))
+                  label=load_model(args.relation_model))
     labels = load_labels(args.features)
     vocab = load_vocab(args.vocab)
     discr = discriminating_features(models, labels, vocab, args.top)

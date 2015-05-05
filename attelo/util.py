@@ -44,7 +44,7 @@ class ArgparserEnum(enum.Enum):
             raise ArgumentTypeError(oops.format(string, cls.choices_str()))
 
 
-class Team(namedtuple("Team", "attach relate")):
+class Team(namedtuple("Team", "attach label")):
     """
     Any collection where we have the same thing but duplicated
     for each attelo subtask (eg. models, learners,)
@@ -54,7 +54,7 @@ class Team(namedtuple("Team", "attach relate")):
         Apply a function to each member of the collection
         """
         return Team(attach=func(self.attach),
-                    relate=func(self.relate))
+                    label=func(self.label))
 
 
 def truncate(text, width):

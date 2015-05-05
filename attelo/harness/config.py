@@ -29,18 +29,26 @@ class LearnerConfig(Team):
     Combination of an attachment and a relation learner variant
 
     :type attach: Learner
-    :type relate: Learner
+    :type label: Learner
     """
-    def __new__(cls, attach, relate):
-        team = super(LearnerConfig, cls).__new__(cls, attach, relate)
+    def __new__(cls, attach, label):
+        team = super(LearnerConfig, cls).__new__(cls, attach, label)
         team.key = team.attach.key
-        if team.relate.key != team.attach.key:
-            team.key += "_" + team.relate.key
+        if team.attach.key != team.label.key:
+            team.key += "_" + team.label.key
         return team
 
 
+class ParserConfig(namedtuple('ParserConfig',
+                              ['key', 'decoder', 'payload', 'settings'])):
+    """
+    A decoder and some decoder settings that together with it
+    """
+    pass
+
+
 class EvaluationConfig(namedtuple("EvaluationConfig",
-                                  "key settings learner decoder")):
+                                  "key settings learner parser")):
     """
     Combination of learners, decoders and decoder settings
     for an attelo evaluation
@@ -49,9 +57,16 @@ class EvaluationConfig(namedtuple("EvaluationConfig",
     field; but you should have a way of extracting at
     least a :py:class:`DecodingMode` from it
 
-    :type learner: Keyed (Team learner)
-    :type decoder: Keyed Decoder
-    :type settings: Keyed (???)
+    Parameters
+    ----------
+    learner: Keyed learnercfg
+        Some sort of keyed learner configuration. This is usually
+        of type `LearnerConfig` but there are cases where you have
+        fancier objects in place
+    parser: Keyed (learnercfg -> Parser)
+        A (keyed) function that builds a parser from whatever
+        learner configuration you used in `learner`
+    settings: Keyed (???)
     """
     @classmethod
     def simple_key(cls, learner, decoder):

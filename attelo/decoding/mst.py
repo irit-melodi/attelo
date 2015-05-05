@@ -15,7 +15,9 @@ from scipy.special import logit
 from ..edu import FAKE_ROOT_ID
 from ..util import ArgparserEnum
 from .interface import Decoder
-from .util import DecoderException
+from .util import (DecoderException,
+                   convert_prediction,
+                   simple_candidates)
 
 # pylint: disable=too-few-public-methods
 
@@ -135,20 +137,20 @@ class MstDecoder(Decoder):
                        lambda s, t: scores[s, t],
                        lambda s, t: labels[s, t])
 
-    def decode(self, lpack):
-        graph = self._graph(lpack.simple_candidates())
+    def decode(self, dpack):
+        graph = self._graph(simple_candidates(dpack))
         subgraph = graph.mst()
         predictions = [(src, tgt, subgraph.get_label(src, tgt))
                        for src, tgt in subgraph.iteredges()]
-        return [predictions]
+        return convert_prediction(dpack, predictions)
 
 
 class MsdagDecoder(MstDecoder):
     """ Attach according to MSDAG (subgraph of original)"""
 
-    def decode(self, lpack):
-        graph = self._graph(lpack.simple_candidates())
+    def decode(self, dpack):
+        graph = self._graph(simple_candidates(dpack))
         subgraph = _msdag(graph)
         predictions = [(src, tgt, subgraph.get_label(src, tgt))
                        for src, tgt in subgraph.iteredges()]
-        return [predictions]
+        return convert_prediction(dpack, predictions)
