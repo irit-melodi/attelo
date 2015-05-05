@@ -1,6 +1,11 @@
 attelo.parser package
 =====================
 
+.. automodule:: attelo.parser
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
 
@@ -53,10 +58,3 @@ attelo.parser.pipeline module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: attelo.parser
-    :members:
-    :undoc-members:
-    :show-inheritance:

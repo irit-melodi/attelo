@@ -1,6 +1,11 @@
 attelo.learning package
 =======================
 
+.. automodule:: attelo.learning
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
 
@@ -45,10 +50,3 @@ attelo.learning.util module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: attelo.learning
-    :members:
-    :undoc-members:
-    :show-inheritance:

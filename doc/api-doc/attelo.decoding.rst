@@ -1,6 +1,11 @@
 attelo.decoding package
 =======================
 
+.. automodule:: attelo.decoding
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
 
@@ -69,10 +74,3 @@ attelo.decoding.window module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: attelo.decoding
-    :members:
-    :undoc-members:
-    :show-inheritance:

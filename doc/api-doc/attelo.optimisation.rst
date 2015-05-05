@@ -1,6 +1,11 @@
 attelo.optimisation package
 ===========================
 
+.. automodule:: attelo.optimisation
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
 
@@ -13,10 +18,3 @@ attelo.optimisation.astar module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: attelo.optimisation
-    :members:
-    :undoc-members:
-    :show-inheritance:

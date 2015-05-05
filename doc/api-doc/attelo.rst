@@ -1,6 +1,11 @@
 attelo package
 ==============
 
+.. automodule:: attelo
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Subpackages
 -----------
 
@@ -89,10 +94,3 @@ attelo.util module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: attelo
-    :members:
-    :undoc-members:
-    :show-inheritance:

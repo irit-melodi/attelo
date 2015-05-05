@@ -1,6 +1,11 @@
 attelo.harness package
 ======================
 
+.. automodule:: attelo.harness
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
 
@@ -37,10 +42,3 @@ attelo.harness.util module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: attelo.harness
-    :members:
-    :undoc-members:
-    :show-inheritance:

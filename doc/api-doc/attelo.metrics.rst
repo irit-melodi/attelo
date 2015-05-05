@@ -1,6 +1,11 @@
 attelo.metrics package
 ======================
 
+.. automodule:: attelo.metrics
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
 
@@ -13,10 +18,3 @@ attelo.metrics.tree module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: attelo.metrics
-    :members:
-    :undoc-members:
-    :show-inheritance:
