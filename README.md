@@ -1,6 +1,6 @@
 [![Build Status](https://secure.travis-ci.org/irit-melodi/attelo.png)](http://travis-ci.org/irit-melodi/attelo)
 [![Coverage Status](https://coveralls.io/repos/irit-melodi/attelo/badge.svg?branch=master)](https://coveralls.io/r/irit-melodi/attelo?branch=master)
-[![Documentation Status](https://readthedocs.org/projects/irit-melodi/badge/?version=latest)](https://readthedocs.org/projects/attelo/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/attelo/badge/?version=latest)](https://readthedocs.org/projects/attelo/?badge=latest)
 
 ## About
 
