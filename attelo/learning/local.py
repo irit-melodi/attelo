@@ -13,7 +13,7 @@ from .util import (relabel)
 # pylint: disable=too-few-public-methods
 
 
-class SkClassifier(object):
+class SklearnClassifier(object):
     '''
     An scikit classifier used for any purpose
     '''
@@ -81,7 +81,7 @@ class SkClassifier(object):
             return None
 
 
-class SklearnAttachClassifier(AttachClassifier, SkClassifier):
+class SklearnAttachClassifier(AttachClassifier, SklearnClassifier):
     '''
     A relatively simple way to get an attachment classifier:
     just pass in a scikit classifier
@@ -93,7 +93,7 @@ class SklearnAttachClassifier(AttachClassifier, SkClassifier):
             Use the given learner for label prediction.
         """
         AttachClassifier.__init__(self)
-        SkClassifier.__init__(self, learner)
+        SklearnClassifier.__init__(self, learner)
         self._fitted = False
 
     def fit(self, dpacks, targets):
@@ -114,7 +114,7 @@ class SklearnAttachClassifier(AttachClassifier, SkClassifier):
             return self._learner.decision_function(dpack.data)
 
 
-class SklearnLabelClassifier(LabelClassifier, SkClassifier):
+class SklearnLabelClassifier(LabelClassifier, SklearnClassifier):
     '''
     A relative simple way to get a label classifier: just
     pass in a scikit classifier
@@ -132,7 +132,7 @@ class SklearnLabelClassifier(LabelClassifier, SkClassifier):
             Use the given learner for label prediction.
         """
         LabelClassifier.__init__(self)
-        SkClassifier.__init__(self, learner)
+        SklearnClassifier.__init__(self, learner)
         self._fitted = False
         self._labels = None  # not yet learned
 
