@@ -1,7 +1,7 @@
 rm -rf doc/api-doc
 
 # the arguments on the subsequent lines are things to ignore
-sphinx-apidoc attelo -H "attelo API" -o doc/api-doc\
+sphinx-apidoc attelo -M -H "attelo API" -o doc/api-doc\
         attelo/cmd\
         attelo/tests.py\
         attelo/*/tests.py\
