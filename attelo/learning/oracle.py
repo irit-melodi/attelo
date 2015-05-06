@@ -32,7 +32,8 @@ class AttachOracle(AttachClassifier):
     def fit(self, dpacks, targets):
         return self
 
-    def transform(self, dpack):
+    # FIXME should be predict_proba(self, dpacks)
+    def predict_score(self, dpack):
         # nb: this isn't actually faster with vectorize
         to_prob = lambda x: 1.0 if x == 1.0 else 0.0
         return np_vectorize(to_prob)(dpack.target)
@@ -44,7 +45,7 @@ class LabelOracle(LabelClassifier):
     1.0 for the gold label and 0.0 other labels.
 
     Note: edges which are unrelated in the gold will be
-    assigned the a special "unknown" label (something like
+    assigned the special "unknown" label (something like
     '__UNK__')
 
     Naturally, this would only do something useful if the
@@ -57,7 +58,8 @@ class LabelOracle(LabelClassifier):
     def fit(self, dpacks, targets):
         return self
 
-    def transform(self, dpack):
+    # FIXME should be predict_proba(self, dpacks)
+    def predict_score(self, dpack):
         weights = dok_matrix((len(dpack), len(dpack.labels)))
         lbl_unrelated = dpack.label_number(UNRELATED)
         lbl_unk = dpack.label_number(UNKNOWN)

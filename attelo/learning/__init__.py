@@ -24,7 +24,7 @@ either
 
 * `predict_proba(X)`: given a feature matrix return a probability
    matrix, each row being the vector of probabilities that a pair
-   is unattached or attached (in pracitce we're just interested in
+   is unattached or attached (in practice we're just interested in
    the latter)
 * `decision_function(X)`: given a feature matrix, return a vector
    of attachment scores

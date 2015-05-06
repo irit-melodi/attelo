@@ -103,7 +103,7 @@ class SklearnAttachClassifier(AttachClassifier, SklearnClassifier):
         self._fitted = True
         return self
 
-    def transform(self, dpack):
+    def predict_score(self, dpack):
         if not self._fitted:
             raise ValueError('Fit not yet called')
         elif self.can_predict_proba:
@@ -144,7 +144,7 @@ class SklearnLabelClassifier(LabelClassifier, SklearnClassifier):
         self._fitted = True
         return self
 
-    def transform(self, dpack):
+    def predict_score(self, dpack):
         dpack, _ = for_labelling(dpack, dpack.target)
         if self._labels is None:
             raise ValueError('No labels associated with this classifier')

@@ -50,7 +50,7 @@ class AttachClassifier(with_metaclass(ABCMeta, object)):
         raise NotImplementedError
 
     @abstractmethod
-    def transform(self, dpack):
+    def predict_score(self, dpack):
         """
         Parameters
         ----------
@@ -109,7 +109,7 @@ class LabelClassifier(with_metaclass(ABCMeta, object)):
         raise NotImplementedError
 
     @abstractmethod
-    def transform(self, dpack):
+    def predict_score(self, dpack):
         """
         Parameters
         ----------

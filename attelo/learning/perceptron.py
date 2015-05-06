@@ -216,7 +216,7 @@ class StructuredPerceptron(Perceptron):
         self.learn( datapacks ) 
         return self
 
-    def transform(self, dpack):
+    def predict_score(self, dpack):
         return self.decision_function(dpack.data)
 
     def learn(self, datapacks):
