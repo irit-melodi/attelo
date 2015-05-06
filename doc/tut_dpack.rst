@@ -1,8 +1,8 @@
 
 Datapacks and multipacks
-------------------------
+========================
 
-Attelo reads its `input files <input>`__ into “datapacks”. Generally
+Attelo reads its `input files <../input>`__ into “datapacks”. Generally
 speaking, we have one datapack per document, so when reading a corpus
 in, we would be reading multiple datapacks (we read a multipack, ie. a
 dictionary of datapacks, or perhaps a fancier structure in future attelo
@@ -33,6 +33,9 @@ versions)
     Reading features... done [2 ms]
     Build data packs... done [0 ms]
 
+
+As we can see below, multipacks are dictionaries from document names to
+dpacks.
 
 .. code:: python
 
@@ -107,3 +110,20 @@ Datapacks store everything we know about a document:
     
 
 
+There are a couple of datapack variants to be aware of:
+
+-  *weighted* datapacks are parsed or partially parsed datapacks. They
+   have a ``graph`` entry. We will explore weighted datapacks in the
+   `parser tutorial <tut_parser>`__.
+-  *stacked* datapacks: are formed by combining datapacks from different
+   documents into one. Some parts of the attelo API (namely scoring and
+   reporting) work with stacked datapacks. In the future (now:
+   2015-05-06), they may evolve to deal with multipacks, in which case
+   the notion of stack datapacks may dissapear
+
+Conclusion
+----------
+
+This concludes our tour of attelo datapacks. In other tutorials we will
+explore some of the uses of datapacks, namely as the input/output of our
+`parsers <tut_parser>`__.

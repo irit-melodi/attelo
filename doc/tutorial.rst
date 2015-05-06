@@ -8,3 +8,4 @@ as iPython notebooks in the doc directory
    :maxdepth: 2
 
    tut_dpack
+   tut_parser
