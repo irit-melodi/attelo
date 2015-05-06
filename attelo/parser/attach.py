@@ -62,7 +62,7 @@ class AttachClassifierWrapper(Parser):
 
     def transform(self, dpack):
         attach_pack, _ = for_attachment(dpack, dpack.target)
-        weights_a = self._learner_attach.transform(attach_pack)
+        weights_a = self._learner_attach.predict_score(attach_pack)
         return self.multiply(dpack, attach=weights_a)
 
 

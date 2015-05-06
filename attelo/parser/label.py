@@ -61,7 +61,7 @@ class LabelClassifierWrapper(Parser):
 
     def transform(self, dpack):
         dpack, _ = for_labelling(dpack, dpack.target)
-        return self.multiply(dpack, label=self._learner.transform(dpack))
+        return self.multiply(dpack, label=self._learner.predict_score(dpack))
 
 
 class SimpleLabeller(LabelClassifierWrapper):
