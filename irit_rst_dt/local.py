@@ -171,16 +171,51 @@ def label_learner_rndforest():
     return Keyed('rndforest', SklearnLabelClassifier(RandomForestClassifier()))
 
 
+def attach_learner_perc():
+    "return a keyed instance of perceptron learner"
+    return Keyed('perc', SklearnAttachClassifier(SkPerceptron(n_iter=20)))
+
+def label_learner_perc():
+    "return a keyed instance of perceptron learner"
+    return Keyed('perc', SklearnLabelClassifier(SkPerceptron(n_iter=20)))
+
+
+def attach_learner_pa():
+    "return a keyed instance of passive aggressive learner"
+    return Keyed('pa', SklearnAttachClassifier(SkPassiveAggressiveClassifier(n_iter=20)))
+
+def label_learner_pa():
+    "return a keyed instance of passive aggressive learner"
+    return Keyed('pa', SklearnLabelClassifier(SkPassiveAggressiveClassifier(n_iter=20)))
+
 
 LOCAL_PERC_ARGS = PerceptronArgs(iterations=20,
                                  averaging=True,
                                  use_prob=False,
                                  aggressiveness=np.inf)
 
+def attach_learner_dp_perc():
+    "return a keyed instance of perceptron learner"
+    return Keyed('dp-perc', SklearnAttachClassifier(Perceptron(LOCAL_PERC_ARGS)))
+
+def label_learner_dp_perc():
+    "return a keyed instance of perceptron learner"
+    return Keyed('dp-perc', SklearnLabelClassifier(Perceptron(LOCAL_PERC_ARGS)))
+
+
 LOCAL_PA_ARGS = PerceptronArgs(iterations=20,
                                averaging=True,
                                use_prob=False,
                                aggressiveness=np.inf)
+
+def attach_learner_dp_pa():
+    "return a keyed instance of passive aggressive learner"
+    return Keyed('dp-pa', SklearnAttachClassifier(PassiveAggressive(LOCAL_PA_ARGS)))
+
+def label_learner_dp_pa():
+    "return a keyed instance of passive aggressive learner"
+    return Keyed('dp-pa', SklearnLabelClassifier(PassiveAggressive(LOCAL_PA_ARGS)))
+
 
 STRUCT_PERC_ARGS = PerceptronArgs(iterations=50,
                                   averaging=True,
@@ -201,18 +236,14 @@ _LOCAL_LEARNERS = [
                   label=label_learner_oracle()),
     LearnerConfig(attach=attach_learner_rndforest(),
                   label=label_learner_rndforest()),
-#    LearnerConfig(attach=Keyed('sk-perceptron',
-#                               SkPerceptron(n_iter=20)),
-#                  label=learner_maxent()),
-#    LearnerConfig(attach=Keyed('sk-pasagg',
-#                               SkPassiveAggressiveClassifier(n_iter=20)),
-#                  label=learner_maxent()),
-#    LearnerConfig(attach=Keyed('dp-perc',
-#                               Perceptron(d, LOCAL_PERC_ARGS)),
-#                  label=learner_maxent()),
-#    LearnerConfig(attach=Keyed('dp-pa',
-#                               PassiveAggressive(d, LOCAL_PA_ARGS)),
-#                  label=learner_maxent()),
+#    LearnerConfig(attach=attach_learner_perc(),
+#                  label=label_learner_maxent()),
+#    LearnerConfig(attach=attach_learner_pa(),
+#                  label=label_learner_maxent()),
+#    LearnerConfig(attach=attach_learner_dp_perc(),
+#                  label=label_learner_maxent()),
+#    LearnerConfig(attach=attach_learner_dp_pa(),
+#                  label=label_learner_maxent()),
 ]
 """Straightforward attelo learner algorithms to try
 
