@@ -47,9 +47,9 @@ clean:
 
 apidoc: $(APIDOCDIR)/educe.rst
 
-examples: ex1.rst
+examples: tut_dpack.rst
 
-ex%.rst : ex%.ipynb
+tut%.rst : tut%.ipynb
 	ipython nbconvert --to rst $(<)
 
 $(APIDOCDIR)/educe.rst: $(SOURCE_FILES)
