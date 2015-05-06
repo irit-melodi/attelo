@@ -31,7 +31,7 @@ from attelo.util import (mk_rng, Team)
 
 # pylint: disable=invalid-name
 
-WORKING_DIR = 'example'
+WORKING_DIR = 'doc/example-corpus'
 PREFIX = fp.join(WORKING_DIR, 'tiny')
 TMP_OUTPUT = '/tmp/mini-evaluate'
 if not fp.exists(TMP_OUTPUT):
