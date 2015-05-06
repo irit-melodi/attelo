@@ -12,6 +12,7 @@ Contents:
    :maxdepth: 2
 
    manual
+   tutorial
    api-doc/modules
 
 Indices and tables

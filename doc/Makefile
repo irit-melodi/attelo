@@ -47,6 +47,11 @@ clean:
 
 apidoc: $(APIDOCDIR)/educe.rst
 
+examples: ex1.rst
+
+ex%.rst : ex%.ipynb
+	ipython nbconvert --to rst $(<)
+
 $(APIDOCDIR)/educe.rst: $(SOURCE_FILES)
 	cd ..; bash etc/redo-api-doc
 
