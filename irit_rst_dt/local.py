@@ -194,10 +194,28 @@ LOCAL_PERC_ARGS = PerceptronArgs(iterations=20,
                                  use_prob=False,
                                  aggressiveness=np.inf)
 
+def attach_learner_dp_perc():
+    "return a keyed instance of perceptron learner"
+    return Keyed('dp-perc', SklearnAttachClassifier(Perceptron(LOCAL_PERC_ARGS)))
+
+def label_learner_dp_perc():
+    "return a keyed instance of perceptron learner"
+    return Keyed('dp-perc', SklearnLabelClassifier(Perceptron(LOCAL_PERC_ARGS)))
+
+
 LOCAL_PA_ARGS = PerceptronArgs(iterations=20,
                                averaging=True,
                                use_prob=False,
                                aggressiveness=np.inf)
+
+def attach_learner_dp_pa():
+    "return a keyed instance of passive aggressive learner"
+    return Keyed('dp-pa', SklearnAttachClassifier(PassiveAggressive(LOCAL_PA_ARGS)))
+
+def label_learner_dp_pa():
+    "return a keyed instance of passive aggressive learner"
+    return Keyed('dp-pa', SklearnLabelClassifier(PassiveAggressive(LOCAL_PA_ARGS)))
+
 
 STRUCT_PERC_ARGS = PerceptronArgs(iterations=50,
                                   averaging=True,
@@ -222,11 +240,9 @@ _LOCAL_LEARNERS = [
 #                  label=label_learner_maxent()),
 #    LearnerConfig(attach=attach_learner_pa(),
 #                  label=label_learner_maxent()),
-#    LearnerConfig(attach=Keyed('dp-perc',
-#                               Perceptron(LOCAL_PERC_ARGS)),
+#    LearnerConfig(attach=attach_learner_dp_perc(),
 #                  label=label_learner_maxent()),
-#    LearnerConfig(attach=Keyed('dp-pa',
-#                               PassiveAggressive(LOCAL_PA_ARGS)),
+#    LearnerConfig(attach=attach_learner_dp_pa(),
 #                  label=label_learner_maxent()),
 ]
 """Straightforward attelo learner algorithms to try
