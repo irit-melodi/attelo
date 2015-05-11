@@ -47,29 +47,27 @@ def for_intra(dpack, target):
     target (array(int))
     '''
     # pack = _select_intrasentential(pack)
-    local_heads = defaultdict(set)
-    ruled_out = defaultdict(set)
-    indices = {}
+
+    # find all edus that have intra incoming edges (to rule out)
+    unrelated = dpack.label_number(UNRELATED)
+    intra_tgts = defaultdict(set)
     for i, (edu1, edu2) in enumerate(dpack.pairings):
-        subgrouping = edu1.subgrouping or edu2.subgrouping
-        if edu1.id == FAKE_ROOT_ID:
-            if edu2.id not in ruled_out[subgrouping]:
-                local_heads[subgrouping].add(edu2.id)
-                indices[edu2.id] = i
-        else:
-            # any child edu is necessarily ruled out
-            ruled_out[subgrouping].add(edu2.id)
-            if edu2.id in local_heads[subgrouping]:
-                local_heads[subgrouping].remove(edu2.id)
-
+        subg = edu2.subgrouping
+        if (edu1.subgrouping == subg and
+                target[i] != unrelated):
+            intra_tgts[subg].add(edu2.id)
+    # pick out the (fakeroot, edu) pairs where edu does not have
+    # incoming intra edges
     all_heads = []
-    for subgrouping, heads in local_heads.items():
-        all_heads.extend(indices[x] for x in heads
-                         if x not in ruled_out[subgrouping])
+    for i, (edu1, edu2) in enumerate(dpack.pairings):
+        subg = edu2.subgrouping
+        if (edu1.id == FAKE_ROOT_ID and
+                edu2.id not in intra_tgts[subg]):
+            all_heads.append(i)
 
+    # update datapack and target accordingly
     new_target = np.copy(dpack.target)
     new_target[all_heads] = dpack.label_number('ROOT')
-
     dpack = DataPack(edus=dpack.edus,
                      pairings=dpack.pairings,
                      data=dpack.data,
@@ -77,7 +75,6 @@ def for_intra(dpack, target):
                      labels=dpack.labels,
                      vocab=dpack.vocab,
                      graph=dpack.graph)
-
     target = np.copy(target)
     target[all_heads] = dpack.label_number('ROOT')
     return dpack, target
