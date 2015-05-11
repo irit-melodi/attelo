@@ -64,8 +64,8 @@ real data
     train entries: 2
 
 
-Trying a parser out
--------------------
+Trying a parser out 1 (attach)
+------------------------------
 
 Now that we have our training and test data, we can try feeding them to
 a simple parser. Before doing this, we'll take a quick detour to define
@@ -119,8 +119,8 @@ As for parsing, we'll start with the attachment pipeline. It combines a
     8 d2_e2 d2_e4 	| UNRELATED 	wanted: UNRELATED
 
 
-Trying another parser
----------------------
+Trying a parser out 2 (label)
+-----------------------------
 
 In the output above, our predictions for every edge are either
 ``__UNK__`` or ``UNRELATED``. The attachment pipeline only predicts if
@@ -205,4 +205,3 @@ scikit-learn fit/transform idiom, and we can combine them with
 pipelines. In future tutorials we'll break some of the parsers down into
 their constituent parts (notice the attach pipeline is itself a
 pipeline) and explore the process of writing parsers of our own.
-
