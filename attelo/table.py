@@ -317,6 +317,16 @@ class DataPack(namedtuple('DataPack',
     def get_label(self, i):
         '''
         Return the class label for the given target value.
+
+        Parameters
+        ----------
+        i (int, less than `len(self.labels)`)
+
+            a target value
+
+        See also
+        --------
+        `label_number`
         '''
         return get_label_string(self.labels, i)
 
@@ -325,7 +335,17 @@ class DataPack(namedtuple('DataPack',
         Return the numerical label that corresponnds to the given
         string label
 
-        :rtype: float
+        Useful idiom: `unrelated = dpack.label_number(UNRELATED)`
+
+        Parameters
+        ----------
+        label (string in `self.labels`)
+
+            a label string
+
+        See also
+        --------
+        `get_label`
         '''
         return self.labels.index(label)
 
