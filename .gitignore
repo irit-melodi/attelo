@@ -1,5 +1,6 @@
 tags
 *.py[cod]
+doc/.ipynb_checkpoints
 
 # Sphinx
 _build
