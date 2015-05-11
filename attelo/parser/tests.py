@@ -149,8 +149,8 @@ class IntraTest(unittest.TestCase):
                                                             [1], [1], [1],
                                                             [1], [1], [1],
                                                             [1], [1], [1]]),
-                              target=np.array([3, 1, 1, 4, 1, 4, 4, 4, 4,
-                                               1, 1, 1, 4, 1, 4, 4, 4, 4]),
+                              target=np.array([3, 1, 1, 4, 1, 4, 1, 1, 1,
+                                               1, 1, 1, 4, 1, 4, 1, 1, 1]),
                               labels=orig_classes,
                               vocab=None)
         ipack, _ = for_intra(dpack, dpack.target)
