@@ -20,7 +20,6 @@ from .fold import select_training
 from .table import (DataPack,
                     DataPackException,
                     attached_only,
-                    for_intra,
                     groupings)
 
 MAX_FOLDS = 2
@@ -130,57 +129,6 @@ class DataPackTest(unittest.TestCase):
                         vocab=None)
         labels = [pack.get_label(t) for t in pack.target]
         self.assertEqual(['y', 'x', 'x', 'UNRELATED'], labels)
-
-    def test_for_intra(self):
-        'test that sentence roots are identified correctly'
-        # pylint: disable=invalid-name
-        a1 = EDU('a1', 'a', 0, 1, 'a', 's1')
-        a2 = EDU('a2', 'b', 2, 3, 'a', 's1')
-        a3 = EDU('a3', 'c', 4, 5, 'a', 's1')
-        b1 = EDU('b1', 'a', 0, 1, 'a', 's2')
-        b2 = EDU('b2', 'b', 2, 3, 'a', 's2')
-        b3 = EDU('b3', 'c', 4, 5, 'a', 's2')
-        # pylint: enable=invalid-name
-
-        orig_classes = ['__UNK__', 'UNRELATED', 'ROOT', 'x']
-        pack = DataPack.load(edus=[a1, a2, a3,
-                                   b1, b2, b3],
-                             pairings=[(FAKE_ROOT, a1),
-                                       (FAKE_ROOT, a2),
-                                       (FAKE_ROOT, a3),
-                                       (a1, a2),
-                                       (a1, a3),
-                                       (a2, a3),
-                                       (a2, a1),
-                                       (a3, a1),
-                                       (a3, a2),
-                                       (FAKE_ROOT, b1),
-                                       (FAKE_ROOT, b2),
-                                       (FAKE_ROOT, b3),
-                                       (b1, b2),
-                                       (b1, b3),
-                                       (b2, b3),
-                                       (b2, b1),
-                                       (b3, b1),
-                                       (b3, b2)],
-                             data=scipy.sparse.csr_matrix([[1], [1], [1],
-                                                           [1], [1], [1],
-                                                           [1], [1], [1],
-                                                           [1], [1], [1],
-                                                           [1], [1], [1],
-                                                           [1], [1], [1]]),
-                             target=numpy.array([3, 1, 1, 4, 1, 4, 4, 4, 4,
-                                                 1, 1, 1, 4, 1, 4, 4, 4, 4]),
-                             labels=orig_classes,
-                             vocab=None)
-        ipack, _ = for_intra(pack, pack.target)
-        sroots = np.where(ipack.target == ipack.label_number('ROOT'))[0]
-        sroot_pairs = ipack.selected(sroots).pairings
-        self.assertTrue(all(edu1 == FAKE_ROOT for edu1, edu2 in sroot_pairs),
-                        'all root links are roots')
-        self.assertEqual(set(e2.subgrouping for _, e2 in sroot_pairs),
-                         set(e.subgrouping for e in pack.edus),
-                         'every sentence represented')
 
 
     def test_select_classes(self):

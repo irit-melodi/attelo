@@ -7,6 +7,8 @@ from __future__ import print_function
 from sklearn.linear_model import (LogisticRegression)
 import itertools as itr
 import numpy as np
+import scipy
+import unittest
 
 from attelo.decoding.astar import (AstarArgs,
                                    Heuristic,
@@ -20,15 +22,18 @@ from attelo.decoding.greedy import (LocallyGreedy)
 from attelo.decoding.tests import (DecoderTest)
 from attelo.decoding.window import (WindowPruner)
 
+from attelo.edu import EDU, FAKE_ROOT
 from attelo.learning.local import (SklearnAttachClassifier,
                                    SklearnLabelClassifier)
 from attelo.learning.perceptron import (PerceptronArgs,
                                         StructuredPerceptron)
+from attelo.table import (DataPack)
 from attelo.util import (Team)
 
 from .full import (JointPipeline,
                    PostlabelPipeline)
 from .pipeline import (Pipeline)
+from .intra import (for_intra)
 
 
 # pylint: disable=too-few-public-methods
@@ -103,3 +108,56 @@ class ParserTest(DecoderTest):
                                        decoder=d)
             self._test_parser(parser)
 
+
+class IntraTest(unittest.TestCase):
+    """Intrasentential parser"""
+    def test_for_intra(self):
+        'test that sentence roots are identified correctly'
+        # pylint: disable=invalid-name
+        a1 = EDU('a1', 'a', 0, 1, 'a', 's1')
+        a2 = EDU('a2', 'b', 2, 3, 'a', 's1')
+        a3 = EDU('a3', 'c', 4, 5, 'a', 's1')
+        b1 = EDU('b1', 'a', 0, 1, 'a', 's2')
+        b2 = EDU('b2', 'b', 2, 3, 'a', 's2')
+        b3 = EDU('b3', 'c', 4, 5, 'a', 's2')
+        # pylint: enable=invalid-name
+
+        orig_classes = ['__UNK__', 'UNRELATED', 'ROOT', 'x']
+        dpack = DataPack.load(edus=[a1, a2, a3,
+                                    b1, b2, b3],
+                              pairings=[(FAKE_ROOT, a1),
+                                        (FAKE_ROOT, a2),
+                                        (FAKE_ROOT, a3),
+                                        (a1, a2),
+                                        (a1, a3),
+                                        (a2, a3),
+                                        (a2, a1),
+                                        (a3, a1),
+                                        (a3, a2),
+                                        (FAKE_ROOT, b1),
+                                        (FAKE_ROOT, b2),
+                                        (FAKE_ROOT, b3),
+                                        (b1, b2),
+                                        (b1, b3),
+                                        (b2, b3),
+                                        (b2, b1),
+                                        (b3, b1),
+                                        (b3, b2)],
+                              data=scipy.sparse.csr_matrix([[1], [1], [1],
+                                                            [1], [1], [1],
+                                                            [1], [1], [1],
+                                                            [1], [1], [1],
+                                                            [1], [1], [1],
+                                                            [1], [1], [1]]),
+                              target=np.array([3, 1, 1, 4, 1, 4, 4, 4, 4,
+                                               1, 1, 1, 4, 1, 4, 4, 4, 4]),
+                              labels=orig_classes,
+                              vocab=None)
+        ipack, _ = for_intra(dpack, dpack.target)
+        sroots = np.where(ipack.target == ipack.label_number('ROOT'))[0]
+        sroot_pairs = ipack.selected(sroots).pairings
+        self.assertTrue(all(edu1 == FAKE_ROOT for edu1, edu2 in sroot_pairs),
+                        'all root links are roots')
+        self.assertEqual(set(e2.subgrouping for _, e2 in sroot_pairs),
+                         set(e.subgrouping for e in dpack.edus),
+                         'every sentence represented')
