@@ -34,7 +34,7 @@ from .pipeline import (Pipeline)
 # pylint: disable=too-few-public-methods
 
 
-LOCAL_PERC_ARGS = PerceptronArgs(iterations=20,
+LOCAL_PERC_ARGS = PerceptronArgs(iterations=3,
                                  averaging=True,
                                  use_prob=False,
                                  aggressiveness=np.inf)
