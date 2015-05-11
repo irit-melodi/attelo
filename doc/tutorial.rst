@@ -9,3 +9,4 @@ as iPython notebooks in the doc directory
 
    tut_dpack
    tut_parser
+   tut_parser2
