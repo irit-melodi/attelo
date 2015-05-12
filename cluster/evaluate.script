@@ -1,9 +1,0 @@
-#!/bin/bash
-#SBATCH --output=irit-rst-dt-evaluate-%j.out
-#SBATCH --cpus-per-task=31
-IRIT_RST_DT=$HOME/irit-rst-dt
-cd "$IRIT_RST_DT"
-set -e
-source "$IRIT_RST_DT/cluster/env"
-irit-rst-dt evaluate "$@"
-echo "DONE! irit-rst-dt evaluate $@"
