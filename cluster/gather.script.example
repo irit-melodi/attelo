@@ -1,0 +1,16 @@
+#!/bin/bash
+#SBATCH --job-name=irit-rst-dt-gather
+#SBATCH --mail-type=END
+#SBATCH --mail-user=YOUR_EMAIL_ADDRESS_HERE <=== EDIT THIS
+IRIT_RST_DT=$HOME/irit-rst-dt
+source "$IRIT_RST_DT/cluster/env"
+cd "$IRIT_RST_DT"
+time irit-rst-dt gather "$@"
+for i in TMP/latest/*.sparse; do
+    # get all the labels
+    head -n 1 "$i" > "$i.stripped"
+    # must have at least one feature somewhere
+    tail -n +2 "$i" | head -n 1 | cut -f 1,2 -d ' ' >> "$i.stripped"
+    # just the targets please
+    tail -n +3 "$i" | cut -f 1 -d ' ' >> "$i.stripped"
+done
