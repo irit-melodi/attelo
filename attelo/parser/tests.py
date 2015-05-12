@@ -114,12 +114,12 @@ class IntraTest(unittest.TestCase):
     def test_for_intra(self):
         'test that sentence roots are identified correctly'
         # pylint: disable=invalid-name
-        a1 = EDU('a1', 'a', 0, 1, 'a', 's1')
-        a2 = EDU('a2', 'b', 2, 3, 'a', 's1')
-        a3 = EDU('a3', 'c', 4, 5, 'a', 's1')
-        b1 = EDU('b1', 'a', 0, 1, 'a', 's2')
-        b2 = EDU('b2', 'b', 2, 3, 'a', 's2')
-        b3 = EDU('b3', 'c', 4, 5, 'a', 's2')
+        a1 = EDU('a1', '', 0, 0, 'a', 's1')
+        a2 = EDU('a2', '', 0, 0, 'a', 's1')
+        a3 = EDU('a3', '', 0, 0, 'a', 's1')
+        b1 = EDU('b1', '', 0, 0, 'a', 's2')
+        b2 = EDU('b2', '', 0, 0, 'a', 's2')
+        b3 = EDU('b3', '', 0, 0, 'a', 's2')
         # pylint: enable=invalid-name
 
         orig_classes = ['__UNK__', 'UNRELATED', 'ROOT', 'x']
