@@ -210,11 +210,11 @@ class DataPack(namedtuple('DataPack',
         oops = ('The number of labels given ({labels}) is less than '
                 'the number of possible target labels ({target}) in '
                 'the features file')
-        num_classes = len(self.labels)
+        max_class = len(self.labels) - 1
         max_target = int(max(self.target))
-        if num_classes < max_target:
-            raise(DataPackException(oops.format(labels=num_classes,
-                                                target=max_target)))
+        if max_class < max_target:
+            raise(DataPackException(oops.format(labels=max_class + 1,
+                                                target=max_target + 1)))
 
     def _check_table_shape(self):
         '''
@@ -487,59 +487,6 @@ def select_intersentential(dpack, include_fake_root=False):
         elif edu1.subgrouping != edu2.subgrouping:
             retain.append(i)
     return dpack.selected(retain)
-
-
-def for_intra(dpack, target):
-    '''
-    Adapt a datapack to intrasentential decoding. An intrasenential
-    datapack is almost identical to its original, except that we
-    set the label for each ('ROOT', edu) pairing to 'ROOT' if that
-    edu is a subgrouping head (if it has no parents other than than
-    'ROOT' within its subgrouping).
-
-    This should be done before either :py:func:`for_labelling` or
-    :py:func:`for_attachment`
-
-    Returns
-    -------
-    dpack (DataPack)
-    target (array(int))
-    '''
-    # pack = _select_intrasentential(pack)
-    local_heads = defaultdict(set)
-    ruled_out = defaultdict(set)
-    indices = {}
-    for i, (edu1, edu2) in enumerate(dpack.pairings):
-        subgrouping = edu1.subgrouping or edu2.subgrouping
-        if edu1.id == FAKE_ROOT_ID:
-            if edu2.id not in ruled_out[subgrouping]:
-                local_heads[subgrouping].add(edu2.id)
-                indices[edu2.id] = i
-        else:
-            # any child edu is necessarily ruled out
-            ruled_out[subgrouping].add(edu2.id)
-            if edu2.id in local_heads[subgrouping]:
-                local_heads[subgrouping].remove(edu2.id)
-
-    all_heads = []
-    for subgrouping, heads in local_heads.items():
-        all_heads.extend(indices[x] for x in heads
-                         if x not in ruled_out[subgrouping])
-
-    new_target = np.copy(dpack.target)
-    new_target[all_heads] = dpack.label_number('ROOT')
-
-    dpack = DataPack(edus=dpack.edus,
-                     pairings=dpack.pairings,
-                     data=dpack.data,
-                     target=new_target,
-                     labels=dpack.labels,
-                     vocab=dpack.vocab,
-                     graph=dpack.graph)
-
-    target = np.copy(target)
-    target[all_heads] = dpack.label_number('ROOT')
-    return dpack, target
 
 
 class Multipack(dict):

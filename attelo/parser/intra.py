@@ -11,9 +11,9 @@ from six import with_metaclass
 import numpy as np
 
 from attelo.edu import (FAKE_ROOT_ID)
-from attelo.table import (Graph,
+from attelo.table import (DataPack,
+                          Graph,
                           UNRELATED,
-                          for_intra,
                           locate_in_subpacks)
 from .interface import (Parser)
 
@@ -28,6 +28,55 @@ class IntraInterPair(namedtuple("IntraInterPair",
     intersentential
     """
     pass
+
+
+def for_intra(dpack, target):
+    """Adapt a datapack to intrasentential decoding.
+
+    An intrasenential datapack is almost identical to its original, except that
+    we set the label for each ('ROOT', edu) pairing to 'ROOT' if that edu is a
+    subgrouping head (if it has no parents other than than 'ROOT' within its
+    subgrouping).
+
+    This should be done before either `for_labelling` or `for_attachment`
+
+    Returns
+    -------
+    dpack: DataPack
+    target: array(int)
+    """
+    # pack = _select_intrasentential(pack)
+
+    # find all edus that have intra incoming edges (to rule out)
+    unrelated = dpack.label_number(UNRELATED)
+    intra_tgts = defaultdict(set)
+    for i, (edu1, edu2) in enumerate(dpack.pairings):
+        subg = edu2.subgrouping
+        if (edu1.subgrouping == subg and
+                target[i] != unrelated):
+            intra_tgts[subg].add(edu2.id)
+    # pick out the (fakeroot, edu) pairs where edu does not have
+    # incoming intra edges
+    all_heads = []
+    for i, (edu1, edu2) in enumerate(dpack.pairings):
+        subg = edu2.subgrouping
+        if (edu1.id == FAKE_ROOT_ID and
+                edu2.id not in intra_tgts[subg]):
+            all_heads.append(i)
+
+    # update datapack and target accordingly
+    new_target = np.copy(dpack.target)
+    new_target[all_heads] = dpack.label_number('ROOT')
+    dpack = DataPack(edus=dpack.edus,
+                     pairings=dpack.pairings,
+                     data=dpack.data,
+                     target=new_target,
+                     labels=dpack.labels,
+                     vocab=dpack.vocab,
+                     graph=dpack.graph)
+    target = np.copy(target)
+    target[all_heads] = dpack.label_number('ROOT')
+    return dpack, target
 
 
 def _zip_sentences(func, sent_parses):

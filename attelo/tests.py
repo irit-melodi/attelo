@@ -10,6 +10,7 @@ import unittest
 
 import scipy.sparse
 import numpy
+import numpy as np
 
 import attelo
 import attelo.fold
@@ -128,6 +129,7 @@ class DataPackTest(unittest.TestCase):
                         vocab=None)
         labels = [pack.get_label(t) for t in pack.target]
         self.assertEqual(['y', 'x', 'x', 'UNRELATED'], labels)
+
 
     def test_select_classes(self):
         'test that classes are filtered correctly'
