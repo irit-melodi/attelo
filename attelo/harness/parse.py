@@ -9,10 +9,10 @@ import sys
 
 from joblib import (delayed)
 
-from .learn import learn
 from ..io import (write_predictions_output)
 from attelo.decoding.util import (prediction_to_triples)
-from attelo.fold import (select_testing)
+from attelo.fold import (select_training,
+                         select_testing)
 from attelo.harness.util import (makedirs)
 
 
@@ -84,6 +84,26 @@ def jobs(mpack, parser, output_path):
         tmp_output_path = _tmp_output_filename(output_path, onedoc)
         res.append(delayed(_parse_group)(dpack, parser, tmp_output_path))
     return res
+
+
+def learn(hconf, econf, dconf, fold):
+    """
+    Run the learners for the given configuration
+    """
+    if fold is None:
+        subpacks = dconf.pack
+        parent_dir = hconf.combined_dir_path()
+    else:
+        subpacks = select_training(dconf.pack, dconf.folds, fold)
+        parent_dir = hconf.fold_dir_path(fold)
+
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir)
+    cache = hconf.model_paths(econf.learner, fold)
+    print('learning ', econf.key, '...', file=sys.stderr)
+    dpacks = subpacks.values()
+    targets = [d.target for d in dpacks]
+    econf.parser.payload.fit(dpacks, targets, cache=cache)
 
 
 def delayed_decode(hconf, dconf, econf, fold):

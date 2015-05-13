@@ -24,8 +24,8 @@ from attelo.harness.util import (call, force_symlink, timestamp)
 from .config import (ClusterStage, DataConfig)
 from .parse import (decode_on_the_fly,
                     delayed_decode,
+                    learn,
                     post_decode)
-from .learn import (mk_combined_models)
 from .report import (mk_fold_report,
                      mk_global_report,
                      mk_test_report)
@@ -282,7 +282,8 @@ def evaluate_corpus(hconf):
             do_fold(hconf, dconf, fold)
 
     if hconf.runcfg.stage in [None, ClusterStage.combined_models]:
-        mk_combined_models(hconf, hconf.evaluations, dconf)
+        for econf in hconf.evaluations:
+            learn(hconf, econf, dconf, None)
         if hconf.test_evaluation is not None:
             test_pack = _load_harness_multipack(hconf, test_data=True)
             test_dconf = DataConfig(pack=test_pack, folds=None)
