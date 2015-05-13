@@ -10,21 +10,37 @@ Helpers for result reporting
 from __future__ import print_function
 from collections import (namedtuple, defaultdict)
 from os import path as fp
+import codecs
+import glob
+import itertools as itr
+import shutil
+import sys
+
+from attelo.io import (load_model,
+                       load_predictions)
+from attelo.fold import (select_testing)
+from attelo.harness.util import (makedirs, md5sum_file)
+from attelo.report import (EdgeReport,
+                           LabelReport,
+                           EduReport,
+                           CombinedReport,
+                           show_confusion_matrix,
+                           show_discriminating_features)
+from attelo.score import (empty_confusion_matrix,
+                          build_confusion_matrix,
+                          discriminating_features,
+                          score_edges,
+                          score_edges_by_label,
+                          score_edus,
+                          select_in_pack)
+from attelo.table import (DataPack,
+                          select_fakeroot,
+                          select_intersentential,
+                          select_intrasentential)
+from attelo.util import (Team)
 
 from .util import makedirs
-from ..fold import (select_testing)
-from ..report import (EdgeReport,
-                      LabelReport,
-                      EduReport,
-                      CombinedReport,
-                      show_confusion_matrix)
-from ..score import (empty_confusion_matrix,
-                     build_confusion_matrix,
-                     score_edges,
-                     score_edges_by_label,
-                     score_edus,
-                     select_in_pack)
-from ..table import (DataPack)
+from .graph import (mk_graphs, mk_test_graphs)
 
 
 class ReportPack(namedtuple('ReportPack',
@@ -186,11 +202,8 @@ def full_report(mpack, fold_dict, slices,
     is_first_slice = True
 
     # avoid slicing the predictions if we can help it (slow)
-    if adjust_pack is None:
-        adjust_predictions = lambda _, x: x
-        adjust_pack = lambda x: x
-    else:
-        adjust_predictions = select_in_pack
+    adjust_pack = adjust_pack or (lambda x: x)
+    adjust_predictions = select_in_pack if adjust_pack else (lambda _, x: x)
 
     for slc in slices:
         if is_first_slice and slc.fold is None:
@@ -231,3 +244,202 @@ def full_report(mpack, fold_dict, slices,
                       confusion=confusion,
                       confusion_labels=dpack0.labels)
 # pylint: enable=too-many-locals
+
+
+def _report_key(econf):
+    """
+    Rework an evaluation config key so it looks nice in
+    our reports
+
+    :rtype tuple(string)
+    """
+    return (econf.learner.key,
+            econf.parser.key[len(econf.settings.key) + 1:],
+            econf.settings.key)
+
+
+def _fold_report_slices(hconf, fold):
+    """
+    Report slices for a given fold
+    """
+    print('Scoring fold {}...'.format(fold),
+          file=sys.stderr)
+    dkeys = [econf.key for econf in hconf.detailed_evaluations]
+    for econf in hconf.evaluations:
+        p_path = hconf.decode_output_path(econf, fold)
+        yield Slice(fold=fold,
+                    configuration=_report_key(econf),
+                    predictions=load_predictions(p_path),
+                    enable_details=econf.key in dkeys)
+
+
+def _model_info_path(hconf, rconf, test_data, fold=None, intra=False):
+    """
+    Path to the model output file
+    """
+    template = "discr-features{grain}.{learner}.txt"
+    return fp.join(hconf.report_dir_path(test_data, fold=fold),
+                   template.format(grain='-sent' if intra else '',
+                                   learner=rconf.key))
+
+
+def _mk_model_summary(hconf, dconf, rconf, test_data, fold):
+    "generate summary of best model features"
+    _top_n = 3
+
+    def _write_discr(discr, intra):
+        "write discriminating features to disk"
+        if discr is None:
+            print(('No discriminating features for {name} {grain} model'
+                   '').format(name=rconf.key,
+                              grain='sent' if intra else 'doc'),
+                  file=sys.stderr)
+            return
+        output = _model_info_path(hconf, rconf, test_data,
+                                  fold=fold,
+                                  intra=intra)
+        with codecs.open(output, 'wb', 'utf-8') as fout:
+            print(show_discriminating_features(discr),
+                  file=fout)
+
+    dpack0 = dconf.pack.values()[0]
+    labels = dpack0.labels
+    vocab = dpack0.vocab
+    mpaths = hconf.model_paths(rconf, fold)
+    # doc level discriminating features
+    models = Team(attach=mpaths['attach'],
+                  label=mpaths['label']).fmap(load_model)
+    discr = discriminating_features(models, labels, vocab, _top_n)
+    _write_discr(discr, False)
+
+    # sentence-level
+    if 'intra:attach' not in mpaths or 'intra:label' not in mpaths:
+        return
+    s_attach_path = mpaths['intra:attach']
+    s_label_path = mpaths['intra:label']
+    if not fp.exists(s_attach_path) or not fp.exists(s_label_path):
+        return
+    models = Team(attach=s_attach_path,
+                  label=s_label_path).fmap(load_model)
+    discr = discriminating_features(models, labels, vocab, _top_n)
+    _write_discr(discr, True)
+
+
+def _mk_hashfile(hconf, dconf, test_data):
+    "Hash the features and models files for long term archiving"
+
+    hash_me = list(hconf.mpack_paths(False))
+    if hconf.test_evaluation is not None:
+        hash_me.extend(hconf.mpack_paths(True))
+    learners = frozenset(e.learner for e in hconf.evaluations)
+    for rconf in learners:
+        mpaths = hconf.model_paths(rconf, None)
+        hash_me.extend(mpaths.values())
+    if not test_data:
+        for fold in sorted(frozenset(dconf.folds.values())):
+            for rconf in learners:
+                mpaths = hconf.model_paths(rconf, fold)
+                hash_me.extend(mpaths.values())
+    provenance_dir = fp.join(hconf.report_dir_path(test_data, None),
+                             'provenance')
+    makedirs(provenance_dir)
+    with open(fp.join(provenance_dir, 'hashes.txt'), 'w') as stream:
+        for path in hash_me:
+            fold_basename = fp.basename(fp.dirname(path))
+            if fold_basename.startswith('fold-'):
+                nice_path = fp.join(fold_basename, fp.basename(path))
+            else:
+                nice_path = fp.basename(path)
+            print('\t'.join([nice_path, md5sum_file(path)]),
+                  file=stream)
+
+
+def _copy_version_files(hconf, test_data):
+    "Hash the features and models files for long term archiving"
+    provenance_dir = fp.join(hconf.report_dir_path(test_data, None),
+                             'provenance')
+    makedirs(provenance_dir)
+    for vpath in glob.glob(fp.join(hconf.eval_dir,
+                                   'versions-*.txt')):
+        shutil.copy(vpath, provenance_dir)
+
+
+def _mk_report(hconf, dconf, slices, fold, test_data=False):
+    """helper for report generation
+
+    :type fold: int or None
+    """
+    # we could just use slices = list(slices) here but we have a
+    # bit of awkward lazy IO where it says 'scoring fold N...'
+    # the idea being that we should only really see this when it's
+    # actually scoring that fold. Hoop-jumping induced by the fact
+    # that we are now generating multiple reports on the same slices
+    slices_ = itr.tee(slices, 4)
+    rpack = full_report(dconf.pack, dconf.folds, slices_[0])
+    rdir = hconf.report_dir_path(test_data, fold)
+    rpack.dump(rdir, header='whole')
+
+    partitions = [(1, 'intra', select_intrasentential),
+                  (2, 'inter', select_intersentential),
+                  (3, 'froot', select_fakeroot)]
+    for i, header, adjust_pack in partitions:
+        rpack = full_report(dconf.pack, dconf.folds, slices_[i],
+                            adjust_pack=adjust_pack)
+        rpack.append(rdir, header=header)
+
+    for rconf in set(e.learner for e in hconf.evaluations):
+        _mk_model_summary(hconf, dconf, rconf, test_data, fold)
+
+
+def mk_fold_report(hconf, dconf, fold):
+    "Generate reports for the given fold"
+    slices = _fold_report_slices(hconf, fold)
+    _mk_report(hconf, dconf, slices, fold)
+
+
+def mk_global_report(hconf, dconf):
+    "Generate reports for all folds"
+    slices = itr.chain.from_iterable(_fold_report_slices(hconf, f)
+                                     for f in frozenset(dconf.folds.values()))
+    _mk_report(hconf, dconf, slices, None)
+    _copy_version_files(hconf, False)
+
+    report_dir = hconf.report_dir_path(False, fold=None)
+    final_report_dir = hconf.report_dir_path(False, fold=None, is_tmp=False)
+    mk_graphs(hconf, dconf)
+    _mk_hashfile(hconf, dconf, False)
+    if fp.exists(final_report_dir):
+        shutil.rmtree(final_report_dir)
+    shutil.copytree(report_dir, final_report_dir)
+    # this can happen if resuming a report; better copy
+    # it again
+    print('Report saved in ', final_report_dir,
+          file=sys.stderr)
+
+
+def mk_test_report(hconf, dconf):
+    "Generate reports for test data"
+    econf = hconf.test_evaluation
+    if econf is None:
+        return
+
+    p_path = hconf.decode_output_path(econf, None)
+    slices = [Slice(fold=None,
+                    configuration=_report_key(econf),
+                    predictions=load_predictions(p_path),
+                    enable_details=True)]
+    _mk_report(hconf, dconf, slices, None,
+               test_data=True)
+    _copy_version_files(hconf, True)
+
+    report_dir = hconf.report_dir_path(True, fold=None)
+    final_report_dir = hconf.report_dir_path(True, fold=None, is_tmp=False)
+    mk_test_graphs(hconf, dconf)
+    _mk_hashfile(hconf, dconf, True)
+    # this can happen if resuming a report; better copy
+    # it again
+    if fp.exists(final_report_dir):
+        shutil.rmtree(final_report_dir)
+    shutil.copytree(report_dir, final_report_dir)
+    print('TEST Report saved in ', final_report_dir,
+          file=sys.stderr)

@@ -6,19 +6,14 @@ from __future__ import print_function
 from enum import Enum
 from os import path as fp
 
+from joblib import (delayed)
+
 from attelo.fold import (select_testing)
 from attelo.graph import (diff_all, graph_all,
                           GraphSettings)
 from attelo.io import (Torpor, load_predictions)
 from attelo.util import (concat_l)
-from joblib import (Parallel, delayed)
 
-from .local import (GRAPH_DOCS,
-                    DETAILED_EVALUATIONS)
-from .path import (decode_output_path,
-                   fold_dir_basename,
-                   report_dir_path)
-from .util import (test_evaluation)
 
 # pylint: disable=too-few-public-methods
 
@@ -40,9 +35,9 @@ def to_predictions(mpack):
                                      dpack.target)]
 
 
-def _mk_econf_graphs(lconf, edus, gold, econf, fold):
+def _mk_econf_graphs(hconf, edus, gold, econf, fold):
     "Return jobs generating graphs for a single configuration"
-    predictions = load_predictions(decode_output_path(lconf, econf, fold))
+    predictions = load_predictions(hconf.decode_output_path(econf, fold))
     for diffmode in GraphDiffMode:
         # output path
         if diffmode == GraphDiffMode.solo:
@@ -55,8 +50,9 @@ def _mk_econf_graphs(lconf, edus, gold, econf, fold):
             raise Exception('Unknown diff mode {}'.format(diffmode))
 
         want_test = fold is None
-        suffix = 'test' if want_test else fold_dir_basename(fold)
-        output_dir = fp.join(report_dir_path(lconf, want_test, None),
+        suffix = 'test' if want_test\
+            else fp.basename(hconf.fold_dir_path(fold))
+        output_dir = fp.join(hconf.report_dir_path(want_test, None),
                              output_bn_prefix + suffix,
                              econf.key)
 
@@ -64,7 +60,7 @@ def _mk_econf_graphs(lconf, edus, gold, econf, fold):
         to_hide = 'inter' if diffmode == GraphDiffMode.diff_intra else None
         settings =\
             GraphSettings(hide=to_hide,
-                          select=GRAPH_DOCS,
+                          select=hconf.graph_docs,
                           unrelated=False,
                           timeout=15,
                           quiet=False)
@@ -82,15 +78,15 @@ def _mk_econf_graphs(lconf, edus, gold, econf, fold):
                                     output_dir)
 
 
-def _mk_gold_graphs(lconf, dconf):
+def _mk_gold_graphs(hconf, dconf):
     "Generate graphs for a single configuration"
     # output path
-    output_dir = fp.join(report_dir_path(lconf, None),
+    output_dir = fp.join(hconf.report_dir_path(None),
                          'graphs-gold')
 
     settings =\
         GraphSettings(hide=None,
-                      select=GRAPH_DOCS,
+                      select=hconf.graph_docs,
                       unrelated=False,
                       timeout=15,
                       quiet=True)
@@ -100,10 +96,10 @@ def _mk_gold_graphs(lconf, dconf):
     graph_all(edus, predictions, settings, output_dir)
 
 
-def mk_graphs(lconf, dconf):
+def mk_graphs(hconf, dconf):
     "Generate graphs for the gold data and for one of the folds"
     with Torpor('creating gold graphs'):
-        _mk_gold_graphs(lconf, dconf)
+        _mk_gold_graphs(hconf, dconf)
     fold = sorted(set(dconf.folds.values()))[0]
 
     with Torpor('creating graphs for fold {}'.format(fold),
@@ -112,17 +108,17 @@ def mk_graphs(lconf, dconf):
         edus = concat_l(dpack.edus for dpack in test_pack.values())
         gold = to_predictions(test_pack)
         jobs = []
-        for econf in DETAILED_EVALUATIONS:
-            jobs.extend(_mk_econf_graphs(lconf, edus, gold, econf, fold))
-        Parallel(n_jobs=-1)(jobs)
+        for econf in hconf.detailed_evaluations:
+            jobs.extend(_mk_econf_graphs(hconf, edus, gold, econf, fold))
+        hconf.parallel(jobs)
 
 
-def mk_test_graphs(lconf, dconf):
+def mk_test_graphs(hconf, dconf):
     "Generate graphs for test data"
-    econf = test_evaluation()
+    econf = hconf.test_evaluation
     if econf is None:
         return
     with Torpor('creating test graphs'):
         edus = concat_l(dpack.edus for dpack in dconf.pack.values())
         gold = to_predictions(dconf.pack)
-        _mk_econf_graphs(lconf, edus, gold, econf, None)
+        _mk_econf_graphs(hconf, edus, gold, econf, None)

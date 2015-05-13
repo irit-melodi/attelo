@@ -6,6 +6,7 @@ Configuring the harness
 # License: CeCILL-B (French BSD3-like)
 
 from collections import namedtuple
+from enum import Enum
 
 from attelo.util import Team
 
@@ -74,3 +75,70 @@ class EvaluationConfig(namedtuple("EvaluationConfig",
         generate a short unique name for a learner/decoder combo
         """
         return "%s-%s" % (learner.key, decoder.key)
+
+
+class DataConfig(namedtuple("DataConfig",
+                            ["pack",
+                             "folds"])):
+    """Data tables read during harness evaluation
+
+    This class may be folded into HarnessConfig eventually
+    """
+
+
+class ClusterStage(Enum):
+    """
+    What stage of cluster usage we are at
+
+    This is used when you want to distribute the evaluation
+    across multiple nodes of a cluster.
+
+    The idea is that you would run the harness in separate
+    stages:
+
+        * a single "start" stage, then
+        * in parallel
+          * nodes running "main" stages for some folds
+          * a node running a "combined_model" stage
+        * finally, a single "end" stage
+
+    """
+    start = 1
+    main = 2
+    combined_models = 3
+    end = 4
+
+
+class RuntimeConfig(namedtuple('RuntimeConfig',
+                               ['mode', 'n_jobs', 'folds', 'stage'])):
+    """Harness runtime options.
+
+    These are mostly relevant to when using the harness on
+    a cluster.
+
+    Parameters
+    ----------
+    mode: string ('resume' or 'jumpstart') or None
+        * jumpstart: copy model and fold files from a previous evaluation
+        * resume: pick an evaluation up from where it left off
+
+    folds: [int] or None
+        Which folds to run the harness on.
+        None to run on all folds
+
+    n_jobs: int (-1 or natural)
+        Number of parallel jobs to run (-1 for max cores).
+        See joblib doc for details
+
+    stage: ClusterStage or None
+        Which evaluation stage to run
+    """
+    @classmethod
+    def empty(cls):
+        """
+        Empty configuration
+        """
+        return cls(mode=None,
+                   n_jobs=-1,
+                   folds=None,
+                   stage=None)

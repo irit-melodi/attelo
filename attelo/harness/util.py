@@ -8,6 +8,7 @@ Miscellaneous utility functions
 
 from datetime import datetime, date
 from os import path as fp
+import hashlib
 import os
 import subprocess
 import sys
@@ -63,3 +64,16 @@ def makedirs(path, **kwargs):
     """
     if not fp.exists(path):
         os.makedirs(path, **kwargs)
+
+
+def md5sum_file(path, blocksize=65536):
+    """
+    Read a file and return its md5 sum
+    """
+    hasher = hashlib.md5()
+    with open(path, 'rb') as afile:
+        buf = afile.read(blocksize)
+        while len(buf) > 0:
+            hasher.update(buf)
+            buf = afile.read(blocksize)
+    return hasher.hexdigest()
