@@ -345,6 +345,8 @@ def _mk_hashfile(hconf, dconf, test_data):
     makedirs(provenance_dir)
     with open(fp.join(provenance_dir, 'hashes.txt'), 'w') as stream:
         for path in hash_me:
+            if not fp.exists(path):
+                continue
             fold_basename = fp.basename(fp.dirname(path))
             if fold_basename.startswith('fold-'):
                 nice_path = fp.join(fold_basename, fp.basename(path))
