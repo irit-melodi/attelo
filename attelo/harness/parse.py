@@ -5,11 +5,29 @@ Control over attelo parsers as might be needed for a test harness
 from __future__ import print_function
 from os import path as fp
 import os
+import sys
 
 from joblib import (delayed)
 
 from ..io import (write_predictions_output)
 from attelo.decoding.util import (prediction_to_triples)
+from attelo.fold import (select_training,
+                         select_testing)
+from attelo.harness.util import (makedirs)
+
+
+def _eval_banner(econf, hconf, fold):
+    """
+    Which combo of eval parameters are we running now?
+    """
+    msg = ("Reassembling "
+           "fold {fnum} [{dset}]\t"
+           "learner(s): {learner}\t"
+           "parser: {parser}")
+    return msg.format(fnum=fold,
+                      dset=hconf.dataset,
+                      learner=econf.learner.key,
+                      parser=econf.parser.key)
 
 
 def _tmp_output_filename(path, suffix):
@@ -66,3 +84,89 @@ def jobs(mpack, parser, output_path):
         tmp_output_path = _tmp_output_filename(output_path, onedoc)
         res.append(delayed(_parse_group)(dpack, parser, tmp_output_path))
     return res
+
+
+def learn(hconf, econf, dconf, fold):
+    """
+    Run the learners for the given configuration
+    """
+    if fold is None:
+        subpacks = dconf.pack
+        parent_dir = hconf.combined_dir_path()
+    else:
+        subpacks = select_training(dconf.pack, dconf.folds, fold)
+        parent_dir = hconf.fold_dir_path(fold)
+
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir)
+    cache = hconf.model_paths(econf.learner, fold)
+    print('learning ', econf.key, '...', file=sys.stderr)
+    dpacks = subpacks.values()
+    targets = [d.target for d in dpacks]
+    econf.parser.payload.fit(dpacks, targets, cache=cache)
+
+
+def delayed_decode(hconf, dconf, econf, fold):
+    """
+    Return possible futures for decoding groups within
+    this model/decoder combo for the given fold
+    """
+    if fold is None and hconf.test_evaluation is None:
+        return []
+    if _say_if_decoded(hconf, econf, fold, stage='decoding'):
+        return []
+
+    output_path = hconf.decode_output_path(econf, fold)
+    makedirs(fp.dirname(output_path))
+
+    if fold is None:
+        subpack = dconf.pack
+    else:
+        subpack = select_testing(dconf.pack, dconf.folds, fold)
+
+    parser = econf.parser.payload
+    return jobs(subpack, parser, output_path)
+
+
+def decode_on_the_fly(hconf, dconf, fold):
+    """
+    Learn each parser, returning decoder jobs as each is learned.
+    Return a decoder job generator that should hopefully allow us
+    to effectively learn and decode in parallel.
+    """
+    for econf in hconf.evaluations:
+        learn(hconf, econf, dconf, fold)
+        for job in delayed_decode(hconf, dconf, econf, fold):
+            yield job
+
+
+def _say_if_decoded(hconf, econf, fold, stage='decoding'):
+    """
+    If we have already done the decoding for a given config
+    and fold, say so and return True
+    """
+    if fp.exists(hconf.decode_output_path(econf, fold)):
+        print(("skipping {stage} {learner} {parser} "
+               "(already done)").format(stage=stage,
+                                        learner=econf.learner.key,
+                                        parser=econf.parser.key),
+              file=sys.stderr)
+        return True
+    else:
+        return False
+
+
+def post_decode(hconf, dconf, econf, fold):
+    """
+    Join together output files from this model/decoder combo
+    """
+    if _say_if_decoded(hconf, econf, fold, stage='reassembly'):
+        return
+
+    print(_eval_banner(econf, hconf, fold), file=sys.stderr)
+    if fold is None:
+        subpack = dconf.pack
+    else:
+        subpack = select_testing(dconf.pack, dconf.folds, fold)
+    concatenate_outputs(subpack,
+                        hconf.decode_output_path(econf, fold))
