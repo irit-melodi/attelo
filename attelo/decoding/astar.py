@@ -453,11 +453,12 @@ class DiscourseBeamSearch(DiscourseSearch, BeamSearch):
 
 
 class Heuristic(Enum):
-    """
-    What sort of right frontier constraint to apply during decoding:
+    """Heuristic cost to guide A* search with
 
-        * simple: every relation is treated as subordinating
-        * full: (falls back to simple in case of unlabelled prediction)
+    * zero: see DiscourseState.h_zero
+    * max: see DiscourseState.h_best_overall
+    * best: see DiscourseState.h_best
+    * average: see DiscourseState.h_average
     """
     zero = 0
     max = 1
