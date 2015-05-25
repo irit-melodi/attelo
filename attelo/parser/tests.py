@@ -33,7 +33,12 @@ from attelo.util import (Team)
 from .full import (JointPipeline,
                    PostlabelPipeline)
 from .pipeline import (Pipeline)
-from .intra import (for_intra, partition_subgroupings)
+from .intra import (HeadToHeadParser,
+                    IntraInterPair,
+                    SentOnlyParser,
+                    SoftParser,
+                    for_intra,
+                    partition_subgroupings)
 
 
 # pylint: disable=too-few-public-methods
@@ -188,3 +193,30 @@ class IntraTest(unittest.TestCase):
         self.assertEqual(set(e2.subgrouping for _, e2 in sroot_pairs),
                          set(e.subgrouping for e in dpack.edus),
                          'every sentence represented')
+
+    def _test_parser(self, parser):
+        """
+        Train a parser and decode on the same data (not a really
+        meaningful test but just trying to make sure we exercise
+        as much code as possible)
+        """
+        dpack = self._dpack_1()
+        parser.fit([dpack], [dpack.target])
+        parser.transform(dpack)
+
+    def test_intra_parsers(self):
+        'test all intra/inter parsers on a dpack'
+        learner = Team(attach=SklearnAttachClassifier(LogisticRegression()),
+                       label=SklearnLabelClassifier(LogisticRegression()))
+        # note: these are chosen a bit randomly
+        p_intra = JointPipeline(learner_attach=learner.attach,
+                                learner_label=learner.label,
+                                decoder=MST_DECODER)
+        p_inter = PostlabelPipeline(learner_attach=learner.attach,
+                                    learner_label=learner.label,
+                                    decoder=MST_DECODER)
+        parsers = [mk_p(IntraInterPair(intra=p_intra,
+                                       inter=p_inter))
+                   for mk_p in [SentOnlyParser, SoftParser, HeadToHeadParser]]
+        for parser in parsers:
+            self._test_parser(parser)
