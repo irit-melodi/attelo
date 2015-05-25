@@ -466,7 +466,8 @@ def select_intrasentential(dpack, include_fake_root=False):
         if edu1.id == FAKE_ROOT_ID:
             if include_fake_root:
                 retain.append(i)
-        elif edu1.subgrouping == edu2.subgrouping:
+        elif (edu1.grouping == edu2.grouping and
+              edu1.subgrouping == edu2.subgrouping):
             retain.append(i)
     return dpack.selected(retain)
 
@@ -484,7 +485,8 @@ def select_intersentential(dpack, include_fake_root=False):
         if edu1.id == FAKE_ROOT_ID:
             if include_fake_root:
                 retain.append(i)
-        elif edu1.subgrouping != edu2.subgrouping:
+        elif (edu1.grouping != edu2.grouping or
+              edu1.subgrouping != edu2.subgrouping):
             retain.append(i)
     return dpack.selected(retain)
 
