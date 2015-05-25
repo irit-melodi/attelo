@@ -22,7 +22,7 @@ from attelo.decoding.greedy import (LocallyGreedy)
 from attelo.decoding.tests import (DecoderTest)
 from attelo.decoding.window import (WindowPruner)
 
-from attelo.edu import EDU, FAKE_ROOT
+from attelo.edu import EDU, FAKE_ROOT, FAKE_ROOT_ID
 from attelo.learning.local import (SklearnAttachClassifier,
                                    SklearnLabelClassifier)
 from attelo.learning.perceptron import (PerceptronArgs,
@@ -33,7 +33,7 @@ from attelo.util import (Team)
 from .full import (JointPipeline,
                    PostlabelPipeline)
 from .pipeline import (Pipeline)
-from .intra import (for_intra)
+from .intra import (for_intra, partition_subgroupings)
 
 
 # pylint: disable=too-few-public-methods
@@ -111,8 +111,10 @@ class ParserTest(DecoderTest):
 
 class IntraTest(unittest.TestCase):
     """Intrasentential parser"""
-    def test_for_intra(self):
-        'test that sentence roots are identified correctly'
+
+    @staticmethod
+    def _dpack_1():
+        "example datapack for testing"
         # pylint: disable=invalid-name
         a1 = EDU('a1', '', 0, 0, 'a', 's1')
         a2 = EDU('a2', '', 0, 0, 'a', 's1')
@@ -153,6 +155,31 @@ class IntraTest(unittest.TestCase):
                                                1, 1, 1, 3, 1, 3, 1, 1, 1]),
                               labels=orig_classes,
                               vocab=None)
+        return dpack
+
+    def test_partition_subgroupings(self):
+        'test that sentences are split correctly'
+        big_dpack = self._dpack_1()
+        partitions = list(partition_subgroupings(big_dpack))
+        all_valid = frozenset(x.subgrouping for x in big_dpack.edus)
+        all_subgroupings = set()
+        for dpack in partitions:
+            valid = dpack.edus[0].subgrouping
+            subgroupings = set()
+            for edu1, edu2 in dpack.pairings:
+                if edu1.id != FAKE_ROOT_ID:
+                    subgroupings.add(edu1.subgrouping)
+                subgroupings.add(edu2.subgrouping)
+            all_subgroupings |= subgroupings
+            self.assertEqual(list(subgroupings), [valid])
+
+        self.assertEqual(all_valid, all_subgroupings)
+        self.assertEqual(len(all_subgroupings), len(partitions))
+
+
+    def test_for_intra(self):
+        'test that sentence roots are identified correctly'
+        dpack = self._dpack_1()
         ipack, _ = for_intra(dpack, dpack.target)
         sroots = np.where(ipack.target == ipack.label_number('ROOT'))[0]
         sroot_pairs = ipack.selected(sroots).pairings
