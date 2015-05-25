@@ -279,8 +279,11 @@ class HeadToHeadParser(IntraInterParser):
     def _recombine(self, dpack, spacks):
         "join sentences by parsing their heads"
         dpack_inter = self._select_heads(dpack, spacks)
-        dpack_inter = self._parsers.inter.transform(dpack_inter)
-        doc_lbl = self._mk_get_lbl(dpack, [dpack_inter])
+        if len(dpack_inter) > 0:
+            dpack_inter = self._parsers.inter.transform(dpack_inter)
+            doc_lbl = self._mk_get_lbl(dpack, [dpack_inter])
+        else:
+            doc_lbl = lambda _: None
         sent_lbl = self._mk_get_lbl(dpack, spacks)
         unrelated_lbl = dpack.label_number(UNRELATED)
 
