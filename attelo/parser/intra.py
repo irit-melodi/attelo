@@ -263,7 +263,7 @@ class HeadToHeadParser(IntraInterParser):
         # identify sentence heads
         unrelated_lbl = dpack.label_number(UNRELATED)
         sent_lbl = self._mk_get_lbl(dpack, spacks)
-        head_ids = [edu2.id for i, (edu1, edu2) in enumerate(dpack.dpairings)
+        head_ids = [edu2.id for i, (edu1, edu2) in enumerate(dpack.pairings)
                     if edu1.id == FAKE_ROOT_ID and
                     sent_lbl(i) != unrelated_lbl]
 
@@ -288,7 +288,8 @@ class HeadToHeadParser(IntraInterParser):
             lbl = doc_lbl(i)
             return sent_lbl(i) if lbl is None else lbl
         # merge results
-        prediction = np.fromiter(merged_lbl(i) for i in range(len(dpack)))
+        prediction = np.fromiter((merged_lbl(i) for i in range(len(dpack))),
+                                 dtype=np.dtype(np.int16))
         graph = dpack.graph.tweak(prediction=prediction)
         return dpack.set_graph(graph)
 
