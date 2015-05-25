@@ -282,11 +282,18 @@ class HeadToHeadParser(IntraInterParser):
         dpack_inter = self._parsers.inter.transform(dpack_inter)
         doc_lbl = self._mk_get_lbl(dpack, [dpack_inter])
         sent_lbl = self._mk_get_lbl(dpack, spacks)
+        unrelated_lbl = dpack.label_number(UNRELATED)
 
         def merged_lbl(i):
             'doc label where relevant else sentence label'
             lbl = doc_lbl(i)
-            return sent_lbl(i) if lbl is None else lbl
+            if lbl is None:
+                lbl = sent_lbl(i)
+            # may have fallen through the cracks (ie. may be neither in
+            # a sentence be a head)
+            if lbl is None:
+                lbl = unrelated_lbl
+            return lbl
         # merge results
         prediction = np.fromiter((merged_lbl(i) for i in range(len(dpack))),
                                  dtype=np.dtype(np.int16))
