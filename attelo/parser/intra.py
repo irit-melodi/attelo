@@ -114,9 +114,11 @@ def partition_subgroupings(dpack):
     """
     sg_indices = defaultdict(list)
     for i, pair in enumerate(dpack.pairings):
-        edu2 = pair[1]
-        key = edu2.grouping, edu2.subgrouping
-        sg_indices[key].append(i)
+        edu1, edu2 = pair
+        key1 = edu1.grouping, edu1.subgrouping
+        key2 = edu2.grouping, edu2.subgrouping
+        if edu1.id == FAKE_ROOT_ID or key1 == key2:
+            sg_indices[key2].append(i)
     for idxs in sg_indices.values():
         yield dpack.selected(idxs)
 
