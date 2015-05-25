@@ -325,7 +325,7 @@ class SoftParser(IntraInterParser):
                 weights_a[i] = 1.0
                 weights_l[i] = np.zeros(len(dpack.labels))
                 weights_l[i, lbl] = 1.0
-        dpack.set_graph(Graph(prediction=dpack.graph.prediction,
-                              attach=weights_a,
-                              label=weights_l))
+        dpack = dpack.set_graph(Graph(prediction=dpack.graph.prediction,
+                                      attach=weights_a,
+                                      label=weights_l))
         return self._parsers.inter.transform(dpack)
