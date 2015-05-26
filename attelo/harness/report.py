@@ -20,6 +20,7 @@ from attelo.io import (load_model,
                        load_predictions)
 from attelo.fold import (select_testing)
 from attelo.harness.util import (makedirs, md5sum_file)
+from attelo.parser.intra import (IntraInterPair)
 from attelo.report import (EdgeReport,
                            LabelReport,
                            EduReport,
@@ -253,7 +254,14 @@ def _report_key(econf):
 
     :rtype tuple(string)
     """
-    return (econf.learner.key,
+    if not isinstance(econf.learner, IntraInterPair):
+        learner_key = econf.learner.key
+    elif econf.learner.intra.key == econf.learner.inter.key:
+        learner_key = econf.learner.intra.key
+    else:
+        learner_key = '{}S_D{}'.format(econf.learner.intra.key,
+                                       econf.learner.inter.key)
+    return (learner_key,
             econf.parser.key[len(econf.settings.key) + 1:],
             econf.settings.key)
 
@@ -287,15 +295,18 @@ def _mk_model_summary(hconf, dconf, rconf, test_data, fold):
     "generate summary of best model features"
     _top_n = 3
 
-    def _write_discr(discr, intra):
+    if not isinstance(rconf, IntraInterPair):
+        rconf = IntraInterPair(intra=rconf, inter=rconf)
+
+    def _write_discr(discr, subconf, intra):
         "write discriminating features to disk"
         if discr is None:
             print(('No discriminating features for {name} {grain} model'
-                   '').format(name=rconf.key,
+                   '').format(name=subconf.key,
                               grain='sent' if intra else 'doc'),
                   file=sys.stderr)
             return
-        output = _model_info_path(hconf, rconf, test_data,
+        output = _model_info_path(hconf, subconf, test_data,
                                   fold=fold,
                                   intra=intra)
         with codecs.open(output, 'wb', 'utf-8') as fout:
@@ -310,7 +321,7 @@ def _mk_model_summary(hconf, dconf, rconf, test_data, fold):
     models = Team(attach=mpaths['attach'],
                   label=mpaths['label']).fmap(load_model)
     discr = discriminating_features(models, labels, vocab, _top_n)
-    _write_discr(discr, False)
+    _write_discr(discr, rconf.inter, False)
 
     # sentence-level
     if 'intra:attach' not in mpaths or 'intra:label' not in mpaths:
@@ -322,7 +333,7 @@ def _mk_model_summary(hconf, dconf, rconf, test_data, fold):
     models = Team(attach=s_attach_path,
                   label=s_label_path).fmap(load_model)
     discr = discriminating_features(models, labels, vocab, _top_n)
-    _write_discr(discr, True)
+    _write_discr(discr, rconf.intra, True)
 
 
 def _mk_hashfile(hconf, dconf, test_data):

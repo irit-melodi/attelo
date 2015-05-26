@@ -22,11 +22,9 @@ def _eval_banner(econf, hconf, fold):
     """
     msg = ("Reassembling "
            "fold {fnum} [{dset}]\t"
-           "learner(s): {learner}\t"
            "parser: {parser}")
     return msg.format(fnum=fold,
                       dset=hconf.dataset,
-                      learner=econf.learner.key,
                       parser=econf.parser.key)
 
 
@@ -146,9 +144,8 @@ def _say_if_decoded(hconf, econf, fold, stage='decoding'):
     and fold, say so and return True
     """
     if fp.exists(hconf.decode_output_path(econf, fold)):
-        print(("skipping {stage} {learner} {parser} "
+        print(("skipping {stage} {parser} "
                "(already done)").format(stage=stage,
-                                        learner=econf.learner.key,
                                         parser=econf.parser.key),
               file=sys.stderr)
         return True
