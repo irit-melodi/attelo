@@ -27,7 +27,19 @@ class IntraInterPair(namedtuple("IntraInterPair",
     for intra-sentential decoding, and the other meant for
     intersentential
     """
-    pass
+    def fmap(self, fun):
+        """Return the result of applying a function on both intra/inter
+
+        Parameters
+        ----------
+        fun: `a -> b`
+
+        Returns
+        -------
+        IntraInterPair(b)
+        """
+        return IntraInterPair(intra=fun(self.intra),
+                              inter=fun(self.inter))
 
 
 def for_intra(dpack, target):
