@@ -350,7 +350,10 @@ class SoftParser(IntraInterParser):
 
         weights_a = np.copy(dpack.graph.attach)
         weights_l = np.copy(dpack.graph.label)
-        for i in range(len(dpack)):
+        for i, (edu1, _) in enumerate(dpack.pairings):
+            if edu1.id == FAKE_ROOT_ID:
+                # don't confuse the inter parser with sentence roots
+                continue
             lbl = sent_lbl(i)
             if lbl is not None and lbl != unrelated_lbl:
                 weights_a[i] = 1.0
