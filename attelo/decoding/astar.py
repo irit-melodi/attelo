@@ -14,7 +14,6 @@ TODO: unlabelled evaluation seems to bug on RF decoding (relation is of type ora
 
 from __future__ import print_function
 import copy
-import math
 import sys
 import numpy
 from collections import defaultdict, namedtuple
