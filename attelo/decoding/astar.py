@@ -13,9 +13,7 @@ TODO: unlabelled evaluation seems to bug on RF decoding (relation is of type ora
 """
 
 from __future__ import print_function
-from argparse import ArgumentTypeError
 import copy
-import math
 import sys
 import numpy
 from collections import defaultdict, namedtuple
@@ -115,18 +113,6 @@ class RfcConstraint(Enum):
     simple = 1
     full = 2
     none = 3
-
-    @classmethod
-    def from_string(cls, string):
-        "command line arg to RfcConstraint"
-        names = {x.name: x for x in cls}
-        rfc = names.get(string)
-        if rfc is not None:
-            return rfc
-        else:
-            oops = "invalid choice: {}, choose from {}"
-            choices = ", ".join('{}'.format(x) for x in names)
-            raise ArgumentTypeError(oops.format(string, choices))
 # pylint: enable=no-init
 
 
@@ -464,18 +450,6 @@ class Heuristic(Enum):
     max = 1
     best = 2
     average = 3
-
-    @classmethod
-    def from_string(cls, string):
-        "command line arg to Heuristic"
-        names = {x.name: x for x in cls}
-        val = names.get(string)
-        if val is not None:
-            return val
-        else:
-            oops = "invalid choice: {}, choose from {}"
-            choices = ", ".join('{}'.format(x) for x in names)
-            raise ArgumentTypeError(oops.format(string, choices))
 # pylint: enable=no-init
 
 HEURISTICS = {Heuristic.zero: DiscourseState.h_zero,

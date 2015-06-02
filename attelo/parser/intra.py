@@ -14,6 +14,8 @@ from attelo.edu import (FAKE_ROOT_ID)
 from attelo.table import (DataPack,
                           Graph,
                           UNRELATED,
+                          idxes_inter,
+                          idxes_intra,
                           locate_in_subpacks)
 from .interface import (Parser)
 
@@ -27,7 +29,19 @@ class IntraInterPair(namedtuple("IntraInterPair",
     for intra-sentential decoding, and the other meant for
     intersentential
     """
-    pass
+    def fmap(self, fun):
+        """Return the result of applying a function on both intra/inter
+
+        Parameters
+        ----------
+        fun: `a -> b`
+
+        Returns
+        -------
+        IntraInterPair(b)
+        """
+        return IntraInterPair(intra=fun(self.intra),
+                              inter=fun(self.inter))
 
 
 def for_intra(dpack, target):
@@ -45,8 +59,6 @@ def for_intra(dpack, target):
     dpack: DataPack
     target: array(int)
     """
-    # pack = _select_intrasentential(pack)
-
     # find all edus that have intra incoming edges (to rule out)
     unrelated = dpack.label_number(UNRELATED)
     intra_tgts = defaultdict(set)
@@ -114,9 +126,11 @@ def partition_subgroupings(dpack):
     """
     sg_indices = defaultdict(list)
     for i, pair in enumerate(dpack.pairings):
-        edu2 = pair[1]
-        key = edu2.grouping, edu2.subgrouping
-        sg_indices[key].append(i)
+        edu1, edu2 = pair
+        key1 = edu1.grouping, edu1.subgrouping
+        key2 = edu2.grouping, edu2.subgrouping
+        if edu1.id == FAKE_ROOT_ID or key1 == key2:
+            sg_indices[key2].append(i)
     for idxs in sg_indices.values():
         yield dpack.selected(idxs)
 
@@ -160,21 +174,41 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         else:
             intra_cache = {}
             inter_cache = {}
-            pref_len = len('intra:')
+            pref_len = len('intra:')  # same for 'inter:'
             for key in cache:
                 if key.startswith('intra:'):
                     intra_cache[key[pref_len:]] = cache[key]
-                else:
-                    inter_cache[key] = cache[key]
+                elif key.startswith('inter:'):
+                    inter_cache[key[pref_len:]] = cache[key]
             return IntraInterPair(intra=intra_cache,
                                   inter=inter_cache)
 
+    @staticmethod
+    def _for_intra_fit(dpack, target):
+        """Adapt a datapack for intrasentential learning"""
+        idxes = idxes_intra(dpack, include_fake_root=True)
+        dpack = dpack.selected(idxes)
+        target = target[idxes]
+        return for_intra(dpack, target)
+
+    @staticmethod
+    def _for_inter_fit(dpack, target):
+        """Adapt a datapack for intersentential learning"""
+        idxes = idxes_inter(dpack, include_fake_root=True)
+        dpack = dpack.selected(idxes)
+        target = target[idxes]
+        return dpack, target
+
     def fit(self, dpacks, targets, cache=None):
         caches = self._split_cache(cache)
-        dpacks_intra, targets_intra = self.dzip(for_intra, dpacks, targets)
+        dpacks_intra, targets_intra = self.dzip(self._for_intra_fit,
+                                                dpacks, targets)
+        dpacks_inter, targets_inter = self.dzip(self._for_inter_fit,
+                                                dpacks, targets)
         self._parsers.intra.fit(dpacks_intra, targets_intra,
                                 cache=caches.intra)
-        self._parsers.inter.fit(dpacks, targets, cache=caches.inter)
+        self._parsers.inter.fit(dpacks_inter, targets_inter,
+                                cache=caches.inter)
         return self
 
     def transform(self, dpack):
@@ -261,7 +295,7 @@ class HeadToHeadParser(IntraInterParser):
         # identify sentence heads
         unrelated_lbl = dpack.label_number(UNRELATED)
         sent_lbl = self._mk_get_lbl(dpack, spacks)
-        head_ids = [edu2.id for i, (edu1, edu2) in enumerate(dpack.dpairings)
+        head_ids = [edu2.id for i, (edu1, edu2) in enumerate(dpack.pairings)
                     if edu1.id == FAKE_ROOT_ID and
                     sent_lbl(i) != unrelated_lbl]
 
@@ -277,16 +311,26 @@ class HeadToHeadParser(IntraInterParser):
     def _recombine(self, dpack, spacks):
         "join sentences by parsing their heads"
         dpack_inter = self._select_heads(dpack, spacks)
-        dpack_inter = self._parsers.inter.transform(dpack_inter)
+        has_inter = len(dpack_inter) > 0
+        if has_inter:
+            dpack_inter = self._parsers.inter.transform(dpack_inter)
         doc_lbl = self._mk_get_lbl(dpack, [dpack_inter])
         sent_lbl = self._mk_get_lbl(dpack, spacks)
+        unrelated_lbl = dpack.label_number(UNRELATED)
 
         def merged_lbl(i):
             'doc label where relevant else sentence label'
-            lbl = doc_lbl(i)
-            return sent_lbl(i) if lbl is None else lbl
+            lbl = doc_lbl(i) if has_inter else None
+            if lbl is None:
+                lbl = sent_lbl(i)
+            # may have fallen through the cracks (ie. may be neither in
+            # a sentence be a head)
+            if lbl is None:
+                lbl = unrelated_lbl
+            return lbl
         # merge results
-        prediction = np.fromiter(merged_lbl(i) for i in range(len(dpack)))
+        prediction = np.fromiter((merged_lbl(i) for i in range(len(dpack))),
+                                 dtype=np.dtype(np.int16))
         graph = dpack.graph.tweak(prediction=prediction)
         return dpack.set_graph(graph)
 
@@ -306,13 +350,16 @@ class SoftParser(IntraInterParser):
 
         weights_a = np.copy(dpack.graph.attach)
         weights_l = np.copy(dpack.graph.label)
-        for i in range(len(dpack)):
+        for i, (edu1, _) in enumerate(dpack.pairings):
+            if edu1.id == FAKE_ROOT_ID:
+                # don't confuse the inter parser with sentence roots
+                continue
             lbl = sent_lbl(i)
             if lbl is not None and lbl != unrelated_lbl:
                 weights_a[i] = 1.0
                 weights_l[i] = np.zeros(len(dpack.labels))
                 weights_l[i, lbl] = 1.0
-        dpack.set_graph(Graph(prediction=dpack.graph.prediction,
-                              attach=weights_a,
-                              label=weights_l))
+        dpack = dpack.set_graph(Graph(prediction=dpack.graph.prediction,
+                                      attach=weights_a,
+                                      label=weights_l))
         return self._parsers.inter.transform(dpack)

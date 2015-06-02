@@ -20,6 +20,7 @@ from attelo.io import (load_model,
                        load_predictions)
 from attelo.fold import (select_testing)
 from attelo.harness.util import (makedirs, md5sum_file)
+from attelo.parser.intra import (IntraInterPair)
 from attelo.report import (EdgeReport,
                            LabelReport,
                            EduReport,
@@ -34,9 +35,9 @@ from attelo.score import (empty_confusion_matrix,
                           score_edus,
                           select_in_pack)
 from attelo.table import (DataPack,
-                          select_fakeroot,
-                          select_intersentential,
-                          select_intrasentential)
+                          idxes_fakeroot,
+                          idxes_inter,
+                          idxes_intra)
 from attelo.util import (Team)
 
 from .util import makedirs
@@ -275,7 +276,14 @@ def _report_key(econf):
 
     :rtype tuple(string)
     """
-    return (econf.learner.key,
+    if not isinstance(econf.learner, IntraInterPair):
+        learner_key = econf.learner.key
+    elif econf.learner.intra.key == econf.learner.inter.key:
+        learner_key = econf.learner.intra.key
+    else:
+        learner_key = '{}S_D{}'.format(econf.learner.intra.key,
+                                       econf.learner.inter.key)
+    return (learner_key,
             econf.parser.key[len(econf.settings.key) + 1:],
             econf.settings.key)
 
@@ -295,13 +303,14 @@ def _fold_report_slices(hconf, fold):
                     enable_details=econf.key in dkeys)
 
 
-def _model_info_path(hconf, rconf, test_data, fold=None, intra=False):
+def _model_info_path(hconf, rconf, test_data, fold=None, grain=None):
     """
     Path to the model output file
     """
     template = "discr-features{grain}.{learner}.txt"
+    grain = '' if not grain else '-' + grain
     return fp.join(hconf.report_dir_path(test_data, fold=fold),
-                   template.format(grain='-sent' if intra else '',
+                   template.format(grain=grain,
                                    learner=rconf.key))
 
 
@@ -309,42 +318,46 @@ def _mk_model_summary(hconf, dconf, rconf, test_data, fold):
     "generate summary of best model features"
     _top_n = 3
 
-    def _write_discr(discr, intra):
-        "write discriminating features to disk"
+    def _extract_discr(mpaths):
+        "extract discriminating features"
+        dpack0 = dconf.pack.values()[0]
+        labels = dpack0.labels
+        vocab = dpack0.vocab
+        models = Team(attach=mpaths['attach'],
+                      label=mpaths['label']).fmap(load_model)
+        return discriminating_features(models, labels, vocab, _top_n)
+
+    def _write_discr(discr, subconf, grain):
+        "write discriminating features and write to disk"
         if discr is None:
             print(('No discriminating features for {name} {grain} model'
-                   '').format(name=rconf.key,
-                              grain='sent' if intra else 'doc'),
+                   '').format(name=subconf.key,
+                              grain=grain),
                   file=sys.stderr)
             return
-        output = _model_info_path(hconf, rconf, test_data,
+        output = _model_info_path(hconf, subconf, test_data,
                                   fold=fold,
-                                  intra=intra)
+                                  grain=grain)
         with codecs.open(output, 'wb', 'utf-8') as fout:
             print(show_discriminating_features(discr),
                   file=fout)
 
-    dpack0 = dconf.pack.values()[0]
-    labels = dpack0.labels
-    vocab = dpack0.vocab
-    mpaths = hconf.model_paths(rconf, fold)
-    # doc level discriminating features
-    models = Team(attach=mpaths['attach'],
-                  label=mpaths['label']).fmap(load_model)
-    discr = discriminating_features(models, labels, vocab, _top_n)
-    _write_discr(discr, False)
+    def _select(mpaths, prefix):
+        'return part of a model paths dictionary'
+        plen = len(prefix)
+        return dict((k[plen:], v) for k, v in mpaths.items()
+                    if k.startswith(prefix))
 
-    # sentence-level
-    if 'intra:attach' not in mpaths or 'intra:label' not in mpaths:
-        return
-    s_attach_path = mpaths['intra:attach']
-    s_label_path = mpaths['intra:label']
-    if not fp.exists(s_attach_path) or not fp.exists(s_label_path):
-        return
-    models = Team(attach=s_attach_path,
-                  label=s_label_path).fmap(load_model)
-    discr = discriminating_features(models, labels, vocab, _top_n)
-    _write_discr(discr, True)
+    if isinstance(rconf, IntraInterPair):
+        mpaths = hconf.model_paths(rconf, fold)
+        discr = _extract_discr(_select(mpaths, 'inter:'))
+        _write_discr(discr, rconf.inter, 'doc')
+        discr = _extract_discr(_select(mpaths, 'intra:'))
+        _write_discr(discr, rconf.intra, 'sent')
+    else:
+        mpaths = hconf.model_paths(rconf, fold)
+        discr = _extract_discr(mpaths)
+        _write_discr(discr, rconf, 'whole')
 
 
 def _mk_hashfile(hconf, dconf, test_data):
@@ -405,9 +418,9 @@ def _mk_report(hconf, dconf, slices, fold, test_data=False):
     rdir = hconf.report_dir_path(test_data, fold)
     rpack.dump(rdir, header='whole')
 
-    partitions = [(1, 'intra', select_intrasentential),
-                  (2, 'inter', select_intersentential),
-                  (3, 'froot', select_fakeroot)]
+    partitions = [(1, 'intra', lambda d: d.selected(idxes_intra(d))),
+                  (2, 'inter', lambda d: d.selected(idxes_inter(d))),
+                  (3, 'froot', lambda d: d.selected(idxes_fakeroot(d)))]
     for i, header, adjust_pack in partitions:
         rpack = full_report(dconf.pack, dconf.folds, slices_[i],
                             adjust_pack=adjust_pack)
