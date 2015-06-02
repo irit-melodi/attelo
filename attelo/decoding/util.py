@@ -6,6 +6,7 @@ import numpy as np
 
 from attelo.table import (Graph, UNRELATED)
 
+
 class DecoderException(Exception):
     """
     Exceptions that arise during the decoding process
@@ -45,11 +46,8 @@ def get_prob_map(instances):
 
 
 def convert_prediction(dpack, triples):
-    """
-    Convert the given predictions into a DataPack where
-    each predicted edge is assigned an attachment
-    score of 1.0 (and the others 0.0), and likewise for
-    its label
+    """Populate a datapack prediction array from a list
+    of triples
 
     Parameters
     ----------
@@ -59,9 +57,12 @@ def convert_prediction(dpack, triples):
 
     Returns
     -------
-    dpack: A new DataPack
+    dpack: DataPack
+        A copy of the original DataPack with predictions
+        set
     """
     link_map = {(id1, id2): lab for id1, id2, lab in triples}
+
     def get_lbl(pair):
         'from edu pair to label number'
         edu1, edu2 = pair
@@ -91,6 +92,7 @@ def simple_candidates(dpack):
     return [(pair[0], pair[1], score, dpack.get_label(lbl))
             for pair, score, lbl
             in zip(dpack.pairings, wts.attach, best_lbls)]
+
 
 def prediction_to_triples(dpack):
     """
