@@ -201,10 +201,14 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
 
     def fit(self, dpacks, targets, cache=None):
         caches = self._split_cache(cache)
-        dpacks_intra, targets_intra = self.dzip(self._for_intra_fit,
-                                                dpacks, targets)
-        dpacks_inter, targets_inter = self.dzip(self._for_inter_fit,
-                                                dpacks, targets)
+        if dpacks:
+            dpacks_intra, targets_intra = self.dzip(self._for_intra_fit,
+                                                    dpacks, targets)
+            dpacks_inter, targets_inter = self.dzip(self._for_inter_fit,
+                                                    dpacks, targets)
+        else:
+            dpacks_intra, targets_intra = dpacks, targets
+            dpacks_inter, targets_inter = dpacks, targets
         self._parsers.intra.fit(dpacks_intra, targets_intra,
                                 cache=caches.intra)
         self._parsers.inter.fit(dpacks_inter, targets_inter,
