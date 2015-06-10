@@ -45,10 +45,14 @@ Caching
 Attelo's caching mechanism uses the `cache` keyword argument in
 `attelo.parser.Parser.fit` (cache is an attelo-ism, and is not standard to the
 scikit estimator/transformer idiom). The idea is for parsers to accept a
-dictionary from simple cache keywords (eg. 'attach') to paths.  If an items is
-the cache the parser will load that instead of using it.  If parsers are
-composed of other parsers, they can avoid repeating work on their constituent
-parts by simply passing their cache dictionaries down.
+dictionary from simple cache keywords (eg. 'attach') to paths. Parsers could
+interact with the cache in different ways. In the simplest case, they might
+look for a particular keyword to determine if there is a cache entry that
+it could load (or should save to). Alternatively, if multiple parsers are
+composed of parsers that they have in commone, they can avoid repeating work on
+their constituent parts by simply passing their cache dictionaries down
+(NB: it is up to parser authors to ensure that cache keys do not conflict;
+parsers should document their cache keys in the API)
 
 The `attelo.harness.Harness.model_paths` function that your harness returns
 exactly such a cache dictionary, as we might see in the example below
