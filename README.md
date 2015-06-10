@@ -102,5 +102,5 @@ requirement mentioned in article 5.3.4 quoted below:
 [apidoc]: http://attelo.readthedocs.org/en/latest/api-doc/attelo/
 [educe]: http://github.com/irit-melodi/educe
 [irit-rst-dt]: http://github.com/irit-melodi/irit-rst-dt
-[quikstart]: http://attelo.readthedocs.org/en/latest/quickstart/
+[quickstart]: http://attelo.readthedocs.org/en/latest/quickstart/
 [shake]: http://community.haskell.org/~ndm/shake/
