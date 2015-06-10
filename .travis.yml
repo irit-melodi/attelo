@@ -28,8 +28,7 @@ install:
 
 # Run test
 script:
-  - exit 1
-  #nosetests --with-coverage
+  - nosetests --with-coverage
 
 # Calculate coverage
 after_success:
