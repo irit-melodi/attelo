@@ -54,8 +54,8 @@ their constituent parts by simply passing their cache dictionaries down
 (NB: it is up to parser authors to ensure that cache keys do not conflict;
 parsers should document their cache keys in the API)
 
-The `attelo.harness.Harness.model_paths` function that your harness returns
-exactly such a cache dictionary, as we might see in the example below
+The `attelo.harness.Harness.model_paths` function implemented by your harness
+should return exactly such a dictionary, as we might see in the example below
 
 .. code:: python
 
