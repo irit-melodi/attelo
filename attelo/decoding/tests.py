@@ -12,6 +12,7 @@ from ..table import (DataPack, Graph)
 from ..edu import EDU
 from . import astar, greedy, mst
 from .astar import (AstarArgs, Heuristic, RfcConstraint)
+from .eisner import EisnerDecoder
 from .util import (prediction_to_triples, simple_candidates)
 
 # pylint: disable=too-few-public-methods
@@ -158,3 +159,12 @@ class MstTest(DecoderTest):
         edges = prediction_to_triples(decoder.decode(self.dpack))
         # Are all links included ? (already given a MSDAG...)
         self.assertEqual(len(edges), len(self.dpack))
+
+
+class EisnerTest(DecoderTest):
+    """ Tests for Eisner decoder"""
+
+    def test_eisner(self):
+        'check that the Eisner decoder works'
+        decoder = EisnerDecoder()
+        decoder.decode(self.dpack)
