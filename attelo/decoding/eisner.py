@@ -70,9 +70,12 @@ class EisnerDecoder(Decoder):
                 end = start + span
 
                 # best "open": find pair of substructures with highest score
+                # NB we have to skip cases where (start == 0 and k != 0)
+                # to enforce a unique root in the tree
                 split_scores = [(cscores[start][k][0][1] +
                                  cscores[k + 1][end][1][1])
-                                for k in range(start, end)]
+                                for k in range(start, end)
+                                if start > 0 or k == 0)]
                 max_split_score = max(split_scores)
                 # then argmax to get the split point
                 best_split_point = start + split_scores.index(max_split_score)
