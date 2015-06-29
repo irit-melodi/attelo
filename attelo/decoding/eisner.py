@@ -75,7 +75,7 @@ class EisnerDecoder(Decoder):
                 split_scores = [(cscores[start][k][0][1] +
                                  cscores[k + 1][end][1][1])
                                 for k in range(start, end)
-                                if start > 0 or k == 0)]
+                                if start > 0 or k == 0]
                 max_split_score = max(split_scores)
                 # then argmax to get the split point
                 best_split_point = start + split_scores.index(max_split_score)
@@ -115,7 +115,6 @@ class EisnerDecoder(Decoder):
                                     split_scores.index(max_split_score))
                 cscores[start][end][0][1] = max_split_score
                 csplits[start][end][0][1] = best_split_point
-
 
         # solution: C[0][n][->][1]
         # use the backpointers in csplits to get the best tree
