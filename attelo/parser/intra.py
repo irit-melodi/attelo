@@ -240,7 +240,7 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         ------
         get_lbl: int -> int or None
         """
-        sub_idxes = np.array(locate_in_subpacks(dpack, subpacks))
+        sub_idxes = locate_in_subpacks(dpack, subpacks)
 
         def get_lbl(i):
             'retrieve lbl if present'
