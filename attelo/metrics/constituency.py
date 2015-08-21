@@ -273,36 +273,38 @@ def compute_parseval_scores(ctree_true, ctree_pred, average=None):
     target_names = unique_labels('s', s_true, s_pred)
     precision, recall, f_score, support = precision_recall_fscore_support(
         s_true, s_pred, labels=None, average=average, elt_type='s')
-    print('S\t(P\tR\tF\tsupport)')
-    print('======================================')
+    print('\tP\tR\tF\tsupport')
+    print('============================================')
+    print('S')
     print('\n'.join('{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.0f}'.format(l, p, r, f, s)
                     for l, p, r, f, s in itertools.izip(
                             target_names,
                             precision, recall, f_score, support)))
+    print('--------------------------------------------')
     target_names = unique_labels('s+n', sn_true, sn_pred)
     precision, recall, f_score, support = precision_recall_fscore_support(
         sn_true, sn_pred, labels=None, average=average, elt_type='s+n')
-    print('S+N\t(P\tR\tF\tsupport)')
-    print('======================================')
+    print('S+N')
     print('\n'.join('{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.0f}'.format(l, p, r, f, s)
                     for l, p, r, f, s in itertools.izip(
                             target_names,
                             precision, recall, f_score, support)))
+    print('--------------------------------------------')
     target_names = unique_labels('s+r', sr_true, sr_pred)
     precision, recall, f_score, support = precision_recall_fscore_support(
         sr_true, sr_pred, labels=None, average=average, elt_type='s+r')
-    print('S+R\t(P\tR\tF\tsupport)')
-    print('======================================')
+    print('S+R')
     print('\n'.join('{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.0f}'.format(l, p, r, f, s)
                     for l, p, r, f, s in itertools.izip(
                             target_names,
                             precision, recall, f_score, support)))
+    print('--------------------------------------------')
     target_names = unique_labels('s+n+r', snr_true, snr_pred)
     precision, recall, f_score, support = precision_recall_fscore_support(
         snr_true, snr_pred, labels=None, average=average, elt_type='s+n+r')
-    print('S+N+R\t(P\tR\tF\tsupport)')
-    print('======================================')
+    print('S+N+R')
     print('\n'.join('{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.0f}'.format(l, p, r, f, s)
                     for l, p, r, f, s in itertools.izip(
                             target_names,
                             precision, recall, f_score, support)))
+    print('--------------------------------------------')
