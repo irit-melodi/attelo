@@ -150,7 +150,12 @@ def precision_recall_fscore_support(y_true, y_pred, labels=None,
         labels = present_labels
         n_labels = None
     else:
-        raise ValueError('Parameter `labels` is currently unsupported')
+        # EXPERIMENTAL
+        labels = [lbl for lbl in labels if lbl in present_labels]
+        n_labels = len(labels)
+        # FIXME complete/fix this
+        # raise ValueError('Parameter `labels` is currently unsupported')
+        # end EXPERIMENTAL
 
     # compute tp_sum, pred_sum, true_sum
     # true positives for each tree
@@ -186,7 +191,7 @@ def precision_recall_fscore_support(y_true, y_pred, labels=None,
         tp_sum = np.array([tp_sum.sum()])
         true_sum = np.array([true_sum.sum()])
         pred_sum = np.array([pred_sum.sum()])
-        if True:  # extra checks
+        if False:  # extra checks  # false when labels is not None
             ctrl_tp_sum = sum(len(tp_i) for tp_i in tp)
             assert ctrl_tp_sum == tp_sum
             ctrl_true_sum = sum(len(yi_true) for yi_true in y_true)
@@ -208,7 +213,8 @@ def precision_recall_fscore_support(y_true, y_pred, labels=None,
     return precision, recall, f_score, true_sum
 
 
-def compute_parseval_scores(ctree_true, ctree_pred, average=None):
+def compute_parseval_scores(ctree_true, ctree_pred, average=None,
+                            exclude_rel_span=False):
     """Compute (and display) PARSEVAL scores for ctree_pred wrt ctree_true.
 
     Parameters
@@ -229,6 +235,29 @@ def compute_parseval_scores(ctree_true, ctree_pred, average=None):
            parsing and summarization." MIT press.
 
     """
+    labels = None  # FIXME check this is the right default value
+    # coarse labels except for span
+    clabels_wo_span = [
+        'attribution',
+        'background',
+        'cause',
+        'comparison',
+        'condition',
+        'contrast',
+        'elaboration',
+        'enablement',
+        'evaluation',
+        'explanation',
+        'joint',
+        'manner-means',
+        'same-unit',
+        'summary',
+        'temporal',
+        'textual',
+        'topic-change',
+        'topic-comment',
+    ]
+
     # collect all constituents, i.e. all treenodes except for the root
     # node (as is done in Marcu's 2000 book and Joty's eval script)
     tns_true = [[treenode(subtree)
@@ -272,7 +301,7 @@ def compute_parseval_scores(ctree_true, ctree_pred, average=None):
     # calculate metrics globally
     target_names = unique_labels('s', s_true, s_pred)
     precision, recall, f_score, support = precision_recall_fscore_support(
-        s_true, s_pred, labels=None, average=average, elt_type='s')
+        s_true, s_pred, labels=labels, average=average, elt_type='s')
     print('\tP\tR\tF\tsupport')
     print('============================================')
     print('S')
@@ -283,7 +312,7 @@ def compute_parseval_scores(ctree_true, ctree_pred, average=None):
     print('--------------------------------------------')
     target_names = unique_labels('s+n', sn_true, sn_pred)
     precision, recall, f_score, support = precision_recall_fscore_support(
-        sn_true, sn_pred, labels=None, average=average, elt_type='s+n')
+        sn_true, sn_pred, labels=labels, average=average, elt_type='s+n')
     print('S+N')
     print('\n'.join('{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.0f}'.format(l, p, r, f, s)
                     for l, p, r, f, s in itertools.izip(
@@ -291,8 +320,11 @@ def compute_parseval_scores(ctree_true, ctree_pred, average=None):
                             precision, recall, f_score, support)))
     print('--------------------------------------------')
     target_names = unique_labels('s+r', sr_true, sr_pred)
+    if exclude_rel_span:
+        labels = clabels_wo_span
+        target_names = [lbl for lbl in target_names if lbl != 'span']
     precision, recall, f_score, support = precision_recall_fscore_support(
-        sr_true, sr_pred, labels=None, average=average, elt_type='s+r')
+    sr_true, sr_pred, labels=labels, average=average, elt_type='s+r')
     print('S+R')
     print('\n'.join('{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.0f}'.format(l, p, r, f, s)
                     for l, p, r, f, s in itertools.izip(
@@ -300,8 +332,11 @@ def compute_parseval_scores(ctree_true, ctree_pred, average=None):
                             precision, recall, f_score, support)))
     print('--------------------------------------------')
     target_names = unique_labels('s+n+r', snr_true, snr_pred)
+    if exclude_rel_span:
+        labels = clabels_wo_span
+        target_names = [lbl for lbl in target_names if lbl != 'span']
     precision, recall, f_score, support = precision_recall_fscore_support(
-        snr_true, snr_pred, labels=None, average=average, elt_type='s+n+r')
+        snr_true, snr_pred, labels=labels, average=average, elt_type='s+n+r')
     print('S+N+R')
     print('\n'.join('{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.0f}'.format(l, p, r, f, s)
                     for l, p, r, f, s in itertools.izip(
