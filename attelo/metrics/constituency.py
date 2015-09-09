@@ -16,8 +16,6 @@ from itertools import chain
 
 import numpy as np
 
-from educe.internalutil import treenode
-
 
 # util functions
 def _unique_span_length(y):
@@ -260,7 +258,7 @@ def compute_parseval_scores(ctree_true, ctree_pred, average=None,
 
     # collect all constituents, i.e. all treenodes except for the root
     # node (as is done in Marcu's 2000 book and Joty's eval script)
-    tns_true = [[treenode(subtree)
+    tns_true = [[subtree.label()  # was: educe.internalutil.treenode(subtree)
                  for root_child in ct_true
                  for subtree in root_child.subtrees()]
                 for ct_true in ctree_true]
@@ -269,7 +267,7 @@ def compute_parseval_scores(ctree_true, ctree_pred, average=None,
                  for tn in tns]
                 for tns in tns_true]
     # same for pred
-    tns_pred = [[treenode(subtree)
+    tns_pred = [[subtree.label()  # was: educe.internalutil.treenode(subtree)
                  for root_child in ct_pred
                  for subtree in root_child.subtrees()]
                 for ct_pred in ctree_pred]
