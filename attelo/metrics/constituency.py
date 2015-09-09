@@ -235,6 +235,8 @@ def compute_parseval_scores(ctree_true, ctree_pred, average=None,
     """
     labels = None  # FIXME check this is the right default value
     # coarse labels except for span
+    # FIXME pass as parameters or move elsewhere ; this might be too
+    # RST-dependent
     clabels_wo_span = [
         'attribution',
         'background',
