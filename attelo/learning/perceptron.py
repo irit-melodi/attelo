@@ -1,15 +1,21 @@
 """
 A set of learner variants using a perceptron. The more advanced learners allow
 for the possibility of structured prediction.
+
+TODO:
+- add more principled scores to probs conversion (right now, we do just 1-norm
+  weight normalization and use expit function)
+- add MC perc and PA for relation prediction.
+- fold relation prediction into structured learning
 """
 
 from __future__ import print_function
 import sys
 import time
-from collections import defaultdict, namedtuple
+from collections import namedtuple
+
 from numpy.linalg import norm
 from numpy import dot, zeros, sign
-from scipy.sparse import csr_matrix
 from scipy.special import expit  # aka the logistic function
 import numpy as np
 
@@ -17,18 +23,9 @@ from attelo.decoding.util import (prediction_to_triples)
 from attelo.metrics.tree import tree_loss
 from attelo.table import (Graph, UNKNOWN)
 
-# pylint: disable=too-few-public-methods
+
 # pylint: disable=invalid-name
-# lots of mathy things here, so names may follow those convetions
-
-
-"""
-TODO:
-- add more principled scores to probs conversion (right now, we do just 1-norm
-  weight normalization and use expit function)
-- add MC perc and PA for relation prediction.
-- fold relation prediction into structured learning
-"""
+# lots of mathy things here, so names may follow those conventions
 
 # pylint: disable=too-few-public-methods
 class PerceptronArgs(namedtuple('PerceptronArgs',
@@ -67,26 +64,26 @@ class Perceptron(object):
         self.avg_weights = None
         self.can_predict_proba = False
         return
-    
-    def fit(self, X, Y): # X contains all EDU pairs for corpus
+
+    def fit(self, X, Y):  # X contains all EDU pairs for corpus
         """ learn perceptron weights """
-        self.init_model( X ) 
-        self.learn( X, Y ) 
+        self.init_model(X)
+        self.learn(X, Y)
         return self
 
-    def predict(self, X): 
+    def predict(self, X):
         W = self.avg_weights if self.avg else self.weights
-        return sign( X.dot(W.T) )
+        return sign(X.dot(W.T))
 
     def decision_function(self, X):
         W = self.avg_weights if self.avg else self.weights
         scores = X.dot(W.T)
-        scores = scores.reshape(X.shape[0]) # lose 2nd dimension (== 1)
+        scores = scores.reshape(X.shape[0])  # lose 2nd dimension (== 1)
         return scores
-    
+
     def init_model(self, X):
         dim = X.shape[1]
-        print("FEAT. SPACE SIZE:",dim)
+        print("FEAT. SPACE SIZE:", dim)
         self.weights = zeros(dim, 'd')
         self.avg_weights = zeros(dim, 'd')
         return
@@ -104,8 +101,10 @@ class Perceptron(object):
             for i in xrange(X.shape[0]):
                 X_i = X[i]
                 Y_i = Y[i]
+                # track progress
                 inst_ct += 1
-                sys.stderr.write("%s" %"\b"*len(str(inst_ct))+str(inst_ct))
+                sys.stderr.write("%s" % "\b"*len(str(inst_ct))+str(inst_ct))
+                # predict and update
                 Y_hat, score = self._classify(X_i, self.weights)
                 loss += self.update(Y_hat, Y_i, X_i, score)
             if inst_ct > 0:
@@ -117,7 +116,6 @@ class Perceptron(object):
         print("done in %s sec." % round(elapsed_time, 3), file=sys.stderr)
         return
 
-
     def update(self, Y_j_hat, Y_j, X_j, score, rate=1.0):
         """ simple perceptron update rule"""
         X_j = X_j.toarray()
@@ -127,20 +125,14 @@ class Perceptron(object):
             W = W + rate * Y_j * X_j
             self.weights = W
         if self.avg:
-            self.avg_weights = self.avg_weights +  W
+            self.avg_weights = self.avg_weights + W
         return int(error)
-
 
     def _classify(self, X, W):
         """ classify feature vector X using weight vector w into
         {-1,+1}"""
-        score = float( X.dot(W.T) )
+        score = float(X.dot(W.T))
         return sign(score), score
-
-
-
-
-
 
 
 class PassiveAggressive(Perceptron):
@@ -156,7 +148,6 @@ class PassiveAggressive(Perceptron):
         Perceptron.__init__(self, pconfig)
         self.aggressiveness = pconfig.aggressiveness
         return
-
 
     def update(self, Y_j_hat, Y_j, X_j, score):
         r"""PA-II update rule
@@ -188,16 +179,13 @@ class PassiveAggressive(Perceptron):
         W = W + tau * Y_j * X_j
         self.weights = W
         if self.avg:
-            self.avg_weights = self.avg_weights +  W
+            self.avg_weights = self.avg_weights + W
         return loss
-
-
 
 
 class StructuredPerceptron(Perceptron):
     """ Perceptron classifier (in primal form) for structured
     problems."""
-
 
     def __init__(self, decoder, pconfig):
         Perceptron.__init__(self, pconfig)
@@ -205,15 +193,15 @@ class StructuredPerceptron(Perceptron):
         return
 
     def init_model(self, dim):
-        print("FEAT. SPACE SIZE:",dim)
+        print("FEAT. SPACE SIZE:", dim)
         self.weights = zeros(dim, 'd')
         self.avg_weights = zeros(dim, 'd')
         return
 
-    def fit(self, datapacks, _targets): # datapacks is an datapack iterable
-        """ learn struct. perceptron weights """        
-        self.init_model( datapacks[0].data.shape[1] )
-        self.learn( datapacks ) 
+    def fit(self, datapacks, _targets):  # datapacks is an iterable
+        """ learn struct. perceptron weights """
+        self.init_model(datapacks[0].data.shape[1])
+        self.learn(datapacks)
         return self
 
     def predict_score(self, dpack):
@@ -229,11 +217,9 @@ class StructuredPerceptron(Perceptron):
             t0 = time.time()
             inst_ct = 0
             for dpack in datapacks:
-                inst_ct += 1
-                sys.stderr.write("%s" %"\b"*len(str(inst_ct))+str(inst_ct))
                 # extract data and target
-                X = dpack.data # each row is EDU pair
-                Y = dpack.target # each row is {-1,+1}
+                X = dpack.data  # each row is EDU pair
+                Y = dpack.target  # each row is {-1,+1}
                 # construct ref graph and mapping {edu_pair => index in X}
                 ref_tree = []
                 fv_index_map = {}
@@ -241,10 +227,15 @@ class StructuredPerceptron(Perceptron):
                     fv_index_map[edu1.id, edu2.id] = i
                     if Y[i] == 1:
                         ref_tree.append((edu1.id, edu2.id, UNKNOWN))
+                # track progress
+                inst_ct += len(ref_tree)  # was: 1
+                sys.stderr.write("%s" % "\b"*len(str(inst_ct))+str(inst_ct))
                 # predict tree based on current weight vector
                 pred_tree = self._classify(dpack, X, self.weights)
-                # print doc_id,  predicted_graph
-                loss += self.update(pred_tree, ref_tree, X, fv_index_map)
+                # tree loss
+                tloss = self.update(pred_tree, ref_tree, X, fv_index_map)
+                # from the tree loss, recover the absolute number of errors
+                loss += int(tloss * len(ref_tree))
             # print(inst_ct,, file=sys.stderr)
             avg_loss = loss / float(inst_ct)
             t1 = time.time()
@@ -263,7 +254,7 @@ class StructuredPerceptron(Perceptron):
         W = self.weights
         # print("IN W:", W)
         # error = not( set(pred_tree) == set(ref_tree) )
-        loss = tree_loss( ref_tree, pred_tree )
+        loss = tree_loss(ref_tree, pred_tree)
         if loss != 0:
             ref_fv = zeros(len(W), 'd')
             pred_fv = zeros(len(W), 'd')
@@ -278,15 +269,15 @@ class StructuredPerceptron(Perceptron):
         self.weights = W
         if self.avg:
             self.avg_weights = self.avg_weights + W
-        return loss
 
+        return loss
 
     def _classify(self, dpack, X, W):
         """ return predicted tree """
         decoder = self.decoder
         num_items = len(dpack)
-        scores = X.dot(W.T) # TODO: should this be self.decision_function?
-        scores = scores.reshape(num_items) # lose 2nd dimension (shape[1] == 1)
+        scores = X.dot(W.T)  # TODO: should this be self.decision_function?
+        scores = scores.reshape(num_items)  # lose 2nd dim (shape[1] == 1)
         # unlabelled
         unk = dpack.label_number(UNKNOWN)
         label = np.zeros((num_items, len(dpack.labels)))
@@ -301,18 +292,14 @@ class StructuredPerceptron(Perceptron):
         return prediction_to_triples(graph)
 
 
-
-
 class StructuredPassiveAggressive(StructuredPerceptron):
     """Structured PA-II classifier (in primal form) for structured
     problems."""
-
 
     def __init__(self, decoder, pconfig):
         StructuredPerceptron.__init__(self, decoder, pconfig)
         self.aggressiveness = pconfig.aggressiveness
         return
-
 
     def update(self, pred_tree, ref_tree, X, fv_map):
         r"""PA-II update rule:
