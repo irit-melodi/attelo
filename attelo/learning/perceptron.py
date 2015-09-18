@@ -133,20 +133,26 @@ class Perceptron(object):
 
 
 class PassiveAggressive(Perceptron):
-    """
-    Passive-Aggressive classifier in primal form. PA has a
-    margin-based update rule: each update yields at least a margin
-    of one (see defails below). Specifically, we implement PA-II
-    rule for the binary setting (see Crammer et. al 2006). Default
-    C=inf parameter makes it equivalent to simple PA.
+    """Passive-Aggressive classifier in primal form.
+
+    PA has a margin-based update rule: each update yields at least a
+    margin of one (see details below). Specifically, we implement the
+    PA-I rule for the binary setting (see Crammer et. al 2006).
+    Setting parameter C=inf makes it equivalent to basic PA.
 
     Parameters
     ----------
     C: float
         Maximum step size (regularization). Also known as the
         aggressiveness parameter.
-        `inf` gets us a regular perceptron.
+        `np.inf` makes it equivalent to basic PA.
         Defaults to 1.0.
+
+    Notes
+    -----
+    TODO:
+        [ ] implement the PA-II variant and add parameter "loss" to
+        choose rule.
     """
 
     def __init__(self, C=1.0,
@@ -161,7 +167,7 @@ class PassiveAggressive(Perceptron):
         self.C = C
 
     def update(self, Y_j_hat, Y_j, X_j, score):
-        r"""PA-II update rule
+        r"""PA-I update rule
 
         .. math::
 
