@@ -25,8 +25,7 @@ from attelo.decoding.window import (WindowPruner)
 from attelo.edu import EDU, FAKE_ROOT, FAKE_ROOT_ID
 from attelo.learning.local import (SklearnAttachClassifier,
                                    SklearnLabelClassifier)
-from attelo.learning.perceptron import (PerceptronArgs,
-                                        StructuredPerceptron)
+from attelo.learning.perceptron import (StructuredPerceptron)
 from attelo.table import (DataPack)
 from attelo.util import (Team)
 
@@ -44,10 +43,6 @@ from .intra import (HeadToHeadParser,
 # pylint: disable=too-few-public-methods
 
 
-LOCAL_PERC_ARGS = PerceptronArgs(iterations=3,
-                                 averaging=True,
-                                 use_prob=False,
-                                 aggressiveness=np.inf)
 DEFAULT_ASTAR_ARGS = AstarArgs(heuristics=Heuristic.average,
                                rfc=RfcConstraint.none,
                                beam=None,
@@ -101,12 +96,13 @@ class ParserTest(DecoderTest):
             self._test_parser(parser)
 
     def test_postlabel_parser(self):
-        learners = LEARNERS +\
-            [
-                 Team(attach=StructuredPerceptron(MST_DECODER,
-                                                  LOCAL_PERC_ARGS),
-                      label=SklearnLabelClassifier(LogisticRegression())),
-            ]
+        learners = LEARNERS + [
+            Team(attach=StructuredPerceptron(MST_DECODER,
+                                             n_iter=3,
+                                             average=True,
+                                             use_prob=False),
+                 label=SklearnLabelClassifier(LogisticRegression())),
+        ]
         for l, d in itr.product(learners, DECODERS):
             parser = PostlabelPipeline(learner_attach=l.attach,
                                        learner_label=l.label,
@@ -183,7 +179,6 @@ class IntraTest(unittest.TestCase):
 
         self.assertEqual(all_valid, all_subgroupings)
         self.assertEqual(len(all_subgroupings), len(partitions))
-
 
     def test_for_intra(self):
         'test that sentence roots are identified correctly'

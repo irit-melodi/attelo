@@ -12,7 +12,6 @@ TODO:
 from __future__ import print_function
 import sys
 import time
-from collections import namedtuple
 
 from numpy.linalg import norm
 from numpy import dot, zeros, sign
@@ -27,43 +26,40 @@ from attelo.table import (Graph, UNKNOWN)
 # pylint: disable=invalid-name
 # lots of mathy things here, so names may follow those conventions
 
-# pylint: disable=too-few-public-methods
-class PerceptronArgs(namedtuple('PerceptronArgs',
-                                ['iterations',
-                                 'averaging',
-                                 'use_prob',
-                                 'aggressiveness'])):
-    """
-    Parameters for perceptron initialisation
-
-    :param iterations: number of iterations to run
-    :type iterations: int > 0
-
-    :param averaging: do averaging on weights
-    :type averaging: bool
-
-    :param use_prob: fake a notion of probabilities by using `log` tricks
-                     to return scores in [0, 1]
-    :type use_prob: bool
-
-    :param aggressiveness: only used for passive-aggressive perceptrons
-                           (ignored elsewhere); `inf` gets us a regular
-                           perceptron
-    :type aggressiveness: float
-    """
-# pylint: enable=too-few-public-methods
-
-
 class Perceptron(object):
-    """ Vanilla binary perceptron learner """
-    def __init__(self, pconfig):
-        self.nber_it = pconfig.iterations
-        self.avg = pconfig.averaging
-        self.use_prob = pconfig.use_prob
+    """Vanilla binary perceptron learner
+
+    Parameters
+    ----------
+    n_iter: int, optional
+        Number of passes over the training data (aka epochs).
+        Defaults to 5.
+
+    eta0: double, optional
+        Constant by which the udpates are multiplied (aka constant
+        learning rate).
+        Defaults to 1.
+
+    average: bool, optional
+        When set to True, averages perceptrons weights from each
+        iteration.
+
+    use_prob: bool, optional
+        When set to True, fake a notion of probabilities by using `log`
+        tricks to return scores in [0, 1].
+    """
+    def __init__(self, n_iter=5, eta0=1.0,
+                 # different from sklearn perceptron
+                 average=False,
+                 # should maybe not belong here
+                 use_prob=False):
+        self.nber_it = n_iter
+        self.eta0 = eta0
+        self.avg = average
+        self.use_prob = use_prob
         self.weights = None
         self.avg_weights = None
-        self.can_predict_proba = False
-        return
+        self.can_predict_proba = use_prob
 
     def fit(self, X, Y):  # X contains all EDU pairs for corpus
         """ learn perceptron weights """
@@ -116,8 +112,9 @@ class Perceptron(object):
         print("done in %s sec." % round(elapsed_time, 3), file=sys.stderr)
         return
 
-    def update(self, Y_j_hat, Y_j, X_j, score, rate=1.0):
+    def update(self, Y_j_hat, Y_j, X_j, score):
         """ simple perceptron update rule"""
+        rate = self.eta0
         X_j = X_j.toarray()
         error = (Y_j_hat != Y_j)
         W = self.weights
@@ -142,12 +139,26 @@ class PassiveAggressive(Perceptron):
     of one (see defails below). Specifically, we implement PA-II
     rule for the binary setting (see Crammer et. al 2006). Default
     C=inf parameter makes it equivalent to simple PA.
+
+    Parameters
+    ----------
+    C: float
+        Maximum step size (regularization). Also known as the
+        aggressiveness parameter.
+        `inf` gets us a regular perceptron.
+        Defaults to 1.0.
     """
 
-    def __init__(self, pconfig):
-        Perceptron.__init__(self, pconfig)
-        self.aggressiveness = pconfig.aggressiveness
-        return
+    def __init__(self, C=1.0,
+                 n_iter=5,
+                 average=False,
+                 use_prob=False):
+        Perceptron.__init__(self,
+                            n_iter=n_iter,
+                            eta0=1.0,
+                            average=average,
+                            use_prob=use_prob)
+        self.C = C
 
     def update(self, Y_j_hat, Y_j, X_j, score):
         r"""PA-II update rule
@@ -167,7 +178,7 @@ class PassiveAggressive(Perceptron):
         """
         X_j = X_j.toarray()
         W = self.weights
-        C = self.aggressiveness
+        C = self.C
         margin = Y_j * score
         loss = 0.0
         if margin < 1.0:
@@ -187,8 +198,15 @@ class StructuredPerceptron(Perceptron):
     """ Perceptron classifier (in primal form) for structured
     problems."""
 
-    def __init__(self, decoder, pconfig):
-        Perceptron.__init__(self, pconfig)
+    def __init__(self, decoder,
+                 n_iter=5, eta0=1.0,
+                 average=False,
+                 use_prob=False):
+        Perceptron.__init__(self,
+                            n_iter=n_iter,
+                            eta0=eta0,
+                            average=average,
+                            use_prob=use_prob)
         self.decoder = decoder
         return
 
@@ -245,7 +263,8 @@ class StructuredPerceptron(Perceptron):
         print("done in %s sec." % round(elapsed_time, 3), file=sys.stderr)
         return
 
-    def update(self, pred_tree, ref_tree, X, fv_map, rate=1.0):
+    def update(self, pred_tree, ref_tree, X, fv_map):
+        rate = self.eta0
         # rt = [(t[0].span(),t[1].span()) for t in ref_tree]
         # pt = [(t[0].span(),t[1].span()) for t in pred_tree]
         # print("REF TREE:", rt)
@@ -294,12 +313,20 @@ class StructuredPerceptron(Perceptron):
 
 class StructuredPassiveAggressive(StructuredPerceptron):
     """Structured PA-II classifier (in primal form) for structured
-    problems."""
+    problems.
+    """
 
-    def __init__(self, decoder, pconfig):
-        StructuredPerceptron.__init__(self, decoder, pconfig)
-        self.aggressiveness = pconfig.aggressiveness
-        return
+    def __init__(self, decoder,
+                 C=1.0,
+                 n_iter=5,
+                 average=False,
+                 use_prob=False):
+        StructuredPerceptron.__init__(self, decoder,
+                                      n_iter=n_iter,
+                                      eta0=1.0,
+                                      average=average,
+                                      use_prob=use_prob)
+        self.C = C
 
     def update(self, pred_tree, ref_tree, X, fv_map):
         r"""PA-II update rule:
@@ -318,7 +345,7 @@ class StructuredPassiveAggressive(StructuredPerceptron):
             margin =  w \cdot (\Phi(x,y)-\Phi(x-\hat{y}))
         """
         W = self.weights
-        C = self.aggressiveness
+        C = self.C
         # compute Phi(x,y) and Phi(x,y^)
         ref_fv = zeros(len(W), 'd')
         pred_fv = zeros(len(W), 'd')
