@@ -82,7 +82,6 @@ class Perceptron(object):
         print("FEAT. SPACE SIZE:", dim)
         self.weights = zeros(dim, 'd')
         self.avg_weights = zeros(dim, 'd')
-        return
 
     def learn(self, X, Y):
         start_time = time.time()
@@ -110,7 +109,6 @@ class Perceptron(object):
             print("\ttime = %-4s" % round(t1-t0, 3), file=sys.stderr)
         elapsed_time = t1-start_time
         print("done in %s sec." % round(elapsed_time, 3), file=sys.stderr)
-        return
 
     def update(self, Y_j_hat, Y_j, X_j, score):
         """ simple perceptron update rule"""
@@ -214,13 +212,11 @@ class StructuredPerceptron(Perceptron):
                             average=average,
                             use_prob=use_prob)
         self.decoder = decoder
-        return
 
     def init_model(self, dim):
         print("FEAT. SPACE SIZE:", dim)
         self.weights = zeros(dim, 'd')
         self.avg_weights = zeros(dim, 'd')
-        return
 
     def fit(self, datapacks, _targets):  # datapacks is an iterable
         """ learn struct. perceptron weights """
@@ -267,7 +263,6 @@ class StructuredPerceptron(Perceptron):
             print("\ttime = %-4s" % round(t1-t0, 3), file=sys.stderr)
         elapsed_time = t1-start_time
         print("done in %s sec." % round(elapsed_time, 3), file=sys.stderr)
-        return
 
     def update(self, pred_tree, ref_tree, X, fv_map):
         rate = self.eta0
