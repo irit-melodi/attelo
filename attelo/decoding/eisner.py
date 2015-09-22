@@ -14,9 +14,24 @@ from .util import convert_prediction, simple_candidates
 
 class EisnerDecoder(Decoder):
     """The Eisner decoder builds projective dependency trees.
+
+    Parameters
+    ----------
+    use_prob: boolean, optional
+        If True, the scores retrieved from the model are considered as
+        probabilities and projected from [0,1] to ]-inf, +inf[ using the
+        logit function. In practice, the transform is capped to
+        [-1e90, 1e90].
+        Defaults to True.
+
+    unique_real_root: boolean, optional
+        If True, each output tree will have a unique real root, i.e. the
+        fake root node will have a unique child.
+        Defaults to True.
     """
 
-    def __init__(self, use_prob=True):
+    def __init__(self, unique_real_root=True, use_prob=True):
+        self._unique_real_root = unique_real_root
         self._use_prob = use_prob  # yerk
 
     def decode(self, dpack):
@@ -32,6 +47,9 @@ class EisnerDecoder(Decoder):
         dpack_pred: DataPack
             A copy of the argument DataPack with predictions set.
         """
+        # whether the output tree should contain a unique real root
+        unique_real_root = self._unique_real_root
+
         # get number of EDUs and possible labels
         nb_edus = len(dpack.edus)
         # nb_lbls = dpack.graph.label.shape[0]
@@ -70,12 +88,17 @@ class EisnerDecoder(Decoder):
                 end = start + span
 
                 # best "open": find pair of substructures with highest score
-                # NB we have to skip cases where (start == 0 and k != 0)
-                # to enforce a unique root in the tree
+                if unique_real_root:
+                    # skip cases where (start == 0 and k != 0) to enforce
+                    # a unique root in the tree
+                    range_k = [k for k in range(start, end)
+                               if start > 0 or k == 0]
+                else:
+                    range_k = range(start, end)
+                #
                 split_scores = [(cscores[start][k][0][1] +
                                  cscores[k + 1][end][1][1])
-                                for k in range(start, end)
-                                if start > 0 or k == 0]
+                                for k in range_k]
                 max_split_score = max(split_scores)
                 # then argmax to get the split point
                 best_split_point = start + split_scores.index(max_split_score)
