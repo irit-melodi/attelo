@@ -52,8 +52,7 @@ from .oracle import (AttachOracle,
                      LabelOracle)
 
 
-from .perceptron import (PerceptronArgs,
-                         Perceptron,
+from .perceptron import (Perceptron,
                          PassiveAggressive,
                          StructuredPerceptron,
                          StructuredPassiveAggressive)

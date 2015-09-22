@@ -16,15 +16,6 @@ from .eisner import EisnerDecoder
 from .util import (prediction_to_triples, simple_candidates)
 
 # pylint: disable=too-few-public-methods
-# default values for perceptron learner
-
-#DEFAULT_USE_PROB = True
-#DEFAULT_PERCEPTRON_ARGS = PerceptronArgs(iterations=20,
-#                                         averaging=True,
-#                                         use_prob=DEFAULT_USE_PROB,
-#                                         aggressiveness=inf)
-
-# DEFAULT_MST_ROOT = MstRootStrategy.fake_root
 
 # default values for A* decoder
 # (NB: not the same as in the default initialiser)
