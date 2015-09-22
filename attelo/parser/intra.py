@@ -47,10 +47,10 @@ class IntraInterPair(namedtuple("IntraInterPair",
 def for_intra(dpack, target):
     """Adapt a datapack to intrasentential decoding.
 
-    An intrasenential datapack is almost identical to its original, except that
-    we set the label for each ('ROOT', edu) pairing to 'ROOT' if that edu is a
-    subgrouping head (if it has no parents other than than 'ROOT' within its
-    subgrouping).
+    An intrasentential datapack is almost identical to its original,
+    except that we set the label for each ('ROOT', edu) pairing to
+    'ROOT' if that edu is a subgrouping head (if it has no parents other
+    than than 'ROOT' within its subgrouping).
 
     This should be done before either `for_labelling` or `for_attachment`
 
@@ -93,7 +93,7 @@ def for_intra(dpack, target):
 
 def _zip_sentences(func, sent_parses):
     """
-    Given a function that combines sentence predictions, and a
+    Given a function that combines sentence predictions, and
     given a list of predictions for each sentence (eg. the
     3 best predictions for each sentence), apply that function
     over each list that goes together (eg. on best predictions
