@@ -2,13 +2,12 @@
 """
 
 import numpy as np
-
-from .interface import Decoder
-
 # temporary? imports
 from scipy.special import logit
+
+from .interface import Decoder
+# temporary? imports
 from ..table import _edu_positions
-from .mst import _cap_score
 from .util import convert_prediction, simple_candidates
 
 
@@ -65,7 +64,7 @@ class EisnerDecoder(Decoder):
         # be adapted before this point ;
         # should be (src, tgt): attach_score
         score = {(edu_id2idx[src.id], edu_id2idx[tgt.id]):
-                 (_cap_score(logit(attach_score)) if self._use_prob
+                 (logit(attach_score) if self._use_prob
                   else attach_score)
                  for src, tgt, attach_score, best_lbl
                  in simple_cands}
@@ -80,64 +79,79 @@ class EisnerDecoder(Decoder):
         # [start][end][dir][complete]
         # scores
         cscores = np.zeros((nb_edus, nb_edus, 2, 2), dtype=np.float32)
-        # index of split point (to backtrack)
+        # backpointers: index of split point
         csplits = np.zeros((nb_edus, nb_edus, 2, 2), dtype=np.int32)
+
         # iterate over all possible spans of increasing size
         for span in range(1, nb_edus):
             for start in range(nb_edus - span):
                 end = start + span
 
-                # best "open": find pair of substructures with highest score
-                if unique_real_root:
-                    # skip cases where (start == 0 and k != 0) to enforce
-                    # a unique root in the tree
-                    range_k = [k for k in range(start, end)
-                               if start > 0 or k == 0]
-                else:
+                # left open
+                if start > 0 and (end, start) in score:
                     range_k = range(start, end)
-                #
-                split_scores = [(cscores[start][k][0][1] +
-                                 cscores[k + 1][end][1][1])
-                                for k in range_k]
-                max_split_score = max(split_scores)
-                # then argmax to get the split point
-                best_split_point = start + split_scores.index(max_split_score)
-                # fill table for both directions of attachment
-                # left attachment: impossible if start == fake root
-                if start == 0 or (end, start) not in score:
-                    cscores[start][end][1][0] = np.NINF
-                else:
-                    cscores[start][end][1][0] = (max_split_score +
-                                                 score[(end, start)])
-                    csplits[start][end][1][0] = best_split_point
-                # right attachment
-                if (start, end) not in score:
-                    cscores[start][end][0][0] = np.NINF
-                else:
-                    cscores[start][end][0][0] = (max_split_score +
-                                                 score[(start, end)])
-                    csplits[start][end][0][0] = best_split_point
+                    # find argmax and max on range_k
+                    cands = [(cscores[start][k][0][1] +
+                              cscores[k + 1][end][1][1] +
+                              score[(end, start)])
+                             for k in range_k]
+                    max_cand = np.nanmax(cands)
+                    argmax_cand = (range_k[cands.index(max_cand)]
+                                   if not np.isnan(max_cand)
+                                   else range_k[0])
+                    # update tables
+                    cscores[start][end][1][0] = max_cand
+                    csplits[start][end][1][0] = argmax_cand
 
-                # best "closed"
-                # left attachment: impossible if start == fake root
+                # right open
+                if (start, end) in score:
+                    if unique_real_root and start == 0:
+                        # if start == 0, restricting range_k to [0]
+                        # enforces that the tree has a unique real root
+                        range_k = [0]
+                    else:
+                        range_k = range(start, end)
+                    # find argmax and max on range_k
+                    cands = [(cscores[start][k][0][1] +
+                              cscores[k + 1][end][1][1] +
+                              score[(start, end)])
+                             for k in range_k]
+                    max_cand = np.nanmax(cands)
+                    argmax_cand = (range_k[cands.index(max_cand)]
+                                   if not np.isnan(max_cand)
+                                   else range_k[0])
+                    # update tables
+                    cscores[start][end][0][0] = max_cand
+                    csplits[start][end][0][0] = argmax_cand
+
+                # left closed: impossible if start == fake root
                 if start > 0:
-                    split_scores = [(cscores[start][k][1][1] +
-                                     cscores[k][end][1][0])
-                                    for k in range(start, end)]
-                    max_split_score = max(split_scores)
-                    best_split_point = (start +
-                                        split_scores.index(max_split_score))
-                    cscores[start][end][1][1] = max_split_score
-                    csplits[start][end][1][1] = best_split_point
-                # right attachment
-                split_scores = [(cscores[start][k][0][0] +
-                                 cscores[k][end][0][1])
-                                for k in range(start + 1, end + 1)]
-                max_split_score = max(split_scores)
-                best_split_point = (start + 1 +
-                                    split_scores.index(max_split_score))
-                cscores[start][end][0][1] = max_split_score
-                csplits[start][end][0][1] = best_split_point
+                    range_k = range(start, end)
+                    # find argmax and max on range_k
+                    cands = [(cscores[start][k][1][1] +
+                              cscores[k][end][1][0])
+                             for k in range_k]
+                    max_cand = np.nanmax(cands)
+                    argmax_cand = (range_k[cands.index(max_cand)]
+                                   if not np.isnan(max_cand)
+                                   else range_k[0])
+                    # update tables
+                    cscores[start][end][1][1] = max_cand
+                    csplits[start][end][1][1] = argmax_cand
+
+                # right closed
+                range_k = range(start + 1, end + 1)
+                # find argmax and max on range_k
+                cands = [(cscores[start][k][0][0] +
+                          cscores[k][end][0][1])
+                         for k in range_k]
+                max_cand = np.nanmax(cands)
+                argmax_cand = (range_k[cands.index(max_cand)]
+                               if not np.isnan(max_cand)
+                               else range_k[0])
+                # update tables
+                cscores[start][end][0][1] = max_cand
+                csplits[start][end][0][1] = argmax_cand
 
         # solution: C[0][n][->][1]
         # use the backpointers in csplits to get the best tree
