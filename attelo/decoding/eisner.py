@@ -2,8 +2,6 @@
 """
 
 import numpy as np
-# temporary? imports
-from scipy.special import logit
 
 from .interface import Decoder
 # temporary? imports
@@ -18,9 +16,8 @@ class EisnerDecoder(Decoder):
     ----------
     use_prob: boolean, optional
         If True, the scores retrieved from the model are considered as
-        probabilities and projected from [0,1] to ]-inf, +inf[ using the
-        logit function. In practice, the transform is capped to
-        [-1e90, 1e90].
+        probabilities and projected from [0,1] to ]-inf, 0] using the
+        log function.
         Defaults to True.
 
     unique_real_root: boolean, optional
@@ -64,7 +61,7 @@ class EisnerDecoder(Decoder):
         # be adapted before this point ;
         # should be (src, tgt): attach_score
         score = {(edu_id2idx[src.id], edu_id2idx[tgt.id]):
-                 (logit(attach_score) if self._use_prob
+                 (np.log(attach_score) if self._use_prob
                   else attach_score)
                  for src, tgt, attach_score, best_lbl
                  in simple_cands}
