@@ -79,7 +79,7 @@ def select_in_pack(dpack, predictions):
 
     This could be useful for situations where you want to
     evaluate on parts of a (larger) datapack. If you have
-    predictions on the whole pack and you only want the
+    predictions on the whole pack and you only want
     those which are relevant to the smaller slice, just
     pass in that smaller datapack to get the corresponding
     subset of predictions back

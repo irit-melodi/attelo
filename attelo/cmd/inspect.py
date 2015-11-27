@@ -3,8 +3,10 @@
 from __future__ import print_function
 import codecs
 
+import joblib
+
 from ..args import (add_model_read_args)
-from ..io import (load_labels, load_model, load_vocab)
+from ..io import (load_labels, load_vocab)
 from ..score import (discriminating_features)
 from ..report import (show_discriminating_features)
 from ..table import UNKNOWN
@@ -38,8 +40,8 @@ def config_argparser(psr):
 
 def main(args):
     "subcommand main (invoked from outer script)"
-    models = Team(attach=load_model(args.attachment_model),
-                  label=load_model(args.relation_model))
+    models = Team(attach=joblib.load(args.attachment_model),
+                  label=joblib.load(args.relation_model))
     # FIXME find a clean way to properly read ready-for-use labels
     # upstream ; true labels are 1-based in svmlight format but 0-based
     # for sklearn

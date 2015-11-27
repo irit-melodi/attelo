@@ -50,7 +50,7 @@ def for_intra(dpack, target):
     An intrasentential datapack is almost identical to its original,
     except that we set the label for each ('ROOT', edu) pairing to
     'ROOT' if that edu is a subgrouping head (if it has no parents other
-    than than 'ROOT' within its subgrouping).
+    than 'ROOT' within its subgrouping).
 
     This should be done before either `for_labelling` or `for_attachment`
 
@@ -63,18 +63,14 @@ def for_intra(dpack, target):
     unrelated = dpack.label_number(UNRELATED)
     intra_tgts = defaultdict(set)
     for i, (edu1, edu2) in enumerate(dpack.pairings):
-        subg = edu2.subgrouping
-        if (edu1.subgrouping == subg and
-                target[i] != unrelated):
-            intra_tgts[subg].add(edu2.id)
+        if ((edu1.subgrouping == edu2.subgrouping and
+             target[i] != unrelated)):
+            intra_tgts[edu2.subgrouping].add(edu2.id)
     # pick out the (fakeroot, edu) pairs where edu does not have
     # incoming intra edges
-    all_heads = []
-    for i, (edu1, edu2) in enumerate(dpack.pairings):
-        subg = edu2.subgrouping
-        if (edu1.id == FAKE_ROOT_ID and
-                edu2.id not in intra_tgts[subg]):
-            all_heads.append(i)
+    all_heads = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
+                 if (edu1.id == FAKE_ROOT_ID and
+                     edu2.id not in intra_tgts[edu2.subgrouping])]
 
     # update datapack and target accordingly
     new_target = np.copy(dpack.target)
@@ -125,8 +121,7 @@ def partition_subgroupings(dpack):
     pairings within the same subgrouping
     """
     sg_indices = defaultdict(list)
-    for i, pair in enumerate(dpack.pairings):
-        edu1, edu2 = pair
+    for i, (edu1, edu2) in enumerate(dpack.pairings):
         key1 = edu1.grouping, edu1.subgrouping
         key2 = edu2.grouping, edu2.subgrouping
         if edu1.id == FAKE_ROOT_ID or key1 == key2:
@@ -171,17 +166,13 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         """
         if cache is None:
             return IntraInterPair(None, None)
-        else:
-            intra_cache = {}
-            inter_cache = {}
-            pref_len = len('intra:')  # same for 'inter:'
-            for key in cache:
-                if key.startswith('intra:'):
-                    intra_cache[key[pref_len:]] = cache[key]
-                elif key.startswith('inter:'):
-                    inter_cache[key[pref_len:]] = cache[key]
-            return IntraInterPair(intra=intra_cache,
-                                  inter=inter_cache)
+
+        intra_cache = {k[len('intra:'):]: v for k, v in cache.items()
+                       if k.startswith('intra:')}
+        inter_cache = {k[len('inter:'):]: v for k, v in cache.items()
+                       if k.startswith('inter:')}
+        return IntraInterPair(intra=intra_cache,
+                              inter=inter_cache)
 
     @staticmethod
     def _for_intra_fit(dpack, target):
@@ -189,7 +180,8 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         idxes = idxes_intra(dpack, include_fake_root=True)
         dpack = dpack.selected(idxes)
         target = target[idxes]
-        return for_intra(dpack, target)
+        dpack, target = for_intra(dpack, target)
+        return dpack, target
 
     @staticmethod
     def _for_inter_fit(dpack, target):
@@ -209,8 +201,11 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         else:
             dpacks_intra, targets_intra = dpacks, targets
             dpacks_inter, targets_inter = dpacks, targets
+
+        # print('intra.fit')
         self._parsers.intra.fit(dpacks_intra, targets_intra,
                                 cache=caches.intra)
+        # print('inter.fit')
         self._parsers.inter.fit(dpacks_inter, targets_inter,
                                 cache=caches.inter)
         return self
@@ -224,9 +219,10 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         dpacks = IntraInterPair(intra=dpack_intra,
                                 inter=dpack)
         # parse each sentence
-        spacks = [self._parsers.intra.transform(dpack)
-                  for dpack in partition_subgroupings(dpacks.intra)]
-
+        spacks = partition_subgroupings(dpacks.intra)
+        spacks = [self._parsers.intra.transform(spack)
+                  for spack in spacks]
+        # call inter parser with intra predictions
         return self._recombine(dpacks.inter, spacks)
 
     @staticmethod
@@ -271,19 +267,28 @@ class SentOnlyParser(IntraInterParser):
         sent_lbl = self._mk_get_lbl(dpack, spacks)
 
         def merged_lbl(i, pair):
-            'doc label where relevant else sentence label'
+            """Doc label where relevant else sentence label.
+
+            Returns
+            -------
+            lbl: string
+                Predicted (intra-sentential) label ; UNRELATED for
+                missing values (None) and when EDU1 is the fake root.
+            """
             edu1, _ = pair
             lbl = sent_lbl(i)
+            # UNRELATED for missing values and edges from the fake root
             if lbl is None or edu1.id == FAKE_ROOT_ID:
-                return unrelated_lbl
-            else:
-                return lbl
+                lbl = unrelated_lbl
+            return lbl
+
         # merge results
         prediction = np.fromiter((merged_lbl(i, pair)
                                   for i, pair in enumerate(dpack.pairings)),
                                  dtype=np.dtype(np.int16))
         graph = dpack.graph.tweak(prediction=prediction)
-        return dpack.set_graph(graph)
+        dpack = dpack.set_graph(graph)
+        return dpack
 
 
 class HeadToHeadParser(IntraInterParser):
@@ -300,43 +305,60 @@ class HeadToHeadParser(IntraInterParser):
         unrelated_lbl = dpack.label_number(UNRELATED)
         sent_lbl = self._mk_get_lbl(dpack, spacks)
         head_ids = [edu2.id for i, (edu1, edu2) in enumerate(dpack.pairings)
-                    if edu1.id == FAKE_ROOT_ID and
-                    sent_lbl(i) != unrelated_lbl]
+                    if (edu1.id == FAKE_ROOT_ID and
+                        sent_lbl(i) != unrelated_lbl)]
 
         # pick out edges where both elements are
         # a sentence head (or the fake root)
         def is_head_or_root(edu):
             'true if an edu is the fake root or a sentence head'
             return edu.id == FAKE_ROOT_ID or edu.id in head_ids
+
         idxes = [i for i, (e1, e2) in enumerate(dpack.pairings)
-                 if is_head_or_root(e1) and is_head_or_root(e2)]
+                 if (is_head_or_root(e1) and
+                     is_head_or_root(e2))]
         return dpack.selected(idxes)
 
     def _recombine(self, dpack, spacks):
         "join sentences by parsing their heads"
+        unrelated_lbl = dpack.label_number(UNRELATED)
+        # intra-sentential predictions
+        sent_lbl = self._mk_get_lbl(dpack, spacks)
+
+        # call inter-sentential parser
         dpack_inter = self._select_heads(dpack, spacks)
         has_inter = len(dpack_inter) > 0
         if has_inter:
             dpack_inter = self._parsers.inter.transform(dpack_inter)
         doc_lbl = self._mk_get_lbl(dpack, [dpack_inter])
-        sent_lbl = self._mk_get_lbl(dpack, spacks)
-        unrelated_lbl = dpack.label_number(UNRELATED)
 
         def merged_lbl(i):
-            'doc label where relevant else sentence label'
+            """Doc label where relevant else sentence label.
+
+            Returns
+            -------
+            lbl:  string
+                Predicted document-level label, else sentence-level
+                label ; UNRELATED for missing values.
+            """
             lbl = doc_lbl(i) if has_inter else None
+            # missing document-level prediction: use sentence-level
+            # prediction
             if lbl is None:
                 lbl = sent_lbl(i)
-            # may have fallen through the cracks (ie. may be neither in
-            # a sentence be a head)
+            # fallback: it may have fallen through the cracks
+            # (ie. may be neither in a sentence be a head)
             if lbl is None:
                 lbl = unrelated_lbl
             return lbl
+
         # merge results
-        prediction = np.fromiter((merged_lbl(i) for i in range(len(dpack))),
+        prediction = np.fromiter((merged_lbl(i)
+                                  for i in range(len(dpack))),
                                  dtype=np.dtype(np.int16))
         graph = dpack.graph.tweak(prediction=prediction)
-        return dpack.set_graph(graph)
+        dpack = dpack.set_graph(graph)
+        return dpack
 
 
 class SoftParser(IntraInterParser):
@@ -363,7 +385,11 @@ class SoftParser(IntraInterParser):
                 weights_a[i] = 1.0
                 weights_l[i] = np.zeros(len(dpack.labels))
                 weights_l[i, lbl] = 1.0
-        dpack = dpack.set_graph(Graph(prediction=dpack.graph.prediction,
-                                      attach=weights_a,
-                                      label=weights_l))
-        return self._parsers.inter.transform(dpack)
+
+        graph = Graph(prediction=dpack.graph.prediction,
+                      attach=weights_a,
+                      label=weights_l)
+        dpack = dpack.set_graph(graph)
+        # call the inter parser on the updated dpack
+        dpack = self._parsers.inter.transform(dpack)
+        return dpack

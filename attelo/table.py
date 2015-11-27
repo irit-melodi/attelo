@@ -378,16 +378,27 @@ def groupings(pairings):
 
 
 def attached_only(dpack, target):
-    '''
+    """
     Return only the instances which are labelled as
     attached (ie. this would presumably return an empty
     pack on completely unseen data)
 
+    Parameters
+    ----------
+    dpack: DataPack
+        Original datapack
+
+    target: array(int)
+        Original targets
+
     Returns
     -------
-    dpack (DataPack)
-    target (array(int))
-    '''
+    dpack: DataPack
+        Transformed datapack, with binary labels
+
+    target: array(int)
+        Transformed targets, with binary labels
+    """
     unrelated = dpack.label_number(UNRELATED)
     indices = np.where(target != unrelated)[0]
     dpack = dpack.selected(indices)
@@ -396,47 +407,66 @@ def attached_only(dpack, target):
 
 
 def for_attachment(dpack, target):
-    '''
-    Adapt a datapack to the attachment task. This could involve
+    """Adapt a datapack to the attachment task.
 
-        * selecting some of the features (all for now, but may
-          change in the future)
-        * modifying the features/labels in some way
-          (we binarise them to 0 vs not-0)
+    This could involve:
+    * selecting some of the features (all for now, but may
+    change in the future)
+    * modifying the features/labels in some way:
+    we currently binarise labels to {-1 ; 1} for UNRELATED and
+    not-UNRELATED respectively.
+
+    Parameters
+    ----------
+    dpack: DataPack
+        Original datapack
+    target: array(int)
+        Original targets
 
     Returns
     -------
-    dpack (DataPack)
-    target (array(int))
-    '''
+    dpack: DataPack
+        Transformed datapack, with binary labels
+
+    target: array(int)
+        Transformed targets, with binary labels
+    """
     unrelated = dpack.label_number(UNRELATED)
-    tweak = np.vectorize(lambda x: -1 if x == unrelated else 1)
     dpack = DataPack(edus=dpack.edus,
                      pairings=dpack.pairings,
                      data=dpack.data,
-                     target=tweak(dpack.target),
+                     target=np.where(dpack.target == unrelated, -1, 1),
                      labels=[UNKNOWN, UNRELATED],
                      vocab=dpack.vocab,
                      graph=dpack.graph)
-    target = tweak(target)
+    target = np.where(target == unrelated, -1, 1)
     return dpack, target
 
 
 def for_labelling(dpack, target):
-    '''
-    Adapt a datapack to the relation labelling task (currently a no-op).
-    This could involve
+    """Adapt a datapack to the relation labelling task (currently a no-op).
 
-        * selecting some of the features (all for now, but may
-          change in the future)
-        * modifying the features/labels in some way (in practice
-          no change)
+    This could involve
+    * selecting some of the features (all for now, but may
+    change in the future)
+    * modifying the features/labels in some way (in practice
+    no change)
+
+    Parameters
+    ----------
+    dpack: DataPack
+        Original datapack
+    target: array(int)
+        Original targets
 
     Returns
     -------
-    dpack (DataPack)
-    target (array(int))
-    '''
+    dpack: DataPack
+        Transformed datapack, with binary labels
+
+    target: array(int)
+        Transformed targets, with binary labels
+    """
     return dpack, target
 
 

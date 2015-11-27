@@ -67,23 +67,6 @@ def _parse_group(dpack, parser, output_path):
     write_predictions_output(dpack, prediction, output_path)
 
 
-def jobs(mpack, parser, output_path):
-    """
-    Return a list of delayed decoding jobs for the various
-    documents in this group
-    """
-    res = []
-    tmpfiles = [_tmp_output_filename(output_path, d)
-                for d in mpack.keys()]
-    for tmpfile in tmpfiles:
-        if fp.exists(tmpfile):
-            os.remove(tmpfile)
-    for onedoc, dpack in mpack.items():
-        tmp_output_path = _tmp_output_filename(output_path, onedoc)
-        res.append(delayed(_parse_group)(dpack, parser, tmp_output_path))
-    return res
-
-
 def learn(hconf, econf, dconf, fold):
     """
     Run the learners for the given configuration
@@ -123,7 +106,21 @@ def delayed_decode(hconf, dconf, econf, fold):
         subpack = select_testing(dconf.pack, dconf.folds, fold)
 
     parser = econf.parser.payload
-    return jobs(subpack, parser, output_path)
+
+    # create list of delayed decoding jobs for the various documents in
+    # this group (subpack)
+    # * clean temp files
+    tmpfiles = [_tmp_output_filename(output_path, d)
+                for d in subpack.keys()]
+    for tmpfile in tmpfiles:
+        if fp.exists(tmpfile):
+            os.remove(tmpfile)
+    # * generate delayed decoding jobs
+    res = [delayed(_parse_group)(dpack, parser,
+                                 _tmp_output_filename(output_path, onedoc))
+           for onedoc, dpack in subpack.items()]
+
+    return res
 
 
 def decode_on_the_fly(hconf, dconf, fold):
