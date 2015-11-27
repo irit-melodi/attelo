@@ -296,6 +296,54 @@ class HeadToHeadParser(IntraInterParser):
     Intra/inter parser in which sentence recombination consists of
     parsing with only sentence heads.
     """
+    @staticmethod
+    def _for_inter_fit(dpack, target):
+        """Adapt a datapack for intersentential learning.
+
+        This is a custom version of `IntraInterParser._for_inter_fit`
+        to restrict instances to edges between sentential heads (plus
+        the fake root).
+
+        Parameters
+        ----------
+        dpack: DataPack
+        target: array(int)
+
+        Returns
+        -------
+        dpack: DataPack
+        target: array(int)
+
+        Notes
+        -----
+        Preliminary experiments indicate this works well in practice.
+        Please be careful that irit_rst_dt.harness.IritHarness.model_paths
+        attributes different suffixes to global and inter-sentential models,
+        e.g. 'inter:{attach,label}': ..."doc-{attach,relate}"), and
+        '{attach,label}': ...{attach,relate}".
+        """
+        # could be a function like
+        # `idxes_inter_iheads(dpack, target, include_fake_root=True)`
+        # but existing functions in attelo.table only depend on dpack
+        # and ignore target (necessary here)
+        # find all EDUs that have intra incoming edges (to rule out)
+        unrelated = dpack.label_number(UNRELATED)
+        intra_tgts = defaultdict(set)
+        for i, (edu1, edu2) in enumerate(dpack.pairings):
+            if ((edu1.subgrouping == edu2.subgrouping and
+                 target[i] != unrelated)):
+                intra_tgts[edu2.subgrouping].add(edu2.id)
+        # pick out (fakeroot, head_i) or (head_i, head_j) edges
+        idxes = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
+                 if ((edu1.id == FAKE_ROOT_ID or
+                      edu1.id not in intra_tgts[edu1.subgrouping]) and
+                     edu2.id not in intra_tgts[edu2.subgrouping])]
+        # end idxes_inter_iheads
+
+        dpack = dpack.selected(idxes)
+        target = target[idxes]
+        return dpack, target
+
     def _select_heads(self, dpack, spacks):
         """
         return datapack consisting only of links between sentence
@@ -368,6 +416,14 @@ class SoftParser(IntraInterParser):
     1. passing intra-sentential edges through but
     2. marking 1.0 attachment probabilities if they are attached
        and 1.0 label probabilities on the resulting edge
+
+    Notes
+    -----
+    In its current implementation, this parser needs a global model,
+    i.e. one fit on the whole dataset, so that it can correctly score
+    intra-sentential edges.
+    Different, alternative implementations could probably solve or work
+    around this.
     """
     def _recombine(self, dpack, spacks):
         "soft decoding - pass sentence edges through the prob dist"
