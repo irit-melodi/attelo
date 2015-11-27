@@ -9,8 +9,8 @@ from six import with_metaclass
 
 from attelo.table import (Graph, UNKNOWN, UNRELATED)
 
-# pylint: disable=too-few-public-methods
 
+# pylint: disable=too-few-public-methods
 class Parser(with_metaclass(ABCMeta, object)):
     """
     Parsers follow the scikit fit/transform idiom. They are learned from some
@@ -144,7 +144,6 @@ class Parser(with_metaclass(ABCMeta, object)):
             a parser that somehow combines other parsers together)
         """
         raise NotImplementedError
-
 
     @abstractmethod
     def transform(self, dpack):

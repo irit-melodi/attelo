@@ -12,7 +12,6 @@ import sys
 import time
 import traceback
 
-import joblib
 from sklearn.datasets import load_svmlight_file
 
 from .edu import (EDU, FAKE_ROOT_ID, FAKE_ROOT)
@@ -323,40 +322,8 @@ def load_gold_predictions(pairings_file, feature_file, verbose=False):
 
 
 # ---------------------------------------------------------------------
-# models
-# ---------------------------------------------------------------------
-
-
-def load_model(filename):
-    """
-    Load model into memory from file.
-
-    Note that we consider the filename 'oracle' to be special.
-    Instead of loading a model, we simply return the virtual
-    oracle decoder
-
-    Returns
-    -------
-    model: object
-
-        some sort of classifier (eg, an attelo.learn.AttachClassifier
-        or an attelo.learn.LabelClassifier)
-    """
-    return joblib.load(filename)
-
-
-def save_model(filename, model):
-    """
-    Dump model into a file
-    """
-    joblib.dump(model, filename)
-
-
-# ---------------------------------------------------------------------
 # folds
 # ---------------------------------------------------------------------
-
-
 def load_fold_dict(filename):
     """
     Load fold dictionary into memory from file

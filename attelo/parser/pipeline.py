@@ -12,7 +12,7 @@ class Pipeline(Parser):
     """
     Apply a sequence of parsers.
 
-    NB. For now we assume that that these parsers can be
+    NB. For now we assume that these parsers can be
     fitted independently of each other
 
     Steps should be a tuple of names and parsers, just like

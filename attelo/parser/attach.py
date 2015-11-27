@@ -6,10 +6,11 @@ You could also combine this with the label parser
 
 from os import path as fp
 
-from attelo.io import (load_model, save_model)
-from attelo.table import (for_attachment)
-from .interface import (Parser)
-from .pipeline import (Pipeline)
+import joblib
+
+from attelo.table import for_attachment
+from .interface import Parser
+from .pipeline import Pipeline
 
 # pylint: disable=too-few-public-methods
 
@@ -48,22 +49,27 @@ class AttachClassifierWrapper(Parser):
         ----------
         mpack : MultiPack
         """
-        cache = cache or {}
-        cache_file = cache.get('attach')
+        cache_file = (cache.get('attach') if cache is not None
+                      else None)
+        # load cached classifier, if it exists
         if cache_file is not None and fp.exists(cache_file):
-            self._learner_attach = load_model(cache_file)
+            # print('\tload {}'.format(cache_file))
+            self._learner_attach = joblib.load(cache_file)
             return self
-        else:
-            dpacks, targets = self.dzip(for_attachment, dpacks, targets)
-            self._learner_attach.fit(dpacks, targets)
-            if cache_file is not None:
-                save_model(cache_file, self._learner_attach)
-            return self
+
+        dpacks, targets = self.dzip(for_attachment, dpacks, targets)
+        self._learner_attach.fit(dpacks, targets)
+        # save classifier, if necessary
+        if cache_file is not None:
+            # print('\tsave {}'.format(cache_file))
+            joblib.dump(self._learner_attach, cache_file)
+        return self
 
     def transform(self, dpack):
         attach_pack, _ = for_attachment(dpack, dpack.target)
         weights_a = self._learner_attach.predict_score(attach_pack)
-        return self.multiply(dpack, attach=weights_a)
+        dpack = self.multiply(dpack, attach=weights_a)
+        return dpack
 
 
 class AttachPipeline(Pipeline):

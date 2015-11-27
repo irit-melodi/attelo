@@ -16,8 +16,9 @@ import itertools as itr
 import shutil
 import sys
 
-from attelo.io import (load_model,
-                       load_predictions)
+import joblib
+
+from attelo.io import load_predictions
 from attelo.fold import (select_testing)
 from attelo.harness.util import (makedirs, md5sum_file)
 from attelo.parser.intra import (IntraInterPair)
@@ -196,7 +197,7 @@ def full_report(mpack, fold_dict, slices,
     """
     Generate a report across a set of folds and configurations.
 
-    This is a bit tricky as the the idea is that we have to acculumate
+    This is a bit tricky as the idea is that we have to acculumate
     per-configuration results over the folds.
 
     Here configurations are just arbitrary strings
@@ -325,7 +326,7 @@ def _mk_model_summary(hconf, dconf, rconf, test_data, fold):
         labels = dpack0.labels
         vocab = dpack0.vocab
         models = Team(attach=mpaths['attach'],
-                      label=mpaths['label']).fmap(load_model)
+                      label=mpaths['label']).fmap(joblib.load)
         return discriminating_features(models, labels, vocab, _top_n)
 
     def _write_discr(discr, subconf, grain):
