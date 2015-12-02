@@ -164,7 +164,8 @@ class IntraTest(unittest.TestCase):
     def test_partition_subgroupings(self):
         'test that sentences are split correctly'
         big_dpack = self._dpack_1()
-        partitions = list(partition_subgroupings(big_dpack))
+        partitions = [big_dpack.selected(idxs)
+                      for idxs in partition_subgroupings(big_dpack)]
         all_valid = frozenset(x.subgrouping for x in big_dpack.edus)
         all_subgroupings = set()
         for dpack in partitions:

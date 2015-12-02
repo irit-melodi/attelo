@@ -19,7 +19,7 @@ setup(name="attelo",
                         'nltk',
                         'numpy',
                         'pydot',
-                        'scikit-learn',
+                        'scikit-learn >= 0.17',
                         'six',
                         'scipy >= 0.14.0',
                         'tabulate'])
