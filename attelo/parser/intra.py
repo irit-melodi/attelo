@@ -71,10 +71,16 @@ def for_intra(dpack, target):
     all_heads = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
                  if (edu1.id == FAKE_ROOT_ID and
                      edu2.id not in intra_tgts[edu2.subgrouping])]
+    # NEW pick out the original inter-sentential links, for removal
+    inter_links = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
+                   if (edu1.id != FAKE_ROOT_ID and
+                       edu1.subgrouping != edu2.subgrouping and
+                       target[i] != unrelated)]
 
     # update datapack and target accordingly
     new_target = np.copy(dpack.target)
     new_target[all_heads] = dpack.label_number('ROOT')
+    new_target[inter_links] = unrelated  # NEW
     dpack = DataPack(edus=dpack.edus,
                      pairings=dpack.pairings,
                      data=dpack.data,
@@ -84,6 +90,7 @@ def for_intra(dpack, target):
                      graph=dpack.graph)
     target = np.copy(target)
     target[all_heads] = dpack.label_number('ROOT')
+    target[inter_links] = unrelated  # NEW
     return dpack, target
 
 
@@ -117,8 +124,8 @@ def _zip_sentences(func, sent_parses):
 
 def partition_subgroupings(dpack):
     """
-    Return an iterable of datapacks, each pack consisting of
-    pairings within the same subgrouping
+    Return a list of lists of indices, each nested list consisting of
+    the indices of pairings within the same subgrouping
     """
     sg_indices = defaultdict(list)
     for i, (edu1, edu2) in enumerate(dpack.pairings):
@@ -126,8 +133,7 @@ def partition_subgroupings(dpack):
         key2 = edu2.grouping, edu2.subgrouping
         if edu1.id == FAKE_ROOT_ID or key1 == key2:
             sg_indices[key2].append(i)
-    for idxs in sg_indices.values():
-        yield dpack.selected(idxs)
+    return sg_indices.values()
 
 
 class IntraInterParser(with_metaclass(ABCMeta, Parser)):
@@ -203,7 +209,18 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
             dpacks_inter, targets_inter = dpacks, targets
 
         # print('intra.fit')
-        self._parsers.intra.fit(dpacks_intra, targets_intra,
+        dpacks_spacks = []
+        targets_spacks = []
+        for i, dpack_intra in enumerate(dpacks_intra):
+            subgrp_idxs = partition_subgroupings(dpack_intra)
+            dpack_spacks = [dpack_intra.selected(idxs)
+                            for idxs in subgrp_idxs]
+            dpacks_spacks.extend(dpack_spacks)
+            target_intra = targets_intra[i]
+            target_spacks = [target_intra[idxs]
+                             for idxs in subgrp_idxs]
+            targets_spacks.extend(target_spacks)
+        self._parsers.intra.fit(dpacks_spacks, targets_spacks,
                                 cache=caches.intra)
         # print('inter.fit')
         self._parsers.inter.fit(dpacks_inter, targets_inter,
@@ -216,14 +233,14 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         # are using an oracle)
         dpack = self.multiply(dpack)
         dpack_intra, _ = for_intra(dpack, dpack.target)
-        dpacks = IntraInterPair(intra=dpack_intra,
-                                inter=dpack)
+        dpack_inter = dpack
         # parse each sentence
-        spacks = partition_subgroupings(dpacks.intra)
+        spacks = [dpack_intra.selected(idxs)
+                  for idxs in partition_subgroupings(dpack_intra)]
         spacks = [self._parsers.intra.transform(spack)
                   for spack in spacks]
         # call inter parser with intra predictions
-        return self._recombine(dpacks.inter, spacks)
+        return self._recombine(dpack_inter, spacks)
 
     @staticmethod
     def _mk_get_lbl(dpack, subpacks):
