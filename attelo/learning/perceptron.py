@@ -35,6 +35,9 @@ class Perceptron(object):
         Number of passes over the training data (aka epochs).
         Defaults to 5.
 
+    verbose: int, optional
+        Verbosity level
+
     eta0: double, optional
         Constant by which the udpates are multiplied (aka constant
         learning rate).
@@ -48,12 +51,13 @@ class Perceptron(object):
         When set to True, fake a notion of probabilities by using `log`
         tricks to return scores in [0, 1].
     """
-    def __init__(self, n_iter=5, eta0=1.0,
+    def __init__(self, n_iter=5, verbose=0, eta0=1.0,
                  # different from sklearn perceptron
                  average=False,
                  # should maybe not belong here
                  use_prob=False):
         self.nber_it = n_iter
+        self.verbose = verbose
         self.eta0 = eta0
         self.avg = average
         self.use_prob = use_prob
@@ -78,37 +82,49 @@ class Perceptron(object):
         return scores
 
     def init_model(self, X):
+        verbose = self.verbose
         dim = X.shape[1]
-        print("FEAT. SPACE SIZE:", dim)
-        self.weights = zeros(dim, 'd')
-        self.avg_weights = zeros(dim, 'd')
+        if verbose > 1:
+            print("FEAT. SPACE SIZE:", dim)
+        self.weights = zeros(dim, dtype='d')
+        self.avg_weights = zeros(dim, dtype='d')
 
     def learn(self, X, Y):
-        start_time = time.time()
-        print("-"*100, file=sys.stderr)
-        print("Training...", file=sys.stderr)
-        nber_it = self.nber_it
-        for n in xrange(nber_it):
-            print("it. %3s \t" % n, file=sys.stderr)
+        verbose = self.verbose
+        if verbose > 1:
+            print("-"*100, file=sys.stderr)
+            print("Training...", file=sys.stderr)
+            start_time = time.time()
+
+        for n in xrange(self.nber_it):
+            if verbose > 1:
+                print("it. %3s \t" % n, file=sys.stderr)
+                t0 = time.time()
             loss = 0.0
-            t0 = time.time()
             inst_ct = 0
             for i in xrange(X.shape[0]):
                 X_i = X[i]
                 Y_i = Y[i]
                 # track progress
                 inst_ct += 1
-                sys.stderr.write("%s" % "\b"*len(str(inst_ct))+str(inst_ct))
+                if verbose > 10:
+                    sys.stderr.write("%s" % ("\b" * len(str(inst_ct)) +
+                                             str(inst_ct)))
                 # predict and update
                 Y_hat, score = self._classify(X_i, self.weights)
                 loss += self.update(Y_hat, Y_i, X_i, score)
+            # progress in this iteration
             if inst_ct > 0:
                 loss = loss / float(inst_ct)
-            t1 = time.time()
-            print("\tavg loss = %-7s" % round(loss, 6), file=sys.stderr)
-            print("\ttime = %-4s" % round(t1-t0, 3), file=sys.stderr)
-        elapsed_time = t1-start_time
-        print("done in %s sec." % round(elapsed_time, 3), file=sys.stderr)
+            if verbose > 1:
+                t1 = time.time()
+                print("%s\tavg loss = %-7s" % (str(inst_ct),
+                                               round(loss, 6)),
+                      file=sys.stderr)
+                print("\ttime = %-4s" % round(t1 - t0, 3), file=sys.stderr)
+        if verbose > 1:
+            elapsed_time = t1 - start_time
+            print("done in %s sec." % round(elapsed_time, 3), file=sys.stderr)
 
     def update(self, Y_j_hat, Y_j, X_j, score):
         """ simple perceptron update rule"""
@@ -154,11 +170,12 @@ class PassiveAggressive(Perceptron):
     """
 
     def __init__(self, C=1.0,
-                 n_iter=5,
+                 n_iter=5, verbose=0,
                  average=False,
                  use_prob=False):
         Perceptron.__init__(self,
                             n_iter=n_iter,
+                            verbose=verbose,
                             eta0=1.0,
                             average=average,
                             use_prob=use_prob)
@@ -186,7 +203,7 @@ class PassiveAggressive(Perceptron):
         margin = Y_j * score
         loss = 0.0
         if margin < 1.0:
-            loss = 1.0-margin
+            loss = 1.0 - margin
         norme = norm(X_j)
         if norme != 0:
             tau = loss / float(norme**2)
@@ -203,20 +220,23 @@ class StructuredPerceptron(Perceptron):
     problems."""
 
     def __init__(self, decoder,
-                 n_iter=5, eta0=1.0,
+                 n_iter=5, verbose=0, eta0=1.0,
                  average=False,
                  use_prob=False):
         Perceptron.__init__(self,
                             n_iter=n_iter,
+                            verbose=verbose,
                             eta0=eta0,
                             average=average,
                             use_prob=use_prob)
         self.decoder = decoder
 
     def init_model(self, dim):
-        print("FEAT. SPACE SIZE:", dim)
-        self.weights = zeros(dim, 'd')
-        self.avg_weights = zeros(dim, 'd')
+        verbose = self.verbose
+        if verbose > 1:
+            print("FEAT. SPACE SIZE:", dim)
+        self.weights = zeros(dim, dtype='d')
+        self.avg_weights = zeros(dim, dtype='d')
 
     def fit(self, datapacks, _targets):  # datapacks is an iterable
         """ learn struct. perceptron weights """
@@ -228,13 +248,17 @@ class StructuredPerceptron(Perceptron):
         return self.decision_function(dpack.data)
 
     def learn(self, datapacks):
-        start_time = time.time()
-        print("-"*100, file=sys.stderr)
-        print("Training struct. perc...", file=sys.stderr)
+        verbose = self.verbose
+        if verbose > 1:
+            print("-"*100, file=sys.stderr)
+            print("Training struct. perc...", file=sys.stderr)
+            start_time = time.time()
+
         for n in range(self.nber_it):
-            print("it. %3s \t" % n, file=sys.stderr)
+            if verbose > 1:
+                print("it. %3s \t" % n, file=sys.stderr)
+                t0 = time.time()
             loss = 0.0
-            t0 = time.time()
             inst_ct = 0
             for dpack in datapacks:
                 # extract data and target
@@ -249,20 +273,26 @@ class StructuredPerceptron(Perceptron):
                         ref_tree.append((edu1.id, edu2.id, UNKNOWN))
                 # track progress
                 inst_ct += len(ref_tree)  # was: 1
-                sys.stderr.write("%s" % "\b"*len(str(inst_ct))+str(inst_ct))
+                if verbose > 10:
+                    sys.stderr.write("%s" % ("\b" * len(str(inst_ct)) +
+                                             str(inst_ct)))
                 # predict tree based on current weight vector
                 pred_tree = self._classify(dpack, X, self.weights)
                 # tree loss
                 tloss = self.update(pred_tree, ref_tree, X, fv_index_map)
                 # from the tree loss, recover the absolute number of errors
                 loss += int(tloss * len(ref_tree))
-            # print(inst_ct,, file=sys.stderr)
+            # progress in this iteration
             avg_loss = loss / float(inst_ct)
-            t1 = time.time()
-            print("\tavg loss = %-7s" % round(avg_loss, 6), file=sys.stderr)
-            print("\ttime = %-4s" % round(t1-t0, 3), file=sys.stderr)
-        elapsed_time = t1-start_time
-        print("done in %s sec." % round(elapsed_time, 3), file=sys.stderr)
+            if verbose > 1:
+                t1 = time.time()
+                print("%s\tavg loss = %-7s" % (str(inst_ct),
+                                               round(avg_loss, 6)),
+                      file=sys.stderr)
+                print("\ttime = %-4s" % round(t1-t0, 3), file=sys.stderr)
+        if verbose > 1:
+            elapsed_time = t1-start_time
+            print("done in %s sec." % round(elapsed_time, 3), file=sys.stderr)
 
     def update(self, pred_tree, ref_tree, X, fv_map):
         rate = self.eta0
@@ -276,8 +306,8 @@ class StructuredPerceptron(Perceptron):
         # error = not( set(pred_tree) == set(ref_tree) )
         loss = tree_loss(ref_tree, pred_tree)
         if loss != 0:
-            ref_fv = zeros(len(W), 'd')
-            pred_fv = zeros(len(W), 'd')
+            ref_fv = zeros(len(W), dtype='d')
+            pred_fv = zeros(len(W), dtype='d')
             for ref_arc in ref_tree:
                 id1, id2, _ = ref_arc
                 ref_fv = ref_fv + X[fv_map[id1, id2]].toarray()
@@ -294,11 +324,11 @@ class StructuredPerceptron(Perceptron):
 
     def _classify(self, dpack, X, W):
         """ return predicted tree """
-        decoder = self.decoder
         num_items = len(dpack)
+        # compute attachment scores for all EDU pairs
         scores = X.dot(W.T)  # TODO: should this be self.decision_function?
         scores = scores.reshape(num_items)  # lose 2nd dim (shape[1] == 1)
-        # unlabelled
+        # dummy labelling scores and predictions (for unlabelled parsing)
         unk = dpack.label_number(UNKNOWN)
         label = np.zeros((num_items, len(dpack.labels)))
         label[:, unk] = 1.0
@@ -307,9 +337,10 @@ class StructuredPerceptron(Perceptron):
         dpack = dpack.set_graph(Graph(prediction=prediction,
                                       attach=scores,
                                       label=label))
-        # print "SCORES:", scores
-        graph = decoder.transform(dpack)
-        return prediction_to_triples(graph)
+        # call decoder
+        dpack_pred = self.decoder.transform(dpack)
+        edge_list = prediction_to_triples(dpack_pred)
+        return edge_list
 
 
 class StructuredPassiveAggressive(StructuredPerceptron):
@@ -319,11 +350,12 @@ class StructuredPassiveAggressive(StructuredPerceptron):
 
     def __init__(self, decoder,
                  C=1.0,
-                 n_iter=5,
+                 n_iter=5, verbose=0,
                  average=False,
                  use_prob=False):
         StructuredPerceptron.__init__(self, decoder,
                                       n_iter=n_iter,
+                                      verbose=verbose,
                                       eta0=1.0,
                                       average=average,
                                       use_prob=use_prob)
@@ -348,8 +380,8 @@ class StructuredPassiveAggressive(StructuredPerceptron):
         W = self.weights
         C = self.C
         # compute Phi(x,y) and Phi(x,y^)
-        ref_fv = zeros(len(W), 'd')
-        pred_fv = zeros(len(W), 'd')
+        ref_fv = zeros(len(W), dtype='d')
+        pred_fv = zeros(len(W), dtype='d')
         for ref_arc in ref_tree:
             id1, id2, _ = ref_arc
             ref_fv = ref_fv + X[fv_map[id1, id2]].toarray()
@@ -362,7 +394,7 @@ class StructuredPassiveAggressive(StructuredPerceptron):
         loss = 0.0
         tau = 0.0
         if margin < 1.0:
-            loss = 1.0-margin
+            loss = 1.0 - margin
         norme = norm(delta_fv)
         if norme != 0:
             tau = loss / float(norme**2)
