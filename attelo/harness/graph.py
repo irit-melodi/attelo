@@ -6,7 +6,7 @@ from __future__ import print_function
 from enum import Enum
 from os import path as fp
 
-from joblib import (delayed)
+from joblib import (delayed, Parallel)
 
 from attelo.fold import (select_testing)
 from attelo.graph import (diff_all, graph_all,
@@ -110,7 +110,7 @@ def mk_graphs(hconf, dconf):
         jobs = []
         for econf in hconf.detailed_evaluations:
             jobs.extend(_mk_econf_graphs(hconf, edus, gold, econf, fold))
-        hconf.parallel(jobs)
+        Parallel(n_jobs=hconf.runcfg.n_jobs, verbose=True)(jobs)
 
 
 def mk_test_graphs(hconf, dconf):

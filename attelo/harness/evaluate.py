@@ -17,6 +17,8 @@ import glob
 import os
 import sys
 
+from joblib import Parallel
+
 from attelo.io import (load_multipack,
                        load_fold_dict)
 from attelo.harness.util import (call, force_symlink, timestamp)
@@ -187,7 +189,7 @@ def do_fold(hconf, dconf, fold):
 
     # learn/decode for all models
     decoder_jobs = decode_on_the_fly(hconf, dconf, fold)
-    hconf.parallel(decoder_jobs)
+    Parallel(n_jobs=hconf.runcfg.n_jobs, verbose=True)(decoder_jobs)
     for econf in hconf.evaluations:
         post_decode(hconf, dconf, econf, fold)
     mk_fold_report(hconf, dconf, fold)
@@ -200,7 +202,7 @@ def do_global_decode(hconf, dconf):
     econf = hconf.test_evaluation
     if econf is not None:
         decoder_jobs = delayed_decode(hconf, dconf, econf, None)
-        hconf.parallel(decoder_jobs)
+        Parallel(n_jobs=hconf.runcfg.n_jobs, verbose=True)(decoder_jobs)
         post_decode(hconf, dconf, econf, None)
 
 

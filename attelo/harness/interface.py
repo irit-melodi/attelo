@@ -5,7 +5,6 @@ Basic interface that all test harnesses should respect
 from os import path as fp
 
 from abc import (ABCMeta, abstractmethod, abstractproperty)
-from joblib import Parallel
 from six import with_metaclass
 
 from .config import RuntimeConfig
@@ -297,18 +296,3 @@ class Harness(with_metaclass(ABCMeta, object)):
             parent_dir = self.fold_dir_path(fold)
         return fp.join(parent_dir,
                        self._report_dir_basename(test_data))
-
-    # ------------------------------------------------------
-    # utility
-    # ------------------------------------------------------
-
-    def parallel(self, jobs):
-        """
-        Run delayed jobs in parallel according to our local parameters
-        """
-        if self.runcfg.n_jobs == 0:
-            for func, args, kwargs in jobs:
-                func(*args, **kwargs)
-        else:
-            Parallel(n_jobs=self.runcfg.n_jobs,
-                     verbose=True)(jobs)
