@@ -36,7 +36,7 @@ def tree_loss(ref_tree, pred_tree):
     it does not differentiate between incorrectly attached edges and
     correctly attached but incorrectly labelled edges.
     """
-    return 1.0 - (len(set(pred_tree) & set(ref_tree))/ float(len(ref_tree)))
+    return 1.0 - (len(set(pred_tree) & set(ref_tree)) / float(len(ref_tree)))
 
 
 def labelled_tree_loss(ref_tree, pred_tree):
@@ -70,7 +70,7 @@ def labelled_tree_loss(ref_tree, pred_tree):
     """
     edges_ref = {tgt: (src, lbl) for src, tgt, lbl in ref_tree}
     edges_pred = {tgt: (src, lbl) for src, tgt, lbl in pred_tree}
-    
+
     score = 0.0
     for tgt in sorted(set(edges_ref) & set(edges_pred)):
         head_ref, lbl_ref = edges_ref[tgt]

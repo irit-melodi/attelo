@@ -1,15 +1,19 @@
 """
-A set of learner variants using a perceptron. The more advanced learners allow
-for the possibility of structured prediction.
+A set of perceptron-like learners.
 
-TODO:
-- add more principled scores to probs conversion (right now, we do just 1-norm
-  weight normalization and use expit function)
-- add MC perc and PA for relation prediction.
-- fold relation prediction into structured learning
+The more advanced learners allow for the possibility of structured
+prediction.
+
+TODO
+----
+[ ] add more principled scores to probs conversion (right now, we do
+    just 1-norm weight normalization and use expit function)
+[ ] add multiclass perc and PA for relation prediction
+[ ] fold relation prediction into structured learning
 """
 
 from __future__ import print_function
+from math import sqrt
 import sys
 import time
 
@@ -18,9 +22,10 @@ from numpy import dot, zeros, sign
 from scipy.special import expit  # aka the logistic function
 import numpy as np
 
-from attelo.decoding.util import (prediction_to_triples)
+from attelo.decoding.util import prediction_to_triples
 from attelo.metrics.tree import tree_loss
-from attelo.table import (Graph, UNKNOWN)
+from attelo.metrics.util import oracle_ctree_spans
+from attelo.table import Graph, UNKNOWN
 
 
 # pylint: disable=invalid-name
@@ -128,12 +133,12 @@ class Perceptron(object):
 
     def update(self, Y_j_hat, Y_j, X_j, score):
         """ simple perceptron update rule"""
-        rate = self.eta0
+        upd = self.eta0
         X_j = X_j.toarray()
         error = (Y_j_hat != Y_j)
         W = self.weights
         if error:
-            W = W + rate * Y_j * X_j
+            W = W + upd * Y_j * X_j
             self.weights = W
         if self.avg:
             self.avg_weights = self.avg_weights + W
@@ -156,21 +161,21 @@ class PassiveAggressive(Perceptron):
 
     Parameters
     ----------
-    C: float
+    C : float
         Maximum step size (regularization). Also known as the
         aggressiveness parameter.
         `np.inf` makes it equivalent to basic PA.
         Defaults to 1.0.
 
-    Notes
-    -----
-    TODO:
-        [ ] implement the PA-II variant and add parameter "loss" to
-        choose rule.
+    loss : string, optional
+        The loss function to be used:
+        hinge: PA-I variant from paper
+        squared_hinge: PA-II variant from paper
     """
 
     def __init__(self, C=1.0,
                  n_iter=5, verbose=0,
+                 loss="hinge",
                  average=False,
                  use_prob=False):
         Perceptron.__init__(self,
@@ -180,6 +185,7 @@ class PassiveAggressive(Perceptron):
                             average=average,
                             use_prob=use_prob)
         self.C = C
+        self.loss = loss
 
     def update(self, Y_j_hat, Y_j, X_j, score):
         r"""PA-I update rule
@@ -197,30 +203,133 @@ class PassiveAggressive(Perceptron):
 
            margin =  y (w \cdot x)
         """
+        # learning rate, should be defined in fit(), passed to parent fit()
+        lr = "pa1" if self.loss == "hinge" else "pa2"
+        # end should be in fit()
+
         X_j = X_j.toarray()
         W = self.weights
         C = self.C
-        margin = Y_j * score
-        loss = 0.0
-        if margin < 1.0:
-            loss = 1.0 - margin
-        norme = norm(X_j)
-        if norme != 0:
-            tau = loss / float(norme**2)
-        tau = min(C, tau)
-        W = W + tau * Y_j * X_j
+        # rename to match sklearn naming
+        p = score
+
+        # loss.loss(p, y)
+        z = p * Y_j
+        if z <= 1.0:  # Hinge, threshold=1.0
+            loss_py = 1.0 - z  # threshold - z
+        else:
+            loss_py = 0.0
+        # end loss.loss(p, y)
+
+        if lr == "pa1":
+            x_norm = norm(X_j)
+            if x_norm == 0:
+                upd = 0
+            else:
+                upd = x_norm**2
+                upd = min(C, loss_py / upd)
+        else:  # "pa2"
+            x_norm = norm(X_j)
+            upd = x_norm**2
+            upd = loss_py / (upd + 0.5 / C)
+
+        # sign the update
+        upd *= Y_j
+
+        # update weights
+        W = W + upd * X_j
         self.weights = W
+
+        # update the average weights
         if self.avg:
             self.avg_weights = self.avg_weights + W
-        return loss
+
+        return loss_py
+
+
+# =================================================
+# structured prediction
+# =================================================
+
+# cost functions: tree loss functions
+
+def dtree_loss(tree_gold, tree_pred, att_edus):
+    """Dependency tree loss (mere wrapper).
+
+    Parameters
+    ----------
+    tree_gold: list of (string, string, string)
+        List of gold edges
+
+    tree_pred: list of (string, string, string)
+        List of predicted edges
+
+    att_edus: list of EDUs
+        List of attelo EDUs on which tree_gold and tree_pred are defined
+
+    Returns
+    -------
+    Fraction of incorrectly predicted edges.
+    """
+    # discard EDUs, they are useless for this cost fun
+    return tree_loss(tree_gold, tree_pred)
+
+
+def ctree_loss(tree_gold, tree_pred, att_edus):
+    """Constituency tree loss.
+
+    Parameters
+    ----------
+    tree_gold: list of (string, string, string)
+        List of gold edges
+
+    tree_pred: list of (string, string, string)
+        List of predicted edges
+
+    att_edus: list of EDUs
+        List of attelo EDUs on which tree_gold and tree_pred are defined
+
+    Returns
+    -------
+    Fraction of incorrectly predicted spans.
+    """
+    spans_gold = oracle_ctree_spans(tree_gold, att_edus)
+    spans_pred = oracle_ctree_spans(tree_pred, att_edus)
+    if len(spans_gold) == 0:
+        # TODO? incorporate this special case to
+        # attelo.metrics.tree.tree_loss()
+        # when given spans from a constituency tree,
+        # this can be normal, but this should never happen for
+        # edges from a dependency tree
+        tloss = 0.0
+    else:
+        # call the standard tree_loss function
+        tloss = tree_loss(spans_gold, spans_pred)
+    return tloss
 
 
 class StructuredPerceptron(Perceptron):
     """ Perceptron classifier (in primal form) for structured
-    problems."""
+    problems.
+
+    Parameters
+    ----------
+    cost : string, optional
+        The cost function to be used:
+        dtree: dependency tree loss
+        ctree: constituency tree loss (TODO)
+    """
+
+    # TODO refactor cost functions as classes like the loss functions
+    # used in sklearn.linear_model
+    cost_functions = {
+        "ctree": ctree_loss,
+        "dtree": dtree_loss,
+    }
 
     def __init__(self, decoder,
                  n_iter=5, verbose=0, eta0=1.0,
+                 cost="dtree",
                  average=False,
                  use_prob=False):
         Perceptron.__init__(self,
@@ -230,6 +339,19 @@ class StructuredPerceptron(Perceptron):
                             average=average,
                             use_prob=use_prob)
         self.decoder = decoder
+        self.cost = cost
+        # validate params
+        if self.cost not in self.cost_functions:
+            raise ValueError("cost {} is not supported".format(self.cost))
+        self.cost_function = self._get_cost_function(self.cost)
+
+    def _get_cost_function(self, cost):
+        """Get concrete cost function for str ``cost``."""
+        try:
+            cost_fun = self.cost_functions[cost]
+        except KeyError:
+            raise ValueError("Unsupported cost function {}".format(cost))
+        return cost_fun
 
     def init_model(self, dim):
         verbose = self.verbose
@@ -272,16 +394,17 @@ class StructuredPerceptron(Perceptron):
                     if Y[i] == 1:
                         ref_tree.append((edu1.id, edu2.id, UNKNOWN))
                 # track progress
-                inst_ct += len(ref_tree)  # was: 1
+                inst_ct += 1
                 if verbose > 10:
                     sys.stderr.write("%s" % ("\b" * len(str(inst_ct)) +
                                              str(inst_ct)))
                 # predict tree based on current weight vector
                 pred_tree = self._classify(dpack, X, self.weights)
-                # tree loss
-                tloss = self.update(pred_tree, ref_tree, X, fv_index_map)
+                # structured, cost sensitive loss
+                loss_py = self.update(pred_tree, ref_tree, X, fv_index_map,
+                                      dpack.edus)
                 # from the tree loss, recover the absolute number of errors
-                loss += int(tloss * len(ref_tree))
+                loss += loss_py
             # progress in this iteration
             avg_loss = loss / float(inst_ct)
             if verbose > 1:
@@ -294,8 +417,15 @@ class StructuredPerceptron(Perceptron):
             elapsed_time = t1-start_time
             print("done in %s sec." % round(elapsed_time, 3), file=sys.stderr)
 
-    def update(self, pred_tree, ref_tree, X, fv_map):
-        rate = self.eta0
+    def update(self, pred_tree, ref_tree, X, fv_map, edus):
+        """
+        Parameters
+        ----------
+        edus : list(attelo.edu.EDU)
+            List of attelo EDUs on which pred_tree and ref_tree are
+            defined.
+        """
+        upd = self.eta0
         # rt = [(t[0].span(),t[1].span()) for t in ref_tree]
         # pt = [(t[0].span(),t[1].span()) for t in pred_tree]
         # print("REF TREE:", rt)
@@ -304,23 +434,39 @@ class StructuredPerceptron(Perceptron):
         W = self.weights
         # print("IN W:", W)
         # error = not( set(pred_tree) == set(ref_tree) )
-        loss = tree_loss(ref_tree, pred_tree)
-        if loss != 0:
-            ref_fv = zeros(len(W), dtype='d')
-            pred_fv = zeros(len(W), dtype='d')
-            for ref_arc in ref_tree:
-                id1, id2, _ = ref_arc
-                ref_fv = ref_fv + X[fv_map[id1, id2]].toarray()
-            for pred_arc in pred_tree:
-                id1, id2, _ = pred_arc
-                pred_fv = pred_fv + X[fv_map[id1, id2]].toarray()
-            W = W + rate * (ref_fv - pred_fv)
-        # print("OUT W:", W)
+
+        # compute Phi(x,y) and Phi(x,y_hat)
+        ref_fv = zeros(len(W), dtype='d')
+        pred_fv = zeros(len(W), dtype='d')
+        for ref_arc in ref_tree:
+            id1, id2, _ = ref_arc
+            ref_fv = ref_fv + X[fv_map[id1, id2]].toarray()
+        for pred_arc in pred_tree:
+            id1, id2, _ = pred_arc
+            pred_fv = pred_fv + X[fv_map[id1, id2]].toarray()
+
+        # Phi(x,y) - Phi(x,y_hat)
+        delta_fv = ref_fv - pred_fv
+
+        # structured loss
+        loss_py = float(dot(W, (pred_fv - ref_fv).T))
+        # add cost sensitive term
+        tloss = self.cost_function(ref_tree, pred_tree, edus)
+        # loss_py is not used for the update here, just
+        # for the return value to display avg loss
+        loss_py += sqrt(tloss)
+
+        # update weights
+        if tloss != 0:
+            W = W + upd * delta_fv
         self.weights = W
+        # print("OUT W:", W)
+
+        # update the average weights
         if self.avg:
             self.avg_weights = self.avg_weights + W
 
-        return loss
+        return loss_py
 
     def _classify(self, dpack, X, W):
         """ return predicted tree """
@@ -346,22 +492,37 @@ class StructuredPerceptron(Perceptron):
 class StructuredPassiveAggressive(StructuredPerceptron):
     """Structured PA-II classifier (in primal form) for structured
     problems.
+
+    Parameters
+    ----------
+    loss : string, optional
+        The loss function to be used:
+        hinge: PA-I  variant from paper
+        squared_hinge: PA-II variant from paper
+
+    cost : string, optional
+        The cost function to be used:
+        dtree: dependency tree loss
+        ctree: constituency tree loss (TODO)
     """
 
     def __init__(self, decoder,
                  C=1.0,
-                 n_iter=5, verbose=0,
+                 n_iter=5, verbose=0, loss="hinge",
+                 cost="dtree",
                  average=False,
                  use_prob=False):
         StructuredPerceptron.__init__(self, decoder,
                                       n_iter=n_iter,
                                       verbose=verbose,
                                       eta0=1.0,
+                                      cost=cost,
                                       average=average,
                                       use_prob=use_prob)
         self.C = C
+        self.loss = loss
 
-    def update(self, pred_tree, ref_tree, X, fv_map):
+    def update(self, pred_tree, ref_tree, X, fv_map, edus):
         r"""PA-II update rule:
 
         .. math::
@@ -376,10 +537,22 @@ class StructuredPassiveAggressive(StructuredPerceptron):
                    \end{cases}
 
             margin =  w \cdot (\Phi(x,y)-\Phi(x-\hat{y}))
+
+        Notes
+        -----
+        The current implementation corresponds to the prediction-based
+        variant of cost sensitive multiclass classification from the
+        reference paper.
+        We can safely ignore the max-loss variant because it is, if I
+        understand correctly, intractable for structured prediction.
         """
+        # learning rate, should be defined in fit(), passed to parent fit()
+        lr = "pa1" if self.loss == "hinge" else "pa2"
+        # end should be in fit()
+
         W = self.weights
         C = self.C
-        # compute Phi(x,y) and Phi(x,y^)
+        # compute Phi(x,y) and Phi(x,y_hat)
         ref_fv = zeros(len(W), dtype='d')
         pred_fv = zeros(len(W), dtype='d')
         for ref_arc in ref_tree:
@@ -388,23 +561,36 @@ class StructuredPassiveAggressive(StructuredPerceptron):
         for pred_arc in pred_tree:
             id1, id2, _ = pred_arc
             pred_fv = pred_fv + X[fv_map[id1, id2]].toarray()
-        # find tau
-        delta_fv = ref_fv-pred_fv
-        margin = float(dot(W, delta_fv.T))
-        loss = 0.0
-        tau = 0.0
-        if margin < 1.0:
-            loss = 1.0 - margin
-        norme = norm(delta_fv)
-        if norme != 0:
-            tau = loss / float(norme**2)
-        tau = min(C, tau)
-        # update
-        W = W + tau * delta_fv
+
+        # Phi(x,y) - Phi(x,y_hat)
+        delta_fv = ref_fv - pred_fv
+        delta_fv_norm = norm(delta_fv)
+
+        # structured loss
+        loss_py = float(dot(W, (pred_fv - ref_fv).T))
+        # add cost sensitive term
+        tloss = self.cost_function(ref_tree, pred_tree, edus)
+        loss_py += sqrt(tloss)
+
+        if lr == "pa1":
+            if delta_fv_norm == 0:
+                upd = 0
+            else:
+                upd = delta_fv_norm**2
+                upd = min(C, loss_py / upd)
+        else:  # "pa2"
+            upd = delta_fv_norm**2
+            upd = loss_py / (upd + 0.5 / C)
+
+        # update weights
+        W = W + upd * delta_fv
         self.weights = W
+
+        # update the average weights
         if self.avg:
             self.avg_weights = self.avg_weights + W
-        return loss
+
+        return loss_py
 
 
 def _score(w_vect, feat_vect, use_prob=False):

@@ -16,6 +16,8 @@ from itertools import chain
 
 import numpy as np
 
+from .util import get_spans
+
 
 # util functions
 def _unique_span_length(y):
@@ -258,41 +260,20 @@ def compute_parseval_scores(ctree_true, ctree_pred, average=None,
         'topic-comment',
     ]
 
-    # collect all constituents, i.e. all treenodes except for the root
-    # node (as is done in Marcu's 2000 book and Joty's eval script)
-    tns_true = [[subtree.label()  # was: educe.internalutil.treenode(subtree)
-                 for root_child in ct_true
-                 for subtree in root_child.subtrees()]
-                for ct_true in ctree_true]
     # extract the minimally relevant description of each constituent
-    snr_true = [[(tn.edu_span, tn.nuclearity, tn.rel)
-                 for tn in tns]
-                for tns in tns_true]
-    # same for pred
-    tns_pred = [[subtree.label()  # was: educe.internalutil.treenode(subtree)
-                 for root_child in ct_pred
-                 for subtree in root_child.subtrees()]
-                for ct_pred in ctree_pred]
-    snr_pred = [[(tn.edu_span, tn.nuclearity, tn.rel)
-                 for tn in tns]
-                for tns in tns_pred]
+    snr_true = [get_spans(ct_true) for ct_true in ctree_true]
+    snr_pred = [get_spans(ct_pred) for ct_pred in ctree_pred]
 
     # we need 4 different metrics: S, S+N, S+R, S+N+R
     # spans
-    s_true = [[c[0] for c in cs]
-              for cs in snr_true]
-    s_pred = [[c[0] for c in cs]
-              for cs in snr_pred]
+    s_true = [[c[0] for c in cs] for cs in snr_true]
+    s_pred = [[c[0] for c in cs] for cs in snr_pred]
     # spans + nuclearity
-    sn_true = [[(c[0], c[1]) for c in cs]
-               for cs in snr_true]
-    sn_pred = [[(c[0], c[1]) for c in cs]
-               for cs in snr_pred]
+    sn_true = [[(c[0], c[1]) for c in cs] for cs in snr_true]
+    sn_pred = [[(c[0], c[1]) for c in cs] for cs in snr_pred]
     # spans + relation
-    sr_true = [[(c[0], c[2]) for c in cs]
-               for cs in snr_true]
-    sr_pred = [[(c[0], c[2]) for c in cs]
-               for cs in snr_pred]
+    sr_true = [[(c[0], c[2]) for c in cs] for cs in snr_true]
+    sr_pred = [[(c[0], c[2]) for c in cs] for cs in snr_pred]
     # spans + nuclearity + relation
     # already computed, see above
 
@@ -324,7 +305,7 @@ def compute_parseval_scores(ctree_true, ctree_pred, average=None,
         labels = clabels_wo_span
         target_names = [lbl for lbl in target_names if lbl != 'span']
     precision, recall, f_score, support = precision_recall_fscore_support(
-    sr_true, sr_pred, labels=labels, average=average, elt_type='s+r')
+        sr_true, sr_pred, labels=labels, average=average, elt_type='s+r')
     print('S+R')
     print('\n'.join('{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.0f}'.format(l, p, r, f, s)
                     for l, p, r, f, s in itertools.izip(
