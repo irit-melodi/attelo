@@ -23,6 +23,7 @@ from attelo.fold import (select_testing)
 from attelo.harness.util import (makedirs, md5sum_file)
 from attelo.parser.intra import (IntraInterPair)
 from attelo.report import (EdgeReport,
+                           CSpanReport,
                            LabelReport,
                            EduReport,
                            CombinedReport,
@@ -32,6 +33,8 @@ from attelo.score import (empty_confusion_matrix,
                           build_confusion_matrix,
                           discriminating_features,
                           score_edges,
+                          score_cspans,  # WIP
+                          CSpanCount,  # WIP
                           score_edges_by_label,
                           score_edus,
                           select_in_pack)
@@ -47,6 +50,7 @@ from .graph import (mk_graphs, mk_test_graphs)
 
 class ReportPack(namedtuple('ReportPack',
                             ['edge',
+                             'cspan',
                              'edge_by_label',
                              'edu',
                              'confusion',
@@ -79,6 +83,11 @@ class ReportPack(namedtuple('ReportPack',
         if self.edge is not None:
             # edgewise scores
             filenames['edge'] = fp.join(output_dir, 'scores.txt')
+
+        # WIP
+        if self.cspan is not None:
+            filenames['cspan'] = fp.join(output_dir, 'cscores.txt')
+        # end WIP
 
         if self.edu is not None:
             # edu scores
@@ -137,6 +146,19 @@ class ReportPack(namedtuple('ReportPack',
                 ]
                 print('\n'.join(block), file=ostream)
 
+        # WIP constituency eval
+        if self.cspan is not None:
+            with open(fnames['cspan'], 'a') as ostream:
+                block = [
+                    longheader,
+                    '=' * len(longheader),
+                    '',
+                    self.cspan.table(),
+                    '',
+                ]
+                print('\n'.join(block), file=ostream)
+        # end WIP constituency eval
+
         if self.edu is not None:
             # edu scores
             with open(fnames['edu'], 'a') as ostream:
@@ -193,7 +215,7 @@ class Slice(namedtuple('Slice',
 # it's a bit hard to write this sort score accumulation code
 # local help
 def full_report(mpack, fold_dict, slices,
-                adjust_pack=None):
+                adjust_pack=None, skip_cspans=False):
     """
     Generate a report across a set of folds and configurations.
 
@@ -210,10 +232,22 @@ def full_report(mpack, fold_dict, slices,
     :param adjust_pack: (optional) function that modifies a DataPack, for
                         example by picking out a subset of the pairings.
     :type adjust_pack: (DataPack -> DataPack) or None
+
+    skip_cspans : boolean, optional
+        If True, do not perform constituency tree evaluation
+        This should currently be set to True on intra, inter and root
+        sub-evaluations, until I find out how to restrict RSTTrees along
+        DataPack.selected().
+
+    Returns
+    -------
+    rpack : ReportPack
+        Group of reports on a set of folds and configurations.
     """
     if not mpack:
         raise ValueError("Can't report with empty multipack")
     edge_count = defaultdict(list)
+    cspan_count = defaultdict(list)
     edge_lab_count = defaultdict(lambda: defaultdict(list))
     edu_reports = defaultdict(EduReport)
     dpack0 = mpack.values()[0]
@@ -229,21 +263,41 @@ def full_report(mpack, fold_dict, slices,
     num_edges = {}
     for slc in slices:
         if is_first_slice and slc.fold is None:
-            fpack = DataPack.vstack([adjust_pack(x)
-                                     for x in mpack.values()])
+            dpacks = [adjust_pack(x) for x in mpack.values()]  # WIP
+            fpack = DataPack.vstack(dpacks)
             is_first_slice = False
             num_edges[None] = len(fpack)
         elif is_first_slice or slc.fold != fold:
             f_mpack = select_testing(mpack, fold_dict, slc.fold)
-            fpack = DataPack.vstack([adjust_pack(x)
-                                     for x in f_mpack.values()])
+            dpacks = [adjust_pack(x) for x in f_mpack.values()]  # WIP
+            fpack = DataPack.vstack(dpacks)
             fold = slc.fold
             num_edges[fold] = len(fpack)
             is_first_slice = False
         key = slc.configuration
         # accumulate scores
         predictions = adjust_predictions(fpack, slc.predictions)
+        dpredictions = [adjust_predictions(dpack, slc.predictions)
+                        for dpack in dpacks]
         edge_count[key].append(score_edges(fpack, predictions))
+        # WIP
+        if not skip_cspans:
+            sc_cspans = score_cspans(dpacks, dpredictions)
+        else:
+            sc_cspans = (CSpanCount(tpos=0,
+                                    tpos_fpos=0,
+                                    tpos_fneg=0),
+                         CSpanCount(tpos=0,
+                                    tpos_fpos=0,
+                                    tpos_fneg=0),
+                         CSpanCount(tpos=0,
+                                    tpos_fpos=0,
+                                    tpos_fneg=0),
+                         CSpanCount(tpos=0,
+                                    tpos_fpos=0,
+                                    tpos_fneg=0))  # TMP
+        cspan_count[key].append(sc_cspans)
+        # end WIP
         edu_reports[key].add(score_edus(fpack, predictions))
         confusion[key] += build_confusion_matrix(fpack, predictions)
         if slc.enable_details:
@@ -254,6 +308,12 @@ def full_report(mpack, fold_dict, slices,
     edge_report = CombinedReport(EdgeReport,
                                  {k: EdgeReport(v)
                                   for k, v in edge_count.items()})
+    # WIP
+    cspan_report = CombinedReport(CSpanReport,
+                                  {k: CSpanReport(v)
+                                   for k, v in cspan_count.items()})
+    # end WIP
+
     # combine
     edge_by_label_report = {}
     for key, counts in edge_lab_count.items():
@@ -263,6 +323,7 @@ def full_report(mpack, fold_dict, slices,
         edge_by_label_report[key] = report
 
     return ReportPack(edge=edge_report,
+                      cspan=cspan_report,  # WIP
                       edge_by_label=edge_by_label_report or None,
                       edu=CombinedReport(EduReport, edu_reports),
                       confusion=confusion,
@@ -424,8 +485,11 @@ def _mk_report(hconf, dconf, slices, fold, test_data=False):
                   (2, 'inter', lambda d: d.selected(idxes_inter(d))),
                   (3, 'froot', lambda d: d.selected(idxes_fakeroot(d)))]
     for i, header, adjust_pack in partitions:
+        # TMP skip cspan eval as we don't know how to properly restrict
+        # an RSTTree to a forest that matches a given sublist of pairings
         rpack = full_report(dconf.pack, dconf.folds, slices_[i],
-                            adjust_pack=adjust_pack)
+                            adjust_pack=adjust_pack,
+                            skip_cspans=True)
         rpack.append(rdir, header=header)
 
     for rconf in set(e.learner for e in hconf.evaluations):

@@ -211,14 +211,24 @@ def _process_edu_links(edus, pairings):
 
 
 def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
+                   corpus_reader=None,  # WIP
                    verbose=False):
-    """
-    Read EDUs and features for edu pairs.
+    """Read EDUs and features for edu pairs.
 
     Perform some basic sanity checks, raising
     :py:class:`IoException` if they should fail
 
-    :rtype: :py:class:`Multipack` or None
+    Parameters
+    ----------
+    ... TODO
+
+    corpus : WIP
+        TODO
+
+    Returns
+    -------
+    mpack: Multipack
+        Multipack (= dict) from grouping to DataPack.
     """
     vocab = load_vocab(vocab_file)
 
@@ -233,16 +243,30 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
                                            n_features=len(vocab))
         # pylint: enable=unbalanced-tuple-unpacking
 
+    # WIP augment DataPack with the gold structure for each grouping
+    if corpus_reader is None:
+        ctargets = {}
+    else:
+        # FIXME should be [v] so that it is adapted to forests (lists)
+        # of structures, e.g. produced by for_intra()
+        ctargets = {k.doc: v for k, v in corpus_reader.slurp().items()}
+        # TODO modify educe.rst_dt.corpus.Reader.slurp_subcorpus() to
+        # convert fine-grained to coarse-grained relations by default,
+        # e.g. add kwarg coarse_rels=True, then find all current callers
+        # but this one and call slurp* with coarse_rels=False
+    # end WIP
+
     with Torpor("Build data packs", quiet=not verbose):
-        dpack = DataPack.load(edus, pairings, data, targets,
+        dpack = DataPack.load(edus, pairings, data, targets, ctargets,
                               labels, vocab)
 
-    return {k: dpack.selected(idxs) for
-            k, idxs in groupings(pairings).items()}
+    mpack = {grp_name: dpack.selected(idxs)
+             for grp_name, idxs in groupings(pairings).items()}
+    return mpack
 
 
 def load_vocab(filename):
-    "read feature vocabulary"
+    """Read feature vocabulary"""
     features = []
     with codecs.open(filename, 'r', 'utf-8') as stream:
         for line in stream:

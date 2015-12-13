@@ -10,7 +10,7 @@ import sys
 
 from tabulate import tabulate
 
-from .score import (CountPair, EduCount)
+from .score import (Count, CSpanCount, EduCount)
 from .util import (concat_l)
 
 # pylint: disable=too-few-public-methods
@@ -53,7 +53,15 @@ DEFAULT_SCORE_CONFIG = ScoreConfig(correction=1.0,
 # pylint: disable=invalid-name
 class Score(object):
     """
-    A basic precision, recall (and F1) tuple with correction
+    Tuple of precision, recall and F1, with correction.
+
+    Parameters
+    ----------
+    precision : float
+
+    recall : float
+
+    correction : float
     """
     def __init__(self, precision, recall, correction=1.0):
         self.precision = precision
@@ -78,36 +86,6 @@ class Score(object):
         return cls(_sloppy_div(tpos, tpos_fpos),
                    _sloppy_div(tpos, tpos_fneg),
                    correction)
-
-    @classmethod
-    def score_attach_dir(cls, count, correction):
-        """
-        From counts to precision/recall scores
-        """
-        return cls.score(count.directed.tpos_attach,
-                         count.directed.tpos_fpos,
-                         count.directed.tpos_fneg,
-                         correction)
-
-    @classmethod
-    def score_attach_undir(cls, count, correction):
-        """
-        From counts to precision/recall scores
-        """
-        return cls.score(count.undirected.tpos_attach,
-                         count.undirected.tpos_fpos,
-                         count.undirected.tpos_fneg,
-                         correction)
-
-    @classmethod
-    def score_label(cls, count, correction):
-        """
-        From counts to precision/recall scores
-        """
-        return cls.score(count.directed.tpos_label,
-                         count.directed.tpos_fpos,
-                         count.directed.tpos_fneg,
-                         correction)
 
     def for_json(self):
         """
@@ -327,19 +305,35 @@ class EdgeReport(object):
     Experimental results and some basic statistical tests on them
     """
     def __init__(self, evals, params=None, correction=1.0):
-        totals = CountPair.sum(evals)
+        """
+        Parameters
+        ----------
+        evals : list of pair of Count
+            Undirected and directed Count.
+        """
+        evals_ = ([e[0] for e in evals], [e[1] for e in evals])
+        totals = (Count.sum(evals_[0]), Count.sum(evals_[1]))
+
         self.config = ScoreConfig(prefix=None,
                                   correction=correction)
         self.attach_undir =\
-            Multiscore.create(lambda x:
-                              Score.score_attach_undir(x, correction),
-                              totals, evals)
+            Multiscore.create(lambda x: Score.score(x.tpos_attach,
+                                                    x.tpos_fpos,
+                                                    x.tpos_fneg,
+                                                    correction),
+                              totals[0], evals_[0])
         self.attach_dir =\
-            Multiscore.create(lambda x: Score.score_attach_dir(x, correction),
-                              totals, evals)
+            Multiscore.create(lambda x: Score.score(x.tpos_attach,
+                                                    x.tpos_fpos,
+                                                    x.tpos_fneg,
+                                                    correction),
+                              totals[1], evals_[1])
         self.label =\
-            Multiscore.create(lambda x: Score.score_label(x, correction),
-                              totals, evals)
+            Multiscore.create(lambda x: Score.score(x.tpos_label,
+                                                    x.tpos_fpos,
+                                                    x.tpos_fneg,
+                                                    correction),
+                              totals[1], evals_[1])
         self.params = params if params is not None else {}
 
     def for_json(self):
@@ -391,6 +385,104 @@ class EdgeReport(object):
                 Multiscore.table_header(config_l))
 
 
+class CSpanReport(object):
+    """
+    Experimental results and some basic statistical tests on them
+
+    Notes
+    -----
+    TODO TODO TODO TODO
+    """
+    def __init__(self, evals, params=None, correction=1.0):
+        evals_ = ([e[0] for e in evals],
+                  [e[1] for e in evals],
+                  [e[2] for e in evals],
+                  [e[3] for e in evals])
+        totals = (CSpanCount.sum(evals_[0]),
+                  CSpanCount.sum(evals_[1]),
+                  CSpanCount.sum(evals_[2]),
+                  CSpanCount.sum(evals_[3]))
+        self.config = ScoreConfig(prefix=None,
+                                  correction=correction)
+        # scores
+        self.score_s = Multiscore.create(
+            lambda x: Score.score(x.tpos, x.tpos_fpos, x.tpos_fneg,
+                                  correction),
+            totals[0], evals_[0])
+        self.score_sn = Multiscore.create(
+            lambda x: Score.score(x.tpos, x.tpos_fpos, x.tpos_fneg,
+                                  correction),
+            totals[1], evals_[1])
+        self.score_sr = Multiscore.create(
+            lambda x: Score.score(x.tpos, x.tpos_fpos, x.tpos_fneg,
+                                  correction),
+            totals[2], evals_[2])
+        self.score_snr = Multiscore.create(
+            lambda x: Score.score(x.tpos, x.tpos_fpos, x.tpos_fneg,
+                                  correction),
+            totals[3], evals_[3])
+
+        self.params = params if params is not None else {}
+
+    def for_json(self):
+        """
+        Return a JSON-serialisable dictionary representing the scores
+        for this run
+        """
+        return {
+            "span": self.score_s.for_json(),
+            "span+nuclearity": self.score_sn.for_json(),
+            "span+relation": self.score_sr.for_json(),
+            "span+nuclearity+relation": self.score_snr.for_json(),
+        }
+
+    def _params_to_filename(self):
+        "One line parameter listing"
+
+        pieces = ("{decoder}+{learner}+{relation_learner}, "
+                  "h={heuristics}, "
+                  "unlabelled={unlabelled},"
+                  "post={post_label},"
+                  "rfc={rfc}")
+        return pieces.format(**self.params.__dict__)
+
+    def summary(self):
+        "One line summary string"
+
+        output = [
+            self._params_to_filename(),
+            "\tS", self.score_s.summary(),
+            "\tS+N", self.score_sn.summary(),
+            "\tS+R", self.score_sr.summary(),
+            "\tS+N+R", self.score_snr.summary(),
+        ]
+        return " ".join(output)
+
+    def table_row(self):
+        "Scores as a tabulate table row"
+        return (self.score_s.table_row() +
+                self.score_sn.table_row() +
+                self.score_sr.table_row() +
+                self.score_snr.table_row())
+
+    @classmethod
+    def table_header(cls, config=None):
+        "Scores as a tabulate table row"
+        config = config or DEFAULT_SCORE_CONFIG
+        config_s = ScoreConfig(correction=config.correction,
+                               prefix="S")
+        config_sn = ScoreConfig(correction=config.correction,
+                                prefix="S+N")
+        config_sr = ScoreConfig(correction=config.correction,
+                                prefix="S+R")
+        config_snr = ScoreConfig(correction=config.correction,
+                                 prefix="S+N+R")
+        return (Multiscore.table_header(config_s) +
+                Multiscore.table_header(config_sn) +
+                Multiscore.table_header(config_sr) +
+                Multiscore.table_header(config_snr))
+
+
 class LabelReport(object):
     """
     Weight and pr/rec/f1 on labels
@@ -399,9 +491,11 @@ class LabelReport(object):
     the same
     """
     def __init__(self, evals, correction=1.0):
-        totals = CountPair.sum(evals)
-        self.score = Score.score_label(totals, correction)
-        self.count = totals.directed.tpos_fneg
+        evals_ = ([e[0] for e in evals], [e[1] for e in evals])
+        totals = (Count.sum(evals_[0]), Count.sum(evals_[1]))
+        self.score = Score.score(totals[1].tpos_attach, totals[1].tpos_fpos,
+                                 totals[1].tpos_fneg, correction)
+        self.count = totals[1].tpos_fneg
 
     def for_json(self):
         """
@@ -449,9 +543,8 @@ class EduReport(object):
 
     def table_row(self):
         "Scores as a tabulate table row"
-        return\
-            self.attach.table_row() +\
-            self.label.table_row()
+        return (self.attach.table_row() +
+                self.label.table_row())
 
     @classmethod
     def table_header(cls, config=None):
@@ -461,9 +554,8 @@ class EduReport(object):
                                prefix="ATTACH")
         config_l = ScoreConfig(correction=config.correction,
                                prefix="LABEL")
-        return\
-            EduScore.table_header(config_a) +\
-            EduScore.table_header(config_l)
+        return (EduScore.table_header(config_a) +
+                EduScore.table_header(config_l))
 
 
 class CombinedReport(object):

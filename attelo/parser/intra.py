@@ -81,10 +81,17 @@ def for_intra(dpack, target):
     new_target = np.copy(dpack.target)
     new_target[all_heads] = dpack.label_number('ROOT')
     new_target[inter_links] = unrelated  # NEW
+    # WIP ctarget
+    new_ctarget = {grp_name: ctgt
+                   for grp_name, ctgt in dpack.ctarget.items()}
+    # FIXME replace each ctgt with the list of intra-sentential
+    # RST (sub)trees
+    # end WIP ctarget
     dpack = DataPack(edus=dpack.edus,
                      pairings=dpack.pairings,
                      data=dpack.data,
                      target=new_target,
+                     ctarget=new_ctarget,
                      labels=dpack.labels,
                      vocab=dpack.vocab,
                      graph=dpack.graph)

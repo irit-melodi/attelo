@@ -4,6 +4,7 @@ Manipulating data tables (taking slices, etc)
 
 from __future__ import print_function
 from collections import defaultdict, namedtuple
+import itertools
 
 import numpy as np
 import scipy.sparse
@@ -107,6 +108,7 @@ class DataPack(namedtuple('DataPack',
                            'pairings',
                            'data',
                            'target',
+                           'ctarget',
                            'labels',
                            'vocab',
                            'graph'])):
@@ -133,13 +135,20 @@ class DataPack(namedtuple('DataPack',
     ----------
     edus (EDU)
         effectively a set of edus
+
     pairings ([(EDU, EDU)])
         edu pairs
+
     data 2D array(float)
         sparse matrix of features, each
         row corresponding to a pairing
+
     target 1D array (should be int, really)
         array of predictions for each pairing
+
+    ctarget : dict from string to objects
+        Mapping from grouping name to structured target
+
     labels ([string])
         list of relation labels (NB: by convention label zero
         is always the unknown label)
@@ -155,7 +164,7 @@ class DataPack(namedtuple('DataPack',
 
     # pylint: disable=too-many-arguments
     @classmethod
-    def load(cls, edus, pairings, data, target, labels, vocab):
+    def load(cls, edus, pairings, data, target, ctarget, labels, vocab):
         '''
         Build a data pack and run some sanity checks
         (see :py:method:sanity_check')
@@ -167,6 +176,7 @@ class DataPack(namedtuple('DataPack',
                    pairings=pairings,
                    data=data,
                    target=target,
+                   ctarget=ctarget,
                    labels=labels,
                    vocab=vocab,
                    graph=None)
@@ -190,6 +200,11 @@ class DataPack(namedtuple('DataPack',
                         pairings=concat_l(d.pairings for d in dpacks),
                         data=scipy.sparse.vstack(d.data for d in dpacks),
                         target=np.concatenate([d.target for d in dpacks]),
+                        ctarget={grp_name: list(itertools.chain.from_iterable(
+                            d.ctarget.get(grp_name, []) for d in dpacks))
+                                 for grp_name in
+                                 set(itertools.chain.from_iterable(
+                                     d.ctarget.keys() for d in dpacks))},
                         labels=dzero.labels,
                         vocab=dzero.vocab,
                         graph=Graph.vstack(d.graph for d in dpacks))
@@ -266,6 +281,15 @@ class DataPack(namedtuple('DataPack',
             sel_edus_.add(edu1)
             sel_edus_.add(edu2)
         sel_edus = [e for e in self.edus if e in sel_edus_]
+        # NEW ctarget
+        sel_groupings = set(groupings(sel_pairings).keys())
+        sel_ctargets = {grp_name: ctgt
+                        for grp_name, ctgt in self.ctarget.items()
+                        if grp_name in sel_groupings}
+        # FIXME restrict further, break RSTTree into forest of RSTTrees
+        # that can be built using sel_pairings only (not sure this is
+        # well-defined)
+        # end NEW ctarget
         sel_data = self.data[indices]
         if self.graph is None:
             graph = None
@@ -275,6 +299,7 @@ class DataPack(namedtuple('DataPack',
                         pairings=sel_pairings,
                         data=sel_data,
                         target=sel_targets,
+                        ctarget=sel_ctargets,  # WIP
                         labels=sel_labels,
                         vocab=self.vocab,
                         graph=graph)
@@ -309,6 +334,7 @@ class DataPack(namedtuple('DataPack',
                         pairings=self.pairings,
                         data=self.data,
                         target=self.target,
+                        ctarget=self.ctarget,
                         labels=self.labels,
                         vocab=self.vocab,
                         graph=graph)
@@ -436,6 +462,7 @@ def for_attachment(dpack, target):
                      pairings=dpack.pairings,
                      data=dpack.data,
                      target=np.where(dpack.target == unrelated, -1, 1),
+                     ctarget=dpack.ctarget,  # WIP
                      labels=[UNKNOWN, UNRELATED],
                      vocab=dpack.vocab,
                      graph=dpack.graph)
