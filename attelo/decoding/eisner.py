@@ -6,7 +6,8 @@ import numpy as np
 from .interface import Decoder
 # temporary? imports
 from ..table import _edu_positions
-from .util import convert_prediction, simple_candidates
+from .util import (cap_score, convert_prediction, simple_candidates,
+                   MIN_SCORE)
 
 
 class EisnerDecoder(Decoder):
@@ -61,7 +62,7 @@ class EisnerDecoder(Decoder):
         # be adapted before this point ;
         # should be (src, tgt): attach_score
         score = {(edu_id2idx[src.id], edu_id2idx[tgt.id]):
-                 (np.log(attach_score) if self._use_prob
+                 (cap_score(np.log(attach_score)) if self._use_prob
                   else attach_score)
                  for src, tgt, attach_score, best_lbl
                  in simple_cands}
@@ -75,7 +76,7 @@ class EisnerDecoder(Decoder):
         # arrays of substructures for dynamic programming
         # [start][end][dir][complete]
         # scores
-        cscores = np.zeros((nb_edus, nb_edus, 2, 2), dtype=np.float32)
+        cscores = np.zeros((nb_edus, nb_edus, 2, 2), dtype=np.float64)
         # backpointers: index of split point
         csplits = np.zeros((nb_edus, nb_edus, 2, 2), dtype=np.int32)
 
@@ -97,7 +98,7 @@ class EisnerDecoder(Decoder):
                                    if not np.isnan(max_cand)
                                    else range_k[0])
                 else:
-                    max_cand = np.nan
+                    max_cand = MIN_SCORE  # was: np.nan
                     argmax_cand = range_k[0]
                 # update tables
                 cscores[start][end][1][0] = max_cand
@@ -122,7 +123,7 @@ class EisnerDecoder(Decoder):
                                    if not np.isnan(max_cand)
                                    else range_k[0])
                 else:
-                    max_cand = np.nan
+                    max_cand = MIN_SCORE  # was: np.nan
                     argmax_cand = range_k[0]
                 # update tables
                 cscores[start][end][0][0] = max_cand
@@ -140,7 +141,7 @@ class EisnerDecoder(Decoder):
                                    if not np.isnan(max_cand)
                                    else range_k[0])
                 else:
-                    max_cand = np.nan
+                    max_cand = MIN_SCORE  # was: np.nan
                     argmax_cand = range_k[0]
                 # update tables
                 cscores[start][end][1][1] = max_cand

@@ -7,6 +7,37 @@ import numpy as np
 from attelo.table import (Graph, UNRELATED)
 
 
+# see cap_score
+# the current value (1e90) works with float64 scores but overflows float32
+# so be careful with dtypes in the decoders
+MAX_SCORE = 1e90
+MIN_SCORE = -MAX_SCORE
+
+
+def cap_score(score):
+    """Cap a real-valued score between `MIN_SCORE` and `MAX_SCORE`.
+
+    The current default values for `MIN_SCORE` and `MAX_SCORE` follow the
+    requirements from the decoders:
+    * The MST decoder uses the depparse package whose MST implementation
+    has a hardcoded minimum score of `-1e100` ; Feeding it lower weights
+    crashes the algorithm. Combined scores can't reach the limit unless
+    we have more than 1e10 nodes.
+    * The Eisner decoder internally uses float64 scores.
+
+    Parameters
+    ----------
+    score : float
+        Original score.
+
+    Returns
+    -------
+    bounded_score : float
+        Score bounded to [MIN_SCORE, MAX_SCORE].
+    """
+    return min(MAX_SCORE, max(MIN_SCORE, score))
+
+
 class DecoderException(Exception):
     """
     Exceptions that arise during the decoding process
