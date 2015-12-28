@@ -233,7 +233,8 @@ def _load_harness_multipack(hconf, test_data=False):
                            paths[1],
                            paths[2],
                            paths[3],
-                           paths[4],  # FIXME not a path: corpus reader
+                           corpus_path=(paths[4] if len(paths) == 5
+                                        else None),  # WIP
                            verbose=True)
     return mpack
 

@@ -77,3 +77,19 @@ def md5sum_file(path, blocksize=65536):
             hasher.update(buf)
             buf = afile.read(blocksize)
     return hasher.hexdigest()
+
+
+def md5sum_dir(path, blocksize=65536):
+    """
+    Read a dir and return its md5 sum
+    """
+    hasher = hashlib.md5()
+    for dirpath, dirnames, filenames in os.walk(path):
+        for filename in filenames:
+            filepath = os.path.join(dirpath, filename)
+            with open(filepath, 'rb') as afile:
+                buf = afile.read(blocksize)
+                while len(buf) > 0:
+                    hasher.update(buf)
+                    buf = afile.read(blocksize)
+    return hasher.hexdigest()

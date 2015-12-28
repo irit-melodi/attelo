@@ -14,6 +14,8 @@ import traceback
 
 from sklearn.datasets import load_svmlight_file
 
+import educe  # WIP
+
 from .edu import (EDU, FAKE_ROOT_ID, FAKE_ROOT)
 from .table import (DataPack, DataPackException,
                     UNKNOWN, UNRELATED,
@@ -211,7 +213,7 @@ def _process_edu_links(edus, pairings):
 
 
 def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
-                   corpus_reader=None,  # WIP
+                   corpus_path=None,  # WIP
                    verbose=False):
     """Read EDUs and features for edu pairs.
 
@@ -222,8 +224,10 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
     ----------
     ... TODO
 
-    corpus : WIP
-        TODO
+    corpus_path : string
+        Path to the labelled corpus, to retrieve the original gold
+        structures ; at the moment, only works with the RST corpus to
+        access gold RST constituency trees.
 
     Returns
     -------
@@ -244,9 +248,10 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
         # pylint: enable=unbalanced-tuple-unpacking
 
     # WIP augment DataPack with the gold structure for each grouping
-    if corpus_reader is None:
+    if corpus_path is None:
         ctargets = {}
     else:
+        corpus_reader = educe.rst_dt.corpus.Reader(corpus_path)
         # FIXME should be [v] so that it is adapted to forests (lists)
         # of structures, e.g. produced by for_intra()
         ctargets = {k.doc: v for k, v in corpus_reader.slurp().items()}

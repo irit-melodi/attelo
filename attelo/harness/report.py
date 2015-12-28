@@ -20,7 +20,7 @@ import joblib
 
 from attelo.io import load_predictions
 from attelo.fold import (select_testing)
-from attelo.harness.util import (makedirs, md5sum_file)
+from attelo.harness.util import (makedirs, md5sum_dir, md5sum_file)
 from attelo.parser.intra import (IntraInterPair)
 from attelo.report import (EdgeReport,
                            CSpanReport,
@@ -450,7 +450,14 @@ def _mk_hashfile(hconf, dconf, test_data):
                 nice_path = fp.join(fold_basename, fp.basename(path))
             else:
                 nice_path = fp.basename(path)
-            print('\t'.join([nice_path, md5sum_file(path)]),
+            # get md5 sum of file or (NEW) dir
+            if fp.isfile(path):
+                path_hash = md5sum_file(path)
+            elif fp.isdir(path):
+                path_hash = md5sum_dir(path)
+            else:
+                raise ValueError("Unhashable stuff: {}".format(path))
+            print('\t'.join([nice_path, path_hash]),
                   file=stream)
 
 
