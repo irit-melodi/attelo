@@ -51,23 +51,20 @@ DEFAULT_ASTAR_ARGS = AstarArgs(heuristics=Heuristic.average,
 # select a decoder and a learner team
 MST_DECODER = MstDecoder(root_strategy=MstRootStrategy.fake_root)
 ASTAR_DECODER = AstarDecoder(DEFAULT_ASTAR_ARGS)
-DECODERS =\
-    [
-        LastBaseline(),
-        LocalBaseline(0.5, use_prob=False),
-        MST_DECODER,
-        ASTAR_DECODER,
-        LocallyGreedy(),
-        Pipeline(steps=[('window pruner', WindowPruner(2)),
-                        ('decoder', ASTAR_DECODER)]),
-    ]
+DECODERS = [
+    LastBaseline(),
+    LocalBaseline(0.5, use_prob=False),
+    MST_DECODER,
+    ASTAR_DECODER,
+    LocallyGreedy(),
+    Pipeline(steps=[('window pruner', WindowPruner(2)),
+                    ('decoder', ASTAR_DECODER)]),
+]
 
-LEARNERS =\
-    [
-        Team(attach=SklearnAttachClassifier(LogisticRegression()),
-             label=SklearnLabelClassifier(LogisticRegression())),
-
-    ]
+LEARNERS = [
+    Team(attach=SklearnAttachClassifier(LogisticRegression()),
+         label=SklearnLabelClassifier(LogisticRegression())),
+]
 
 
 class ParserTest(DecoderTest):
@@ -154,9 +151,10 @@ class IntraTest(unittest.TestCase):
                                                             [1], [1], [1],
                                                             [1], [1], [1],
                                                             [1]]),
-                              target=np.array([2, 1, 1, 3, 1, 3, 1, 3, 1,
+                              target=np.array([2, 1, 1, 3, 1, 3, 1, 1, 1,
                                                1, 1, 2, 3, 1, 3, 1, 1, 1,
                                                3]),
+                              ctarget=dict(),  # WIP
                               labels=orig_classes,
                               vocab=None)
         return dpack
@@ -205,14 +203,18 @@ class IntraTest(unittest.TestCase):
 
     def test_intra_parsers(self):
         'test all intra/inter parsers on a dpack'
-        learner = Team(attach=SklearnAttachClassifier(LogisticRegression()),
-                       label=SklearnLabelClassifier(LogisticRegression()))
+        learner_intra = Team(
+            attach=SklearnAttachClassifier(LogisticRegression()),
+            label=SklearnLabelClassifier(LogisticRegression()))
+        learner_inter = Team(
+            attach=SklearnAttachClassifier(LogisticRegression()),
+            label=SklearnLabelClassifier(LogisticRegression()))
         # note: these are chosen a bit randomly
-        p_intra = JointPipeline(learner_attach=learner.attach,
-                                learner_label=learner.label,
+        p_intra = JointPipeline(learner_attach=learner_intra.attach,
+                                learner_label=learner_intra.label,
                                 decoder=MST_DECODER)
-        p_inter = PostlabelPipeline(learner_attach=learner.attach,
-                                    learner_label=learner.label,
+        p_inter = PostlabelPipeline(learner_attach=learner_inter.attach,
+                                    learner_label=learner_inter.label,
                                     decoder=MST_DECODER)
         parsers = [mk_p(IntraInterPair(intra=p_intra,
                                        inter=p_inter))
