@@ -80,18 +80,34 @@ class Graph(namedtuple('Graph',
                    attach=np.concatenate([x.attach for x in graphs]),
                    label=np.concatenate([x.label for x in graphs]))
 
-    def tweak(self,
-              prediction=None,
-              attach=None,
-              label=None):
-        '''
-        Return a variant of the current graph with some values
-        changed
-        '''
-        # I superstitiously believe that datapacks and graphs should
-        # be immutable as much as possible, and that mutability in
-        # the parsing pipeline would lead to confusion; hence this
-        # and namedtuples instead of simple getting and setitng
+    def tweak(self, prediction=None, attach=None, label=None):
+        """Return a variant of the current graph with some values changed.
+
+        Parameters
+        ----------
+        prediction : 1D array of int16
+            Predicted label for each pair of EDUs
+
+        attach : 1D array of float
+            Attachment scores for each pair of EDUs
+
+        label : 2D array of float
+            Score of each label for each pair of EDUs
+
+        Returns
+        -------
+        g_copy : Graph
+            Copy of self with prediction, attach or label overridden with
+            the values passed as arguments.
+
+        Notes
+        -----
+        This returns a copy of `self` with graph changed, because
+        "[EYK] superstitiously believes that datapacks and graphs should be
+        immutable as much as possible, and that mutability in the parsing
+        pipeline would lead to confusion; hence this and namedtuples
+        instead of simple getting and setting".
+        """
         if prediction is None:
             prediction = self.prediction
         if attach is None:
@@ -505,33 +521,102 @@ def idxes_fakeroot(dpack):
             if edu1.id == FAKE_ROOT_ID]
 
 
-def idxes_intra(dpack, include_fake_root=False):
-    """Return datapack indices for pairings which correspond to
-    EDUs in the same sentence (or the fake root).
+def grouped_intra_pairings(dpack, include_fake_root=False):
+    """Retrieve intra pairings from a datapack, grouped by subgrouping.
+
+    Parameters
+    ----------
+    dpack : DataPack
+        The datapack under scrutiny.
+
+    include_fake_root : boolean, optional
+        If True, (FAKE_ROOT_ID, x) pairings are included in the group
+        defined by (grouping(x), subgrouping(x)).
+
+    Returns
+    -------
+    groups : dict from (string, string) to list of integers
+        Map each (grouping, subgrouping) to the list of pairing indices
+        within the same subgrouping.
+
+    Notes
+    -----
+    The result roughly corresponds to a hypothetical
+    `dpack.pairings['intra'].groupby(['grouping', 'subgrouping']).groups`.
     """
-    idxes = []
-    for i, (edu1, edu2) in enumerate(dpack.pairings):
-        if edu1.id == FAKE_ROOT_ID:
-            if include_fake_root:
-                idxes.append(i)
-        elif (edu1.grouping == edu2.grouping and
-              edu1.subgrouping == edu2.subgrouping):
-            idxes.append(i)
+    groups = defaultdict(list)
+
+    if include_fake_root:
+        for i, (edu1, edu2) in enumerate(dpack.pairings):
+            key1 = (edu1.grouping, edu1.subgrouping)
+            key2 = (edu2.grouping, edu2.subgrouping)
+            if edu1.id == FAKE_ROOT_ID or key1 == key2:
+                groups[key2].append(i)
+    else:
+        for i, (edu1, edu2) in enumerate(dpack.pairings):
+            key1 = (edu1.grouping, edu1.subgrouping)
+            key2 = (edu2.grouping, edu2.subgrouping)
+            if edu1.id != FAKE_ROOT_ID and key1 == key2:
+                groups[key2].append(i)
+
+    return groups
+
+
+def idxes_intra(dpack, include_fake_root=False):
+    """Return indices of pairings from same subgrouping, inside a datapack.
+
+    Parameters
+    ----------
+    dpack : DataPack
+        Datapack under scrutiny
+
+    include_fake_root : boolean, optional
+        If True, pairings of the form (FAKE_ROOT_ID, x) are included.
+
+    Returns
+    -------
+    idxes : list of int
+        Indices of the intra pairings.
+    """
+    if include_fake_root:
+        idxes = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
+                 if (edu1.id == FAKE_ROOT_ID or
+                     (edu1.grouping == edu2.grouping and
+                      edu1.subgrouping == edu2.subgrouping))]
+    else:
+        idxes = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
+                 if (edu1.id != FAKE_ROOT_ID and
+                     edu1.grouping == edu2.grouping and
+                     edu1.subgrouping == edu2.subgrouping)]
     return idxes
 
 
 def idxes_inter(dpack, include_fake_root=False):
-    """Return datapack indices for pairings which correspond to
-    EDUs in different sentences (or the fake root).
+    """Return indices of pairings from different subgroupings.
+
+    Parameters
+    ----------
+    dpack : DataPack
+        Datapack under scrutiny
+
+    include_fake_root : boolean, optional
+        If True, pairings of the form (FAKE_ROOT_ID, x) are included.
+
+    Returns
+    -------
+    idxes : list of int
+        Indices of the inter pairings.
     """
-    idxes = []
-    for i, (edu1, edu2) in enumerate(dpack.pairings):
-        if edu1.id == FAKE_ROOT_ID:
-            if include_fake_root:
-                idxes.append(i)
-        elif (edu1.grouping != edu2.grouping or
-              edu1.subgrouping != edu2.subgrouping):
-            idxes.append(i)
+    if include_fake_root:
+        idxes = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
+                 if (edu1.id == FAKE_ROOT_ID or
+                     edu1.grouping != edu2.grouping or
+                     edu1.subgrouping != edu2.subgrouping)]
+    else:
+        idxes = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
+                 if (edu1.id != FAKE_ROOT_ID and
+                     (edu1.grouping != edu2.grouping or
+                      edu1.subgrouping != edu2.subgrouping))]
     return idxes
 
 
