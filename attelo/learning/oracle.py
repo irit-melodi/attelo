@@ -6,7 +6,7 @@ Oracles: return probabilities and values directly from gold data
 # License: CeCILL-B (French BSD3)
 
 # pylint: disable=no-name-in-module
-from numpy import (vectorize as np_vectorize)
+import numpy as np
 # pylint: enable=no-name-in-module
 
 from scipy.sparse import dok_matrix
@@ -18,13 +18,12 @@ from .interface import (AttachClassifier,
 
 
 class AttachOracle(AttachClassifier):
-    '''
-    A faux attachment classifier that returns "probabilities"
-    1.0 for gold attached links and 0.0 for gold unattached
+    """A faux attachment classifier that returns "probabilities"
+    1.0 for gold attached links and 0.0 for gold unattached.
 
     Naturally, this would only do something useful if the
-    test datapack comes with gold predictions
-    '''
+    test datapack comes with gold predictions.
+    """
     def __init__(self):
         super(AttachOracle, self).__init__()
         self.can_predict_proba = True
@@ -32,11 +31,19 @@ class AttachOracle(AttachClassifier):
     def fit(self, dpacks, targets):
         return self
 
-    # FIXME should be predict_proba(self, dpacks)
     def predict_score(self, dpack):
-        # nb: this isn't actually faster with vectorize
-        to_prob = lambda x: 1.0 if x == 1.0 else 0.0
-        return np_vectorize(to_prob)(dpack.target)
+        """Predict 1.0 for gold attachments, 0.0 otherwise.
+
+        Notes
+        -----
+        This assumes that gold attachments are coded as 1 ; this assumption
+        is currently baked in `attelo.table.for_attachment`.
+
+        TODO
+        ----
+        [ ] rename and refactor to predict_proba(self, dpacks)
+        """
+        return np.where(dpack.target == 1, 1.0, 0.0)
 
 
 class LabelOracle(LabelClassifier):
@@ -58,8 +65,25 @@ class LabelOracle(LabelClassifier):
     def fit(self, dpacks, targets):
         return self
 
-    # FIXME should be predict_proba(self, dpacks)
     def predict_score(self, dpack):
+        """Predict 1.0 for the gold label of edges.
+
+        Non-gold edges are attributed "unknown" for their gold label.
+
+        Parameters
+        ----------
+        dpack : DataPack
+            Datapack for which we want labelling scores.
+
+        Returns
+        -------
+        scores : 2D dense array of float
+            Scores for each pairing and each label.
+
+        TODO
+        ----
+        [ ] rename and refactor to predict_proba(self, dpacks)
+        """
         weights = dok_matrix((len(dpack), len(dpack.labels)))
         lbl_unrelated = dpack.label_number(UNRELATED)
         lbl_unk = dpack.label_number(UNKNOWN)
