@@ -1,6 +1,7 @@
-"""
-An InterInterParser applies separate parsers on edges
-within a sentence, and then on edges across sentences
+"""Document-level parsers that first do sentence-level parsing.
+
+An IntraInterParser applies separate parsers on edges within a sentence
+and then on edges across sentences.
 """
 
 from __future__ import print_function
@@ -10,14 +11,14 @@ from abc import ABCMeta, abstractmethod
 from six import with_metaclass
 import numpy as np
 
-from attelo.decoding.util import simple_candidates  # DEBUG
 from attelo.edu import (FAKE_ROOT_ID)
 from attelo.table import (DataPack,
                           Graph,
                           UNRELATED,
                           idxes_inter,
                           idxes_intra,
-                          locate_in_subpacks)
+                          locate_in_subpacks,
+                          grouped_intra_pairings)
 from .interface import (Parser)
 
 # pylint: disable=too-few-public-methods
@@ -133,17 +134,27 @@ def _zip_sentences(func, sent_parses):
 
 
 def partition_subgroupings(dpack):
+    """Partition the pairings of a datapack along (grouping, subgrouping).
+
+    Parameters
+    ----------
+    dpack : DataPack
+        Datapack to partition
+
+    Returns
+    -------
+    groups : dict from (string, string) to list of integers
+        Map each (grouping, subgrouping) to the list of indices of pairings
+        within the same subgrouping.
+
+    Notes
+    -----
+    * (FAKE_ROOT, x) pairings are included in the group defined by
+        (grouping(x), subgrouping(x)).
+    * This function is a tiny wrapper around
+        `attelo.table.grouped_intra_pairings`.
     """
-    Return a list of lists of indices, each nested list consisting of
-    the indices of pairings within the same subgrouping
-    """
-    sg_indices = defaultdict(list)
-    for i, (edu1, edu2) in enumerate(dpack.pairings):
-        key1 = edu1.grouping, edu1.subgrouping
-        key2 = edu2.grouping, edu2.subgrouping
-        if edu1.id == FAKE_ROOT_ID or key1 == key2:
-            sg_indices[key2].append(i)
-    return sg_indices.values()
+    return grouped_intra_pairings(dpack, include_fake_root=True).values()
 
 
 class IntraInterParser(with_metaclass(ABCMeta, Parser)):
@@ -165,13 +176,14 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
     the prefix stripped). The other keys will be passed onto
     the intersentential parser
     """
-    def __init__(self, parsers):
+    def __init__(self, parsers, verbose=False):
         """
         Parameters
         ----------
         parsers: IntraInterPair(Parser)
         """
         self._parsers = parsers
+        self._verbose = verbose
 
     @staticmethod
     def _split_cache(cache):
@@ -209,23 +221,23 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
 
     def fit(self, dpacks, targets, cache=None):
         caches = self._split_cache(cache)
+
+        # print('intra.fit')
         if dpacks:
             dpacks_intra, targets_intra = self.dzip(self._for_intra_fit,
                                                     dpacks, targets)
-            dpacks_inter, targets_inter = self.dzip(self._for_inter_fit,
-                                                    dpacks, targets)
         else:
             dpacks_intra, targets_intra = dpacks, targets
-            dpacks_inter, targets_inter = dpacks, targets
 
-        # print('intra.fit')
         dpacks_spacks = []
         targets_spacks = []
         for i, dpack_intra in enumerate(dpacks_intra):
             subgrp_idxs = partition_subgroupings(dpack_intra)
+
             dpack_spacks = [dpack_intra.selected(idxs)
                             for idxs in subgrp_idxs]
             dpacks_spacks.extend(dpack_spacks)
+
             target_intra = targets_intra[i]
             target_spacks = [target_intra[idxs]
                              for idxs in subgrp_idxs]
@@ -233,6 +245,12 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         self._parsers.intra.fit(dpacks_spacks, targets_spacks,
                                 cache=caches.intra)
         # print('inter.fit')
+        if dpacks:
+            dpacks_inter, targets_inter = self.dzip(self._for_inter_fit,
+                                                    dpacks, targets)
+        else:
+            dpacks_inter, targets_inter = dpacks, targets
+
         self._parsers.inter.fit(dpacks_inter, targets_inter,
                                 cache=caches.inter)
         return self
@@ -242,15 +260,20 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         # in the fakeroot case (this only really matters if we
         # are using an oracle)
         dpack = self.multiply(dpack)
+
+        # call intra parser
         dpack_intra, _ = for_intra(dpack, dpack.target)
-        dpack_inter = dpack
         # parse each sentence
         spacks = [dpack_intra.selected(idxs)
                   for idxs in partition_subgroupings(dpack_intra)]
         spacks = [self._parsers.intra.transform(spack)
                   for spack in spacks]
+
         # call inter parser with intra predictions
-        return self._recombine(dpack_inter, spacks)
+        dpack_inter = dpack
+        dpack_pred = self._recombine(dpack_inter, spacks)
+
+        return dpack_pred
 
     @staticmethod
     def _mk_get_lbl(dpack, subpacks):
@@ -281,6 +304,100 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         from the first phase
         """
         return NotImplementedError
+
+    def _fix_intra_edges(self, dpack, spacks):
+        """Fix intra-sentential edges for inter-sentential parsing.
+
+        Scores are set to 1.0 for both attachment and labelling, for
+        intra-sentential links.
+
+        Parameters
+        ----------
+        dpack : DataPack
+            Original datapack.
+
+        spacks : list of DataPack
+            List of intra-sentential datapacks, containing intra-sentential
+            predictions.
+
+        Returns
+        -------
+        dpack_copy : DataPack
+            Copy of dpack with attachment and labelling scores updated.
+
+        FIXME
+        -----
+        [ ] generalize to support non-probabilistic scores
+        """
+        # NB this code was moved here from SoftParser._recombine()
+        # it probably leaves room for improvement, notably speedups
+        unrelated_lbl = dpack.label_number(UNRELATED)
+        sent_lbl = self._mk_get_lbl(dpack, spacks)
+
+        # tweak intra-sentential attachment and labelling scores
+        weights_a = np.copy(dpack.graph.attach)
+        weights_l = np.copy(dpack.graph.label)
+        for i, (edu1, edu2) in enumerate(dpack.pairings):
+            if edu1.id == FAKE_ROOT_ID:
+                # don't confuse the inter parser with sentence roots
+                continue
+            lbl = sent_lbl(i)
+            if lbl is not None and lbl != unrelated_lbl:
+                weights_a[i] = 1.0
+                weights_l[i] = np.zeros(len(dpack.labels))
+                weights_l[i, lbl] = 1.0
+
+        # FIXME "legacy" code that used to be in learning.oracle
+        # it looks simpler thus better than what precedes, but is it
+        # (partly) functionally equivalent in our pipelines?
+        if False:  # if _pass_intras:
+            # set all intra attachments to 1.0
+            intra_pairs = idxes_intra(dpack, include_fake_root=False)
+            weights_a[intra_pairs] = 1.0  # replace res with (?)
+        # end FIXME
+
+        graph = Graph(prediction=dpack.graph.prediction,
+                      attach=weights_a,
+                      label=weights_l)
+        dpack_copy = dpack.set_graph(graph)
+        return dpack_copy
+
+    def _check_intra_edges(self, dpack, spacks):
+        """Compare gold and predicted intra-sentential edges.
+
+        Lost and hallucinated intra-sentential edges are printed on stdout.
+
+        Parameters
+        ----------
+        dpack : DataPack
+            Global datapack
+
+        spacks : list of DataPack
+            Sentential datapacks
+        """
+        unrelated_lbl = dpack.label_number(UNRELATED)
+        # intra-sentential predictions
+        sent_lbl = self._mk_get_lbl(dpack, spacks)
+
+        idxes_intra_pred = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
+                            if (edu1.subgrouping == edu2.subgrouping and
+                                sent_lbl(i) != unrelated_lbl)]
+        idxes_intra_true = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
+                            if (edu1.subgrouping == edu2.subgrouping and
+                                dpack.target[i] != unrelated_lbl)]
+        if set(idxes_intra_true) != set(idxes_intra_pred):
+            lost_intra_edges = set(idxes_intra_true) - set(idxes_intra_pred)
+            if lost_intra_edges:
+                print('Lost intra edges:')
+                print([(e1.id, e2.id)
+                       for i, (e1, e2) in enumerate(dpack.pairings)
+                       if i in lost_intra_edges])
+            hall_intra_edges = set(idxes_intra_pred) - set(idxes_intra_true)
+            if hall_intra_edges:
+                print('Hallucinated intra edges:')
+                print([(e1.id, e2.id)
+                       for i, (e1, e2) in enumerate(dpack.pairings)
+                       if i in hall_intra_edges])
 
 
 class SentOnlyParser(IntraInterParser):
@@ -356,23 +473,18 @@ class HeadToHeadParser(IntraInterParser):
         e.g. 'inter:{attach,label}': ..."doc-{attach,relate}"), and
         '{attach,label}': ...{attach,relate}".
         """
-        # could be a function like
-        # `idxes_inter_iheads(dpack, target, include_fake_root=True)`
-        # but existing functions in attelo.table only depend on dpack
-        # and ignore target (necessary here)
-        # find all EDUs that have intra incoming edges (to rule out)
+        # find all EDUs that have intra incoming edges in gold (to rule out)
         unrelated = dpack.label_number(UNRELATED)
-        intra_tgts = defaultdict(set)
-        for i, (edu1, edu2) in enumerate(dpack.pairings):
-            if ((edu1.subgrouping == edu2.subgrouping and
-                 target[i] != unrelated)):
-                intra_tgts[edu2.subgrouping].add(edu2.id)
-        # pick out (fakeroot, head_i) or (head_i, head_j) edges
-        idxes = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
-                 if ((edu1.id == FAKE_ROOT_ID or
-                      edu1.id not in intra_tgts[edu1.subgrouping]) and
-                     edu2.id not in intra_tgts[edu2.subgrouping])]
-        # end idxes_inter_iheads
+        pairs_true = np.where(target != unrelated)
+        pairs_intra = idxes_intra(dpack, include_fake_root=False)
+        pairs_intra_true = np.intersect1d(pairs_true, pairs_intra)
+        intra_tgts = set(dpack.pairings[i][1].id
+                         for i in pairs_intra_true)
+        # pick out (fakeroot, head_i) or (head_i, head_j) inter edges
+        pairs_inter = idxes_inter(dpack, include_fake_root=True)
+        idxes = [i for i in pairs_inter
+                 if (dpack.pairings[i][0].id not in intra_tgts and
+                     dpack.pairings[i][1].id not in intra_tgts)]
 
         dpack = dpack.selected(idxes)
         target = target[idxes]
@@ -411,15 +523,18 @@ class HeadToHeadParser(IntraInterParser):
         idxes = [i for i, (e1, e2) in enumerate(dpack.pairings)
                  if (is_head_or_root(e1) and
                      is_head_or_root(e2))]
-        # DEBUG
-        idxes_inter = [i for i, (e1, e2) in enumerate(dpack.pairings)
-                       if (e1.subgrouping != e2.subgrouping and
-                           dpack.target[i] != unrelated_lbl)]
-        if not set(idxes_inter).issubset(set(idxes)):
-            print('Lost inter indices:')
-            print([(e1.id, e2.id) for i, (e1, e2) in enumerate(dpack.pairings)
-                   if i in set(idxes_inter) - set(idxes)])
-        # end DEBUG
+
+        if self._verbose:
+            # check for lost inter edges
+            idxes_er = [i for i, (e1, e2) in enumerate(dpack.pairings)
+                        if (e1.subgrouping != e2.subgrouping and
+                            dpack.target[i] != unrelated_lbl)]
+            if not set(idxes_er).issubset(set(idxes)):
+                print('Lost inter indices:')
+                print([(e1.id, e2.id)
+                       for i, (e1, e2) in enumerate(dpack.pairings)
+                       if i in set(idxes_er) - set(idxes)])
+
         return dpack.selected(idxes)
 
     def _recombine(self, dpack, spacks):
@@ -427,6 +542,10 @@ class HeadToHeadParser(IntraInterParser):
         unrelated_lbl = dpack.label_number(UNRELATED)
         # intra-sentential predictions
         sent_lbl = self._mk_get_lbl(dpack, spacks)
+
+        if self._verbose:
+            # check for lost and hallucinated intra- edges
+            self._check_intra_edges(dpack, spacks)
 
         # call inter-sentential parser
         dpack_inter = self._select_heads(dpack, spacks)
@@ -463,9 +582,8 @@ class HeadToHeadParser(IntraInterParser):
         graph = dpack.graph.tweak(prediction=prediction)
         dpack = dpack.set_graph(graph)
 
-        # DEBUG
-        if False:  # TODO re-enable to debug
-            # check inter edges
+        if self._verbose:
+            # check for hallucinated and lost inter edges
             inter_edges_pred = [(edu1.id, edu2.id, sent_lbl(i))
                                 for i, (edu1, edu2) in enumerate(dpack.pairings)
                                 if (edu1.subgrouping != edu2.subgrouping and
@@ -475,20 +593,14 @@ class HeadToHeadParser(IntraInterParser):
                                 if (edu1.subgrouping != edu2.subgrouping and
                                     dpack.target[i] != unrelated_lbl)]
             if set(inter_edges_true) != set(inter_edges_pred):
-                print('T&P\t{}'.format(sorted(set(inter_edges_true) & set(inter_edges_pred))))
+                print('Lost inter edges: {}'.format(sorted(set(inter_edges_true) - set(inter_edges_pred))))
                 print()
-                print('T-P\t{}'.format(sorted(set(inter_edges_true) - set(inter_edges_pred))))
-                print()
-                print('P-T\t{}'.format(sorted(set(inter_edges_pred) - set(inter_edges_true))))
-                raise ValueError('Lost inter edges')
-                assert set(inter_edges_true) == set(inter_edges_pred)
-        # end DEBUG
+                print('Hallucinated inter edges: {}'.format(sorted(set(inter_edges_pred) - set(inter_edges_true))))
+
         return dpack
 
 
-# WIP
-
-# small helper
+# small helper for the FrontierToHeadParser
 def edu_id2num(edu_id):
     """Get the number of an EDU"""
     edu_num = (int(edu_id.rsplit('_', 1)[1])
@@ -572,10 +684,8 @@ class FrontierToHeadParser(IntraInterParser):
                 # end WIP
         # WIP
         # use intra_tgts to gather all intra heads
-        intra_head_ids = set()
-        for e in dpack.edus:
-            if e.id not in intra_tgts[e.subgrouping]:
-                intra_head_ids.add(e.id)
+        intra_head_ids = set(e.id for e in dpack.edus
+                             if e.id not in intra_tgts[e.subgrouping])
         # then compute the left and right frontier of each subtree
         intra_lfrontier = set()
         intra_rfrontier = set()
@@ -690,19 +800,22 @@ class FrontierToHeadParser(IntraInterParser):
                      (edu1.id in intra_lfrontier and
                       edu2.id in intra_lfrontier and
                       sent_lbl(i) != unrelated_lbl)))
-            
+
         idxes = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
                  if (frontier_to_head_edge(edu1, edu2) or
                      same_frontier_edge(edu1, edu2))]
-        # DEBUG
-        idxes_inter = [i for i, (e1, e2) in enumerate(dpack.pairings)
-                       if (e1.subgrouping != e2.subgrouping and
-                           dpack.target[i] != unrelated_lbl)]
-        if not set(idxes_inter).issubset(set(idxes)):
-            print('Lost inter indices:')
-            print([(e1.id, e2.id) for i, (e1, e2) in enumerate(dpack.pairings)
-                   if i in set(idxes_inter) - set(idxes)])
-        # end DEBUG
+
+        if self._verbose:
+            # check for lost inter edges
+            idxes_er = [i for i, (e1, e2) in enumerate(dpack.pairings)
+                        if (e1.subgrouping != e2.subgrouping and
+                            dpack.target[i] != unrelated_lbl)]
+            if not set(idxes_er).issubset(set(idxes)):
+                print('Lost inter indices:')
+                print([(e1.id, e2.id)
+                       for i, (e1, e2) in enumerate(dpack.pairings)
+                       if i in set(idxes_er) - set(idxes)])
+
         dpack_frontier = dpack.selected(idxes)
         return dpack_frontier
 
@@ -730,30 +843,25 @@ class FrontierToHeadParser(IntraInterParser):
         # intra-sentential predictions
         sent_lbl = self._mk_get_lbl(dpack, spacks)
 
-        # call inter-sentential parser
-        # DEBUG
-        idxes_intra_pred = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
-                            if (edu1.subgrouping == edu2.subgrouping and
-                                sent_lbl(i) != unrelated_lbl)]
-        idxes_intra_true = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
-                            if (edu1.subgrouping == edu2.subgrouping and
-                                dpack.target[i] != unrelated_lbl)]
-        if set(idxes_intra_true) != set(idxes_intra_pred):
-            print('Lost intra edges:')
-            print([(e1.id, e2.id)
-                   for i, (e1, e2) in enumerate(dpack.pairings)
-                   if i in set(idxes_intra_true) - set(idxes_intra_pred)])
-            print('Hallucinated intra edges:')
-            print([(e1.id, e2.id)
-                   for i, (e1, e2) in enumerate(dpack.pairings)
-                   if i in set(idxes_intra_pred) - set(idxes_intra_true)])
-            # raise ValueError('Stop here bro')
-        # end DEBUG
+        if self._verbose:
+            # check for lost and hallucinated intra- edges
+            print('>>> check intra 1 >>>')
+            self._check_intra_edges(dpack, spacks)
+            print('<<< end check intra 1 <<<')
 
+        # fix intra-sentential decisions before the inter-sentential phase
+        dpack = self._fix_intra_edges(dpack, spacks)
+
+        # call inter-sentential parser
         dpack_inter = self._select_frontiers(dpack, spacks)
         has_inter = len(dpack_inter) > 0
         if has_inter:
+            # collect indices of inter pairings in dpack_inter
+            # so we can instruct the inter parser to keep its nose
+            # out of intra stuff
+            inter_indices = idxes_inter(dpack_inter, include_fake_root=True)
             dpack_inter = self._parsers.inter.transform(dpack_inter)
+
         doc_lbl = self._mk_get_lbl(dpack, [dpack_inter])
 
         def merged_lbl(i):
@@ -782,37 +890,31 @@ class FrontierToHeadParser(IntraInterParser):
                                  dtype=np.dtype(np.int16))
         graph = dpack.graph.tweak(prediction=prediction)
         dpack = dpack.set_graph(graph)
-        # DEBUG
-        # check intra edges
-        intra_edges_pred = [(edu1.id, edu2.id, sent_lbl(i))
-                            for i, (edu1, edu2) in enumerate(dpack.pairings)
-                            if (edu1.subgrouping == edu2.subgrouping and
-                                sent_lbl(i) != unrelated_lbl)]
-        intra_edges_true = [(edu1.id, edu2.id, dpack.target[i])
-                            for i, (edu1, edu2) in enumerate(dpack.pairings)
-                            if (edu1.subgrouping == edu2.subgrouping and
-                                dpack.target[i] != unrelated_lbl)]
-        assert set(intra_edges_true) == set(intra_edges_pred)
-        # DEBUG
-        if False:  # TODO re-enable to debug
-            # check inter edges
-            inter_edges_pred = [(edu1.id, edu2.id, sent_lbl(i))
-                                for i, (edu1, edu2) in enumerate(dpack.pairings)
+
+        if self._verbose:
+            # 2nd check for lost and hallucinated intra- edges
+            print('>>> check intra 2 >>>')
+            self._check_intra_edges(dpack, spacks)
+            print('<<< end check intra 2 <<<')
+            # check for lost and hallucinated inter- edges
+            # TODO turn into _check_inter_edges
+            inter_edges_pred = [(edu1.id, edu2.id, merged_lbl(i))
+                                for i, (edu1, edu2)
+                                in enumerate(dpack.pairings)
                                 if (edu1.subgrouping != edu2.subgrouping and
                                     merged_lbl(i) != unrelated_lbl)]
             inter_edges_true = [(edu1.id, edu2.id, dpack.target[i])
-                                for i, (edu1, edu2) in enumerate(dpack.pairings)
+                                for i, (edu1, edu2)
+                                in enumerate(dpack.pairings)
                                 if (edu1.subgrouping != edu2.subgrouping and
                                     dpack.target[i] != unrelated_lbl)]
             if set(inter_edges_true) != set(inter_edges_pred):
-                print('T&P\t{}'.format(sorted(set(inter_edges_true) & set(inter_edges_pred))))
+                print('Lost inter edges: {}'.format(
+                    sorted(set(inter_edges_true) - set(inter_edges_pred))))
                 print()
-                print('T-P\t{}'.format(sorted(set(inter_edges_true) - set(inter_edges_pred))))
-                print()
-                print('P-T\t{}'.format(sorted(set(inter_edges_pred) - set(inter_edges_true))))
-                raise ValueError('Lost inter edges')
-                assert set(inter_edges_true) == set(inter_edges_pred)
-        # end DEBUG
+                print('Hallucinated inter edges: {}'.format(
+                    sorted(set(inter_edges_pred) - set(inter_edges_true))))
+
         return dpack
 # end WIP
 
@@ -835,25 +937,7 @@ class SoftParser(IntraInterParser):
     """
     def _recombine(self, dpack, spacks):
         "soft decoding - pass sentence edges through the prob dist"
-        unrelated_lbl = dpack.label_number(UNRELATED)
-        sent_lbl = self._mk_get_lbl(dpack, spacks)
-
-        weights_a = np.copy(dpack.graph.attach)
-        weights_l = np.copy(dpack.graph.label)
-        for i, (edu1, _) in enumerate(dpack.pairings):
-            if edu1.id == FAKE_ROOT_ID:
-                # don't confuse the inter parser with sentence roots
-                continue
-            lbl = sent_lbl(i)
-            if lbl is not None and lbl != unrelated_lbl:
-                weights_a[i] = 1.0
-                weights_l[i] = np.zeros(len(dpack.labels))
-                weights_l[i, lbl] = 1.0
-
-        graph = Graph(prediction=dpack.graph.prediction,
-                      attach=weights_a,
-                      label=weights_l)
-        dpack = dpack.set_graph(graph)
+        dpack = self._fix_intra_edges(dpack, spacks)
         # call the inter parser on the updated dpack
         dpack = self._parsers.inter.transform(dpack)
         return dpack
