@@ -87,62 +87,51 @@ class EisnerDecoder(Decoder):
 
                 # left open
                 range_k = range(start, end)
-                if start > 0 and (end, start) in score:
-                    # find argmax and max on range_k
-                    cands = [(cscores[start][k][0][1] +
-                              cscores[k + 1][end][1][1] +
-                              score[(end, start)])
-                             for k in range_k]
-                    max_cand = np.nanmax(cands)
-                    argmax_cand = (range_k[cands.index(max_cand)]
-                                   if not np.isnan(max_cand)
-                                   else range_k[0])
-                else:
-                    max_cand = MIN_SCORE  # was: np.nan
-                    argmax_cand = range_k[0]
+                # find argmax and max on range_k
+                cands = [(cscores[start][k][0][1] +
+                          cscores[k + 1][end][1][1] +
+                          (score[(end, start)]
+                           if start > 0 and (end, start) in score
+                           else MIN_SCORE))
+                         for k in range_k]
+                max_cand = np.nanmax(cands)
+                argmax_cand = (range_k[cands.index(max_cand)]
+                               if not np.isnan(max_cand)
+                               else range_k[0])
                 # update tables
                 cscores[start][end][1][0] = max_cand
                 csplits[start][end][1][0] = argmax_cand
 
                 # right open
-                if unique_real_root and start == 0:
-                    # if start == 0, restricting range_k to [0]
-                    # enforces that the tree has a unique real root
-                    range_k = [0]
-                else:
-                    range_k = range(start, end)
-                #
-                if (start, end) in score:
-                    # find argmax and max on range_k
-                    cands = [(cscores[start][k][0][1] +
-                              cscores[k + 1][end][1][1] +
-                              score[(start, end)])
-                             for k in range_k]
-                    max_cand = np.nanmax(cands)
-                    argmax_cand = (range_k[cands.index(max_cand)]
-                                   if not np.isnan(max_cand)
-                                   else range_k[0])
-                else:
-                    max_cand = MIN_SCORE  # was: np.nan
-                    argmax_cand = range_k[0]
+                # if start == 0, restricting range_k to [0]
+                # enforces that the tree has a unique real root
+                range_k = ([0] if unique_real_root and start == 0
+                           else range(start, end))
+                # find argmax and max on range_k
+                cands = [(cscores[start][k][0][1] +
+                          cscores[k + 1][end][1][1] +
+                          (score[(start, end)]
+                           if (start, end) in score
+                           else MIN_SCORE))
+                         for k in range_k]
+                max_cand = np.nanmax(cands)
+                argmax_cand = (range_k[cands.index(max_cand)]
+                               if not np.isnan(max_cand)
+                               else range_k[0])
                 # update tables
                 cscores[start][end][0][0] = max_cand
                 csplits[start][end][0][0] = argmax_cand
 
-                # left closed: impossible if start == fake root
+                # left closed
                 range_k = range(start, end)
-                if start > 0:
-                    # find argmax and max on range_k
-                    cands = [(cscores[start][k][1][1] +
-                              cscores[k][end][1][0])
-                             for k in range_k]
-                    max_cand = np.nanmax(cands)
-                    argmax_cand = (range_k[cands.index(max_cand)]
-                                   if not np.isnan(max_cand)
-                                   else range_k[0])
-                else:
-                    max_cand = MIN_SCORE  # was: np.nan
-                    argmax_cand = range_k[0]
+                # find argmax and max on range_k
+                cands = [(cscores[start][k][1][1] +
+                          cscores[k][end][1][0])
+                         for k in range_k]
+                max_cand = np.nanmax(cands)
+                argmax_cand = (range_k[cands.index(max_cand)]
+                               if not np.isnan(max_cand)
+                               else range_k[0])
                 # update tables
                 cscores[start][end][1][1] = max_cand
                 csplits[start][end][1][1] = argmax_cand
