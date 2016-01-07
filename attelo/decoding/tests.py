@@ -75,6 +75,7 @@ class DecoderTest(unittest.TestCase):
                                                [3, 3, 1],
                                                [0, 6, 3]])),
                      target=np.array([0, 0, 0, 0, 0, 0]),
+                     ctarget=dict(),  # WIP
                      graph=graph,
                      vocab=None)
 
