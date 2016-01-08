@@ -377,7 +377,7 @@ def _model_info_path(hconf, rconf, test_data, fold=None, grain=None):
                                    learner=rconf.key))
 
 
-def _mk_model_summary(hconf, dconf, rconf, test_data, fold):
+def _mk_model_summary(hconf, dconf, rconf, test_data, fold, parser):
     "generate summary of best model features"
     _top_n = 3
 
@@ -412,32 +412,37 @@ def _mk_model_summary(hconf, dconf, rconf, test_data, fold):
                     if k.startswith(prefix))
 
     if isinstance(rconf, IntraInterPair):
-        mpaths = hconf.model_paths(rconf, fold)
+        mpaths = hconf.model_paths(rconf, fold, parser)
         discr = _extract_discr(_select(mpaths, 'inter:'))
         _write_discr(discr, rconf.inter, 'doc')
         discr = _extract_discr(_select(mpaths, 'intra:'))
         _write_discr(discr, rconf.intra, 'sent')
     else:
-        mpaths = hconf.model_paths(rconf, fold)
+        mpaths = hconf.model_paths(rconf, fold, parser)
         discr = _extract_discr(mpaths)
         _write_discr(discr, rconf, 'whole')
 
 
 def _mk_hashfile(hconf, dconf, test_data):
     "Hash the features and models files for long term archiving"
-
+    # data files
     hash_me = list(hconf.mpack_paths(False))
     if hconf.test_evaluation is not None:
         hash_me.extend(hconf.mpack_paths(True))
-    learners = frozenset(e.learner for e in hconf.evaluations)
-    for rconf in learners:
-        mpaths = hconf.model_paths(rconf, None)
-        hash_me.extend(mpaths.values())
+
+    # model files
+    model_files = []
+    for econf in hconf.evaluations:
+        mpaths = hconf.model_paths(econf.learner, None, econf.parser)
+        model_files.extend(mpaths.values())
     if not test_data:
         for fold in sorted(frozenset(dconf.folds.values())):
-            for rconf in learners:
-                mpaths = hconf.model_paths(rconf, fold)
-                hash_me.extend(mpaths.values())
+            for econf in hconf.evaluations:
+                mpaths = hconf.model_paths(econf.learner, fold, econf.parser)
+                model_files.extend(mpaths.values())
+    hash_me.extend(set(model_files))
+
+    # then hash the collected files and dump the result to a file
     provenance_dir = fp.join(hconf.report_dir_path(test_data, None),
                              'provenance')
     makedirs(provenance_dir)
@@ -498,9 +503,13 @@ def _mk_report(hconf, dconf, slices, fold, test_data=False):
                             adjust_pack=adjust_pack,
                             skip_cspans=True)
         rpack.append(rdir, header=header)
-
-    for rconf in set(e.learner for e in hconf.evaluations):
-        _mk_model_summary(hconf, dconf, rconf, test_data, fold)
+    # FIXME what we really want is the set of (learner, data_selection)
+    # with data_selection: all pairings for global parsers ; all intra
+    # pairings + one of several possible subsets of the inter pairings
+    # for IntraInterParsers
+    for rconf, parser in set((e.learner, e.parser)
+                             for e in hconf.evaluations):
+        _mk_model_summary(hconf, dconf, rconf, test_data, fold, parser)
 
 
 def mk_fold_report(hconf, dconf, fold):

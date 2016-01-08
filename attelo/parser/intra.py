@@ -176,13 +176,23 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
     the prefix stripped). The other keys will be passed onto
     the intersentential parser
     """
-    def __init__(self, parsers, verbose=False):
+    def __init__(self, parsers, sel_inter='inter', verbose=False):
         """
         Parameters
         ----------
-        parsers: IntraInterPair(Parser)
+        parsers : IntraInterPair(Parser)
+            Pair of parsers, for intra- and inter-subgrouping.
+        sel_inter : {'inter', 'global', 'head_to_head', 'frontier_to_head'}
+            Subset of pairings passed to the inter parser:
+            * inter: only inter-subgrouping pairings (default value),
+            * global: all (intra and inter) pairings,
+            * head_to_head: subset of inter pairings between intra heads,
+            * frontier_to_head: susbet of inter pairings from EDUs on
+            the left or right frontiers of intra subtrees to heads of
+            other intra subtrees.
         """
         self._parsers = parsers
+        self._sel_inter = sel_inter
         self._verbose = verbose
 
     @staticmethod
@@ -211,10 +221,108 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         dpack, target = for_intra(dpack, target)
         return dpack, target
 
-    @staticmethod
-    def _for_inter_fit(dpack, target):
-        """Adapt a datapack for intersentential learning"""
-        idxes = idxes_inter(dpack, include_fake_root=True)
+    def _for_inter_fit(self, dpack, target):
+        """Adapt a datapack for intersentential learning.
+
+        Parameters
+        ----------
+        dpack : DataPack
+            DataPack containing the EDUs and their features.
+        target : array(int)
+            Ground truth labels.
+        sel_inter : {'inter', 'global', 'head_to_head', 'frontier_to_head'}
+            See docstring for `__init__`.
+
+        Returns
+        -------
+        dpack : DataPack
+        target : array(int)
+
+        Notes
+        -----
+        Please be careful that irit_rst_dt.harness.IritHarness.model_paths
+        has different suffixes for the various inter-sentential selections,
+        e.g. 'inter:attach': ..."{doc,doc_heads,...}-attach"), and
+        'attach': ... "attach".
+        """
+        sel_inter = self._sel_inter
+
+        # 'global': keep all pairings
+        if sel_inter == 'global':
+            return dpack, target
+
+        if sel_inter == 'inter':
+            idxes = idxes_inter(dpack, include_fake_root=True)
+        elif sel_inter == 'head_to_head':
+            # keep edges between sentential heads (plus the fake root)
+            # find all EDUs that have intra incoming edges in gold (to rule
+            # out)
+            unrelated = dpack.label_number(UNRELATED)
+            pairs_true = np.where(target != unrelated)
+            pairs_intra = idxes_intra(dpack, include_fake_root=False)
+            pairs_intra_true = np.intersect1d(pairs_true, pairs_intra)
+            intra_tgts = set(dpack.pairings[i][1].id
+                             for i in pairs_intra_true)
+            # pick out (fakeroot, head_i) or (head_i, head_j) inter edges
+            pairs_inter = idxes_inter(dpack, include_fake_root=True)
+            idxes = [i for i in pairs_inter
+                     if (dpack.pairings[i][0].id not in intra_tgts and
+                         dpack.pairings[i][1].id not in intra_tgts)]
+        elif sel_inter == 'frontier_to_head':
+            # TODO refactor and optimize !
+            # possible helper: attelo.table.grouped_intra_pairings
+
+            # find all EDUs that have intra incoming edges (to rule out)
+            unrelated = dpack.label_number(UNRELATED)
+            intra_tgts = defaultdict(set)
+            # left- and right-most dependents of an EDU, inside subgrouping
+            # (key and values are EDU ids i.e. strings)
+            lmost_dep = dict()
+            rmost_dep = dict()
+            for i, (edu1, edu2) in enumerate(dpack.pairings):
+                if ((edu1.subgrouping == edu2.subgrouping and
+                     target[i] != unrelated)):
+                    intra_tgts[edu2.subgrouping].add(edu2.id)
+                    # update left- or right-most dependent if relevant:
+                    if edu_id2num(edu1.id) < edu_id2num(edu2.id):
+                        # right attachment
+                        if ((edu1.id not in rmost_dep or
+                             (edu_id2num(rmost_dep[edu1.id]) <
+                              edu_id2num(edu2.id)))):
+                            rmost_dep[edu1.id] = edu2.id
+                    else:  # left attachment
+                        if ((edu1.id not in lmost_dep or
+                             (edu_id2num(edu2.id) <
+                              edu_id2num(lmost_dep[edu1.id])))):
+                            lmost_dep[edu1.id] = edu2.id
+            # use intra_tgts to gather all intra heads
+            intra_head_ids = set(e.id for e in dpack.edus
+                                 if e.id not in intra_tgts[e.subgrouping])
+            # then compute the left and right frontier of each subtree
+            intra_lfrontier = set()
+            intra_rfrontier = set()
+            for head_id in intra_head_ids:
+                # left frontier
+                lmost_cur = head_id
+                while lmost_cur is not None:
+                    intra_lfrontier.add(lmost_cur)
+                    lmost_cur = lmost_dep.get(lmost_cur, None)
+                # right frontier
+                rmost_cur = head_id
+                while rmost_cur is not None:
+                    intra_rfrontier.add(rmost_cur)
+                    rmost_cur = rmost_dep.get(rmost_cur, None)
+            # pick out (fakeroot or rfrontier, head) right attachments or
+            # (lfrontier, head) left attachments
+            idxes = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
+                     if (edu2.id not in intra_tgts[edu2.subgrouping] and
+                         ((edu1.id == FAKE_ROOT_ID or
+                           edu1.id in intra_rfrontier) and
+                          edu_id2num(edu2.id) > edu_id2num(edu1.id)) or
+                         (edu1.id in intra_lfrontier and
+                          edu_id2num(edu2.id) < edu_id2num(edu1.id)))]
+
+        # filter dpack and target on these indices
         dpack = dpack.selected(idxes)
         target = target[idxes]
         return dpack, target
@@ -447,49 +555,6 @@ class HeadToHeadParser(IntraInterParser):
     original nodes.
     """
 
-    @staticmethod
-    def _for_inter_fit(dpack, target):
-        """Adapt a datapack for intersentential learning.
-
-        This is a custom version of `IntraInterParser._for_inter_fit`
-        to restrict instances to edges between sentential heads (plus
-        the fake root).
-
-        Parameters
-        ----------
-        dpack: DataPack
-        target: array(int)
-
-        Returns
-        -------
-        dpack: DataPack
-        target: array(int)
-
-        Notes
-        -----
-        Preliminary experiments indicate this works well in practice.
-        Please be careful that irit_rst_dt.harness.IritHarness.model_paths
-        attributes different suffixes to global and inter-sentential models,
-        e.g. 'inter:{attach,label}': ..."doc-{attach,relate}"), and
-        '{attach,label}': ...{attach,relate}".
-        """
-        # find all EDUs that have intra incoming edges in gold (to rule out)
-        unrelated = dpack.label_number(UNRELATED)
-        pairs_true = np.where(target != unrelated)
-        pairs_intra = idxes_intra(dpack, include_fake_root=False)
-        pairs_intra_true = np.intersect1d(pairs_true, pairs_intra)
-        intra_tgts = set(dpack.pairings[i][1].id
-                         for i in pairs_intra_true)
-        # pick out (fakeroot, head_i) or (head_i, head_j) inter edges
-        pairs_inter = idxes_inter(dpack, include_fake_root=True)
-        idxes = [i for i in pairs_inter
-                 if (dpack.pairings[i][0].id not in intra_tgts and
-                     dpack.pairings[i][1].id not in intra_tgts)]
-
-        dpack = dpack.selected(idxes)
-        target = target[idxes]
-        return dpack, target
-
     def _select_heads(self, dpack, spacks):
         """Return datapack consisting only of links between sentence
         heads and each other or the fakeroot.
@@ -621,97 +686,6 @@ class FrontierToHeadParser(IntraInterParser):
     happens on leaky sentences and I still have to figure out what an
     oracle should look like.
     """
-
-    @staticmethod
-    def _for_inter_fit(dpack, target):
-        """Adapt a datapack for intersentential learning.
-
-        This is a custom version of `IntraInterParser._for_inter_fit`
-        to restrict instances to left (resp. right) edges from the left
-        (resp. right) frontier to sentential heads.
-
-        Parameters
-        ----------
-        dpack : DataPack
-            DataPack containing the EDUs and their features.
-
-        target : array(int)
-            Grount truth labels.
-
-        Returns
-        -------
-        dpack : DataPack
-            Ibid.
-
-        target : array(int)
-            Ibid.
-
-        Notes
-        -----
-        Preliminary experiments indicate this works well in practice.
-        Please check that irit_rst_dt.harness.IritHarness.model_paths does
-        attribute different suffixes to global and inter-sentential models,
-        e.g. 'inter:{attach,label}': ..."doc-{attach,relate}"), and
-        '{attach,label}': ...{attach,relate}".
-        """
-        # could be a function like
-        # `idxes_inter_iheads(dpack, target, include_fake_root=True)`
-        # but existing functions in attelo.table only depend on dpack
-        # and ignore target (necessary here)
-        # find all EDUs that have intra incoming edges (to rule out)
-        unrelated = dpack.label_number(UNRELATED)
-        intra_tgts = defaultdict(set)
-        # left- and right-most dependents of an EDU, inside subgrouping
-        # (key and values are EDU ids i.e. strings)
-        lmost_dep = dict()
-        rmost_dep = dict()
-        for i, (edu1, edu2) in enumerate(dpack.pairings):
-            if ((edu1.subgrouping == edu2.subgrouping and
-                 target[i] != unrelated)):
-                intra_tgts[edu2.subgrouping].add(edu2.id)
-                # WIP
-                # update left- or right-most dependent if relevant
-                if edu_id2num(edu1.id) < edu_id2num(edu2.id):  # right attachment
-                    if ((edu1.id not in rmost_dep or
-                         (edu1.id in rmost_dep and
-                          edu_id2num(edu2.id) > edu_id2num(rmost_dep[edu1.id])))):
-                        rmost_dep[edu1.id] = edu2.id
-                else:  # left attachment
-                    if ((edu1.id not in lmost_dep or
-                         (edu1.id in lmost_dep and
-                          edu_id2num(edu2.id) < edu_id2num(lmost_dep[edu1.id])))):
-                        lmost_dep[edu1.id] = edu2.id
-                # end WIP
-        # WIP
-        # use intra_tgts to gather all intra heads
-        intra_head_ids = set(e.id for e in dpack.edus
-                             if e.id not in intra_tgts[e.subgrouping])
-        # then compute the left and right frontier of each subtree
-        intra_lfrontier = set()
-        intra_rfrontier = set()
-        for head_id in intra_head_ids:
-            lmost_cur = head_id
-            while lmost_cur is not None:
-                intra_lfrontier.add(lmost_cur)
-                lmost_cur = lmost_dep.get(lmost_cur, None)
-            rmost_cur = head_id
-            while rmost_cur is not None:
-                intra_rfrontier.add(rmost_cur)
-                rmost_cur = rmost_dep.get(rmost_cur, None)
-        # pick out (fakeroot or rfrontier, head) right attachments or
-        # (lfrontier, head) left attachments
-        idxes = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
-                 if (edu2.id not in intra_tgts[edu2.subgrouping] and
-                     ((edu1.id == FAKE_ROOT_ID or
-                       edu1.id in intra_rfrontier) and
-                      edu_id2num(edu2.id) > edu_id2num(edu1.id)) or
-                     (edu1.id in intra_lfrontier and
-                      edu_id2num(edu2.id) < edu_id2num(edu1.id)))]
-        # end idxes_inter_iheads
-
-        dpack = dpack.selected(idxes)
-        target = target[idxes]
-        return dpack, target
 
     def _select_frontiers(self, dpack, spacks):
         """Restrict dpack to edges necessary for inter parsing.

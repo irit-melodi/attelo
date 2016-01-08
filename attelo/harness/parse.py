@@ -80,7 +80,7 @@ def learn(hconf, econf, dconf, fold):
 
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
-    cache = hconf.model_paths(econf.learner, fold)
+    cache = hconf.model_paths(econf.learner, fold, econf.parser)
     print('learning ', econf.key, '...', file=sys.stderr)
     dpacks = subpacks.values()
     targets = [d.target for d in dpacks]
