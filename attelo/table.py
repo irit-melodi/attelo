@@ -419,6 +419,31 @@ def groupings(pairings):
     return res
 
 
+def idxes_attached(dpack, target):
+    """Indices of attached pairings from dpack, according to target.
+
+    Parameters
+    ----------
+    dpack : DataPack
+        Datapack
+    target : list of integers
+        Label for each pairings of dpack
+
+    Returns
+    -------
+    indices : array of integers
+        Indices of attached pairings.
+
+    TODO
+    ----
+    Try and apply widely, especially for parser.intra ;
+    search for e.g. "target != unrelated" and "target[i] != unrelated".
+    """
+    unrelated = dpack.label_number(UNRELATED)
+    indices = np.where(target != unrelated)[0]
+    return indices
+
+
 def attached_only(dpack, target):
     """
     Return only the instances which are labelled as
