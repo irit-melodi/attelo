@@ -120,7 +120,8 @@ class MstDecoder(Decoder):
                        lambda s, t: scores[s, t],
                        lambda s, t: labels[s, t])
 
-    def decode(self, dpack):
+    def decode(self, dpack, nonfixed_pairs=None):
+        # TODO integrate nonfixed_pairs, maybe?
         graph = self._graph(simple_candidates(dpack))
         subgraph = graph.mst()
         predictions = [(src, tgt, subgraph.get_label(src, tgt))
@@ -131,7 +132,8 @@ class MstDecoder(Decoder):
 class MsdagDecoder(MstDecoder):
     """ Attach according to MSDAG (subgraph of original)"""
 
-    def decode(self, dpack):
+    def decode(self, dpack, nonfixed_pairs=None):
+        # TODO integrate nonfixed_pairs, maybe?
         graph = self._graph(simple_candidates(dpack))
         subgraph = _msdag(graph)
         predictions = [(src, tgt, subgraph.get_label(src, tgt))
