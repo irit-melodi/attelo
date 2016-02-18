@@ -17,7 +17,8 @@ class LocalBaseline(Decoder):
     def __init__(self, threshold, use_prob=True):
         self._threshold = threshold if use_prob else 0.0
 
-    def decode(self, dpack):
+    def decode(self, dpack, nonfixed_pairs=None):
+        # TODO integrate nonfixed_pairs, maybe?
         cands = simple_candidates(dpack)
         results = [(e1.id, e2.id, lab) for e1, e2, w, lab in cands
                    if w > self._threshold]
@@ -27,7 +28,8 @@ class LocalBaseline(Decoder):
 class LastBaseline(Decoder):
     "attach to last, always"
 
-    def decode(self, dpack):
+    def decode(self, dpack, nonfixed_pairs=None):
+        # TODO integrate nonfixed_pairs, maybe?
         cands = simple_candidates(dpack)
         labels_probs = get_prob_map(cands)
 
