@@ -31,7 +31,7 @@ class EisnerDecoder(Decoder):
         self._unique_real_root = unique_real_root
         self._use_prob = use_prob  # yerk
 
-    def decode(self, dpack):
+    def decode(self, dpack, nonfixed_pairs=None):
         """Decode
 
         Parameters

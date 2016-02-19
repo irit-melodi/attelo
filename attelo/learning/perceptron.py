@@ -360,16 +360,27 @@ class StructuredPerceptron(Perceptron):
         self.weights = zeros(dim, dtype='d')
         self.avg_weights = zeros(dim, dtype='d')
 
-    def fit(self, datapacks, _targets):  # datapacks is an iterable
-        """ learn struct. perceptron weights """
+    def fit(self, datapacks, _targets, nonfixed_pairs=None):
+        """Learn structured perceptron weights.
+
+        Parameters
+        ----------
+        datapacks : iterable of DataPack
+            TODO
+        _targets : iterable of iterable of integers
+            Label for each pairing in each datapack.
+        nonfixed_pairs : list of list of integers
+            List of indices of the nonfixed pairs, that should be considered
+            when fitting a classifier.
+        """
         self.init_model(datapacks[0].data.shape[1])
-        self.learn(datapacks)
+        self.learn(datapacks, nonfixed_pairs=nonfixed_pairs)
         return self
 
     def predict_score(self, dpack):
         return self.decision_function(dpack.data)
 
-    def learn(self, datapacks):
+    def learn(self, datapacks, nonfixed_pairs=None):
         verbose = self.verbose
         if verbose > 1:
             print("-"*100, file=sys.stderr)
@@ -382,7 +393,8 @@ class StructuredPerceptron(Perceptron):
                 t0 = time.time()
             loss = 0.0
             inst_ct = 0
-            for dpack in datapacks:
+            for dpack_idx, dpack in enumerate(datapacks):
+                nf_pairs = nonfixed_pairs[dpack_idx]
                 # extract data and target
                 X = dpack.data  # each row is EDU pair
                 Y = dpack.target  # each row is {-1,+1}
@@ -417,7 +429,8 @@ class StructuredPerceptron(Perceptron):
             elapsed_time = t1-start_time
             print("done in %s sec." % round(elapsed_time, 3), file=sys.stderr)
 
-    def update(self, pred_tree, ref_tree, X, fv_map, edus):
+    def update(self, pred_tree, ref_tree, X, fv_map, edus,
+               nonfixed_pairs=None):
         """
         Parameters
         ----------
@@ -438,12 +451,26 @@ class StructuredPerceptron(Perceptron):
         # compute Phi(x,y) and Phi(x,y_hat)
         ref_fv = zeros(len(W), dtype='d')
         pred_fv = zeros(len(W), dtype='d')
-        for ref_arc in ref_tree:
-            id1, id2, _ = ref_arc
-            ref_fv = ref_fv + X[fv_map[id1, id2]].toarray()
-        for pred_arc in pred_tree:
-            id1, id2, _ = pred_arc
-            pred_fv = pred_fv + X[fv_map[id1, id2]].toarray()
+        if nonfixed_pairs is None:
+            for ref_arc in ref_tree:
+                id1, id2, _ = ref_arc
+                i = fv_map[id1, id2]
+                ref_fv = ref_fv + X[i].toarray()
+            for pred_arc in pred_tree:
+                id1, id2, _ = pred_arc
+                i = fv_map[id1, id2]
+                pred_fv = pred_fv + X[i].toarray()
+        else:
+            for ref_arc in ref_tree:
+                id1, id2, _ = ref_arc
+                i = fv_map[id1, id2]
+                if i in nonfixed_pairs:
+                    ref_fv = ref_fv + X[i].toarray()
+            for pred_arc in pred_tree:
+                id1, id2, _ = pred_arc
+                i = fv_map[id1, id2]
+                if i in nonfixed_pairs:
+                    pred_fv = pred_fv + X[i].toarray()
 
         # Phi(x,y) - Phi(x,y_hat)
         delta_fv = ref_fv - pred_fv
@@ -522,7 +549,8 @@ class StructuredPassiveAggressive(StructuredPerceptron):
         self.C = C
         self.loss = loss
 
-    def update(self, pred_tree, ref_tree, X, fv_map, edus):
+    def update(self, pred_tree, ref_tree, X, fv_map, edus,
+               nonfixed_pairs=None):
         r"""PA-II update rule:
 
         .. math::
@@ -555,12 +583,26 @@ class StructuredPassiveAggressive(StructuredPerceptron):
         # compute Phi(x,y) and Phi(x,y_hat)
         ref_fv = zeros(len(W), dtype='d')
         pred_fv = zeros(len(W), dtype='d')
-        for ref_arc in ref_tree:
-            id1, id2, _ = ref_arc
-            ref_fv = ref_fv + X[fv_map[id1, id2]].toarray()
-        for pred_arc in pred_tree:
-            id1, id2, _ = pred_arc
-            pred_fv = pred_fv + X[fv_map[id1, id2]].toarray()
+        if nonfixed_pairs is None:
+            for ref_arc in ref_tree:
+                id1, id2, _ = ref_arc
+                i = fv_map[id1, id2]
+                ref_fv = ref_fv + X[i].toarray()
+            for pred_arc in pred_tree:
+                id1, id2, _ = pred_arc
+                i = fv_map[id1, id2]
+                pred_fv = pred_fv + X[i].toarray()
+        else:
+            for ref_arc in ref_tree:
+                id1, id2, _ = ref_arc
+                i = fv_map[id1, id2]
+                if i in nonfixed_pairs:
+                    ref_fv = ref_fv + X[i].toarray()
+            for pred_arc in pred_tree:
+                id1, id2, _ = pred_arc
+                i = fv_map[id1, id2]
+                if i in nonfixed_pairs:
+                    pred_fv = pred_fv + X[i].toarray()
 
         # Phi(x,y) - Phi(x,y_hat)
         delta_fv = ref_fv - pred_fv

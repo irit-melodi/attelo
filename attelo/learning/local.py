@@ -96,23 +96,45 @@ class SklearnAttachClassifier(AttachClassifier, SklearnClassifier):
         SklearnClassifier.__init__(self, learner)
         self._fitted = False
 
-    def fit(self, dpacks, targets):
+    def fit(self, dpacks, targets, nonfixed_pairs=None):
+        # WIP select only the nonfixed pairs
+        if nonfixed_pairs is not None:
+            dpacks = [dpack.selected(nf_pairs)
+                      for dpack, nf_pairs in zip(dpacks, nonfixed_pairs)]
+            targets = [target[nf_pairs]
+                       for target, nf_pairs in zip(targets, nonfixed_pairs)]
+
         dpack = DataPack.vstack(dpacks)
         target = np.concatenate(targets)
         self._learner.fit(dpack.data, target)
         self._fitted = True
         return self
 
-    def predict_score(self, dpack):
+    def predict_score(self, dpack, nonfixed_pairs=None):
         if not self._fitted:
             raise ValueError('Fit not yet called')
 
+        # WIP pass only nonfixed pairs to the classifier
+        if nonfixed_pairs is not None:
+            dpack_filtd = dpack.selected(nonfixed_pairs)
+        else:
+            dpack_filtd = dpack
+
         if self.can_predict_proba:
             attach_idx = list(self._learner.classes_).index(1)
-            probs = self._learner.predict_proba(dpack.data)
-            return probs[:, attach_idx]
+            probs = self._learner.predict_proba(dpack_filtd.data)
+            scores_pred = probs[:, attach_idx]
         else:
-            return self._learner.decision_function(dpack.data)
+            scores_pred = self._learner.decision_function(dpack_filtd.data)
+
+        # WIP overwrite only the attachment scores of non-fixed pairs
+        if nonfixed_pairs is not None:
+            scores = np.copy(dpack.graph.attach)
+            scores[nonfixed_pairs] = scores_pred
+        else:
+            scores = scores_pred
+
+        return scores
 
 
 class SklearnLabelClassifier(LabelClassifier, SklearnClassifier):
@@ -137,7 +159,14 @@ class SklearnLabelClassifier(LabelClassifier, SklearnClassifier):
         self._fitted = False
         self._labels = None  # not yet learned
 
-    def fit(self, dpacks, targets):
+    def fit(self, dpacks, targets, nonfixed_pairs=None):
+        # WIP select only the nonfixed pairs
+        if nonfixed_pairs is not None:
+            dpacks = [dpack.selected(nf_pairs)
+                      for dpack, nf_pairs in zip(dpacks, nonfixed_pairs)]
+            targets = [target[nf_pairs]
+                       for target, nf_pairs in zip(targets, nonfixed_pairs)]
+
         dpack = DataPack.vstack(dpacks)
         target = np.concatenate(targets)
         self._learner.fit(dpack.data, target)
@@ -145,7 +174,7 @@ class SklearnLabelClassifier(LabelClassifier, SklearnClassifier):
         self._fitted = True
         return self
 
-    def predict_score(self, dpack):
+    def predict_score(self, dpack, nonfixed_pairs=None):
         if not self._fitted:
             raise ValueError('Fit not yet called')
 
@@ -153,5 +182,22 @@ class SklearnLabelClassifier(LabelClassifier, SklearnClassifier):
             raise ValueError('No labels associated with this classifier')
 
         dpack, _ = for_labelling(dpack, dpack.target)
-        weights = self._learner.predict_proba(dpack.data)
-        return relabel(self._labels, weights, dpack.labels)
+
+        # WIP don't pass the fixed pairs to the classifier
+        if nonfixed_pairs is not None:
+            dpack_filtd = dpack.selected(nonfixed_pairs)
+        else:
+            dpack_filtd = dpack
+
+        # TODO non-probabilistic labellers
+        weights = self._learner.predict_proba(dpack_filtd.data)
+        lbl_scores_pred = relabel(self._labels, weights, dpack_filtd.labels)
+
+        # WIP overwrite only the labelling scores of non-fixed pairs
+        if nonfixed_pairs is not None:
+            lbl_scores = np.copy(dpack.graph.label)
+            lbl_scores[nonfixed_pairs] = lbl_scores_pred
+        else:
+            lbl_scores = lbl_scores_pred
+
+        return lbl_scores

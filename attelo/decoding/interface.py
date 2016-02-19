@@ -48,9 +48,9 @@ class Decoder(with_metaclass(ABCMeta, Parser)):
         '''
         raise NotImplementedError
 
-    def fit(self, dpacks, targets, cache=None):
+    def fit(self, dpacks, targets, nonfixed_pairs=None, cache=None):
         return
 
-    def transform(self, dpack):
+    def transform(self, dpack, nonfixed_pairs=None):
         dpack = self.multiply(dpack) # default weights if not set
-        return self.decode(dpack)
+        return self.decode(dpack, nonfixed_pairs=nonfixed_pairs)

@@ -23,10 +23,10 @@ class AttachTimesBestLabel(Parser):
     and something downstream to make predictions (otherwise
     it's UNKNOWN everywhere)
     """
-    def fit(self, dpacks, targets, cache=None):
+    def fit(self, dpacks, targets, nonfixed_pairs=None, cache=None):
         return
 
-    def transform(self, dpack):
+    def transform(self, dpack, nonfixed_pairs=None):
         dpack = self.multiply(dpack)
         weights_a = dpack.graph.attach
         weights_l = dpack.graph.label

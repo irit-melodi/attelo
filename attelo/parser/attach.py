@@ -36,11 +36,11 @@ class AttachClassifierWrapper(Parser):
         """
         Parameters
         ----------
-        attach_learner: AttachClassifier
+        attach_learner : AttachClassifier
         """
         self._learner_attach = learner_attach
 
-    def fit(self, dpacks, targets, cache=None):
+    def fit(self, dpacks, targets, nonfixed_pairs=None, cache=None):
         """
         Extract whatever models or other information from the multipack
         that is necessary to make the parser operational
@@ -58,16 +58,18 @@ class AttachClassifierWrapper(Parser):
             return self
 
         dpacks, targets = self.dzip(for_attachment, dpacks, targets)
-        self._learner_attach.fit(dpacks, targets)
+        self._learner_attach.fit(dpacks, targets,
+                                 nonfixed_pairs=nonfixed_pairs)
         # save classifier, if necessary
         if cache_file is not None:
             # print('\tsave {}'.format(cache_file))
             joblib.dump(self._learner_attach, cache_file)
         return self
 
-    def transform(self, dpack):
+    def transform(self, dpack, nonfixed_pairs=None):
         attach_pack, _ = for_attachment(dpack, dpack.target)
-        weights_a = self._learner_attach.predict_score(attach_pack)
+        weights_a = self._learner_attach.predict_score(
+            attach_pack, nonfixed_pairs=nonfixed_pairs)
         dpack = self.multiply(dpack, attach=weights_a)
         return dpack
 

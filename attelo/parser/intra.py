@@ -258,7 +258,7 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
             # find all EDUs that have intra incoming edges in gold (to rule
             # out)
             unrelated = dpack.label_number(UNRELATED)
-            pairs_true = np.where(target != unrelated)
+            pairs_true = np.where(target != unrelated)[0]
             pairs_intra = idxes_intra(dpack, include_fake_root=False)
             pairs_intra_true = np.intersect1d(pairs_true, pairs_intra)
             intra_tgts = set(dpack.pairings[i][1].id
@@ -359,7 +359,10 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
         else:
             dpacks_inter, targets_inter = dpacks, targets
 
+        inter_indices = [idxes_inter(dpack_inter, include_fake_root=True)
+                         for dpack_inter in dpacks_inter]
         self._parsers.inter.fit(dpacks_inter, targets_inter,
+                                nonfixed_pairs=inter_indices,
                                 cache=caches.inter)
         return self
 
@@ -834,7 +837,8 @@ class FrontierToHeadParser(IntraInterParser):
             # so we can instruct the inter parser to keep its nose
             # out of intra stuff
             inter_indices = idxes_inter(dpack_inter, include_fake_root=True)
-            dpack_inter = self._parsers.inter.transform(dpack_inter)
+            dpack_inter = self._parsers.inter.transform(
+                dpack_inter, nonfixed_pairs=inter_indices)
 
         doc_lbl = self._mk_get_lbl(dpack, [dpack_inter])
 

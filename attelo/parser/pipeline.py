@@ -21,11 +21,12 @@ class Pipeline(Parser):
     def __init__(self, steps):
         self._parsers = [p for _, p in steps]
 
-    def fit(self, dpacks, targets, cache=None):
+    def fit(self, dpacks, targets, nonfixed_pairs=None, cache=None):
         for parser in self._parsers:
-            parser.fit(dpacks, targets, cache=cache)
+            parser.fit(dpacks, targets, nonfixed_pairs=nonfixed_pairs,
+                       cache=cache)
 
-    def transform(self, dpack):
+    def transform(self, dpack, nonfixed_pairs=None):
         for parser in self._parsers:
-            dpack = parser.transform(dpack)
+            dpack = parser.transform(dpack, nonfixed_pairs=nonfixed_pairs)
         return dpack
