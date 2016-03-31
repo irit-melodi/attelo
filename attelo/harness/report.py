@@ -84,10 +84,8 @@ class ReportPack(namedtuple('ReportPack',
             # edgewise scores
             filenames['edge'] = fp.join(output_dir, 'scores.txt')
 
-        # WIP
         if self.cspan is not None:
             filenames['cspan'] = fp.join(output_dir, 'cscores.txt')
-        # end WIP
 
         if self.edu is not None:
             # edu scores
@@ -214,35 +212,44 @@ class Slice(namedtuple('Slice',
 # pylint: disable=too-many-locals
 # it's a bit hard to write this sort score accumulation code
 # local help
-def full_report(mpack, fold_dict, slices,
-                adjust_pack=None, skip_cspans=False):
-    """
-    Generate a report across a set of folds and configurations.
+def full_report(mpack, fold_dict, slices, metrics,
+                adjust_pack=None):
+    """Generate a report across a set of folds and configurations.
 
     This is a bit tricky as the idea is that we have to acculumate
     per-configuration results over the folds.
 
-    Here configurations are just arbitrary strings
+    Here configurations are just arbitrary strings.
 
-    :param slices: the predictions for each configuration, for each fold.
-                   Folds should be contiguous for maximum efficiency.
-                   It may be worthwhile to generate this lazily
-    :type slices: iterable(:py:class:`Slice`)
+    Parameters
+    ----------
+    mpack: TODO
+        TODO
+    fold_dict: TODO
+        TODO
+    slices: iterable of Slice
+        Predictions for each configuration, for each fold.
+        Folds should be contiguous for maximum efficiency.
+        It may be worthwhile to generate this lazily.
+    metrics: iterable of {'edges', 'edges_by_label', 'edus', 'cspans'}
+        Set of selected metrics.
+        For the RST corpus, 'cspans' should not be selected for evaluation
+        on the intra, inter and root subsets until I find out how to restrict
+        RSTTrees along DataPack.selected().
+    adjust_pack: function from DataPack to DataPack, optional
+        Function that modifies a DataPack, for example by picking out a
+        subset of the pairings.
 
-    :param adjust_pack: (optional) function that modifies a DataPack, for
-                        example by picking out a subset of the pairings.
-    :type adjust_pack: (DataPack -> DataPack) or None
-
-    skip_cspans : boolean, optional
-        If True, do not perform constituency tree evaluation
-        This should currently be set to True on intra, inter and root
-        sub-evaluations, until I find out how to restrict RSTTrees along
-        DataPack.selected().
 
     Returns
     -------
-    rpack : ReportPack
+    rpack: ReportPack
         Group of reports on a set of folds and configurations.
+
+    TODO
+    ----
+    * [ ] refactor ReportPack so that it contains reports only for the
+      metrics selected by the harness
     """
     if not mpack:
         raise ValueError("Can't report with empty multipack")
@@ -279,53 +286,65 @@ def full_report(mpack, fold_dict, slices,
         predictions = adjust_predictions(fpack, slc.predictions)
         dpredictions = [adjust_predictions(dpack, slc.predictions)
                         for dpack in dpacks]
-        edge_count[key].append(score_edges(fpack, predictions))
-        # WIP
-        if not skip_cspans:
+        # apply selected metrics
+        # * on (dependency) edges
+        if 'edges' in metrics:
+            edge_count[key].append(score_edges(fpack, predictions))
+        # * on constituency tree spans
+        if 'cspans' in metrics:
             sc_cspans = score_cspans(dpacks, dpredictions)
-        else:
-            sc_cspans = (CSpanCount(tpos=0,
-                                    tpos_fpos=0,
-                                    tpos_fneg=0),
-                         CSpanCount(tpos=0,
-                                    tpos_fpos=0,
-                                    tpos_fneg=0),
-                         CSpanCount(tpos=0,
-                                    tpos_fpos=0,
-                                    tpos_fneg=0),
-                         CSpanCount(tpos=0,
-                                    tpos_fpos=0,
-                                    tpos_fneg=0))  # TMP
-        cspan_count[key].append(sc_cspans)
-        # end WIP
-        edu_reports[key].add(score_edus(fpack, predictions))
+            cspan_count[key].append(sc_cspans)
+        # * on EDUs
+        if 'edus' in metrics:
+            edu_reports[key].add(score_edus(fpack, predictions))
+        # * (confusion matrix)
         confusion[key] += build_confusion_matrix(fpack, predictions)
+
         if slc.enable_details:
-            details = score_edges_by_label(fpack, predictions)
-            for label, lab_count in details:
-                edge_lab_count[key][label].append(lab_count)
+            # * on edges, by label
+            if 'edges_by_label' in metrics:
+                details = score_edges_by_label(fpack, predictions)
+                for label, lab_count in details:
+                    edge_lab_count[key][label].append(lab_count)
 
-    edge_report = CombinedReport(EdgeReport,
-                                 {k: EdgeReport(v)
-                                  for k, v in edge_count.items()})
-    # WIP
-    cspan_report = CombinedReport(CSpanReport,
-                                  {k: CSpanReport(v)
-                                   for k, v in cspan_count.items()})
-    # end WIP
+    # build combined reports
+    # * on edges
+    if 'edges' in metrics:
+        edge_report = CombinedReport(EdgeReport,
+                                     {k: EdgeReport(v)
+                                      for k, v in edge_count.items()})
+    else:
+        edge_report = None
 
-    # combine
-    edge_by_label_report = {}
-    for key, counts in edge_lab_count.items():
-        report = CombinedReport(LabelReport,
-                                {(label,): LabelReport(vs)
-                                 for label, vs in counts.items()})
-        edge_by_label_report[key] = report
+    # * on cspans
+    if 'cspans' in metrics:
+        cspan_report = CombinedReport(CSpanReport,
+                                      {k: CSpanReport(v)
+                                       for k, v in cspan_count.items()})
+    else:
+        cspan_report = None
+
+    # * on EDUs
+    if 'edus' in metrics:
+        edu_report = CombinedReport(EduReport, edu_reports)
+    else:
+        edu_report = None
+
+    # * on edges, by label
+    if 'edges_by_label' in metrics:
+        edge_by_label_report = {}
+        for key, counts in edge_lab_count.items():
+            report = CombinedReport(LabelReport,
+                                    {(label,): LabelReport(vs)
+                                     for label, vs in counts.items()})
+            edge_by_label_report[key] = report
+    else:
+        edge_by_label_report = None
 
     return ReportPack(edge=edge_report,
-                      cspan=cspan_report,  # WIP
-                      edge_by_label=edge_by_label_report or None,
-                      edu=CombinedReport(EduReport, edu_reports),
+                      cspan=cspan_report,
+                      edge_by_label=edge_by_label_report,
+                      edu=edu_report,
                       confusion=confusion,
                       confusion_labels=dpack0.labels,
                       num_edges=sum(num_edges.values()))
@@ -489,10 +508,12 @@ def _mk_report(hconf, dconf, slices, fold, test_data=False):
     # actually scoring that fold. Hoop-jumping induced by the fact
     # that we are now generating multiple reports on the same slices
     slices_ = itr.tee(slices, 4)
-    rpack = full_report(dconf.pack, dconf.folds, slices_[0])
+    rpack = full_report(dconf.pack, dconf.folds, slices_[0], hconf.metrics)
     rdir = hconf.report_dir_path(test_data, fold)
     rpack.dump(rdir, header='whole')
 
+    # TMP exclude cspan eval for subsets of edges
+    subeval_metrics = [x for x in hconf.metrics if x != 'cspans']
     partitions = [(1, 'intra', lambda d: d.selected(idxes_intra(d))),
                   (2, 'inter', lambda d: d.selected(idxes_inter(d))),
                   (3, 'froot', lambda d: d.selected(idxes_fakeroot(d)))]
@@ -500,8 +521,8 @@ def _mk_report(hconf, dconf, slices, fold, test_data=False):
         # TMP skip cspan eval as we don't know how to properly restrict
         # an RSTTree to a forest that matches a given sublist of pairings
         rpack = full_report(dconf.pack, dconf.folds, slices_[i],
-                            adjust_pack=adjust_pack,
-                            skip_cspans=True)
+                            subeval_metrics,
+                            adjust_pack=adjust_pack)
         rpack.append(rdir, header=header)
     # FIXME what we really want is the set of (learner, data_selection)
     # with data_selection: all pairings for global parsers ; all intra
