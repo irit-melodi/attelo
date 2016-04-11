@@ -8,11 +8,26 @@ from numpy import (zeros)
 
 
 def relabel(src_labels, src_weights, tgt_labels):
-    """
-    Rearrange the columns of a weight matrix to correspond to
+    """Rearrange the columns of a weight matrix to correspond to
     the new target label layout.
 
-    Target labels must be a superset of the source labels
+    Target labels must be a superset of the source labels.
+
+    Parameters
+    ----------
+    src_labels : iterable of int
+        List of source labels
+
+    src_weights : 2D matrix of float
+        Scores for each pairing and each possible label
+
+    tgt_labels : iterable of int
+        List of target labels
+
+    Returns
+    -------
+    tgt_weights : 2D matrix of float
+        Projection of src_weights with reordered columns
     """
     missing = [x for x in src_labels if x not in tgt_labels]
     if missing:

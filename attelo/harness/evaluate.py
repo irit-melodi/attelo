@@ -133,7 +133,7 @@ def _create_tstamped_dir(prefix, suffix):
 
 def prepare_dirs(runcfg, data_dir):
     """
-    Return eval and scatch directory paths
+    Return eval and scratch directory paths
     """
     eval_prefix = fp.join(data_dir, "eval")
     scratch_prefix = fp.join(data_dir, "scratch")
@@ -225,15 +225,18 @@ def _load_harness_multipack(hconf, test_data=False):
     """
     stripped_paths = hconf.mpack_paths(test_data, stripped=True)
     if (hconf.runcfg.stage in [ClusterStage.end, ClusterStage.start] and
-            fp.exists(stripped_paths[2])):
+        fp.exists(stripped_paths[2])):
         paths = stripped_paths
     else:
         paths = hconf.mpack_paths(test_data, stripped=False)
-    return load_multipack(paths[0],
-                          paths[1],
-                          paths[2],
-                          paths[3],
-                          verbose=True)
+    mpack = load_multipack(paths[0],
+                           paths[1],
+                           paths[2],
+                           paths[3],
+                           corpus_path=(paths[4] if len(paths) == 5
+                                        else None),  # WIP
+                           verbose=True)
+    return mpack
 
 
 def _init_corpus(hconf):

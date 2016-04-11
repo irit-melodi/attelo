@@ -67,6 +67,35 @@ def _parse_group(dpack, parser, output_path):
     write_predictions_output(dpack, prediction, output_path)
 
 
+def jobs(mpack, parser, output_path):
+    """Get a list of delayed decoding jobs for the documents in this group.
+
+    Parameters
+    ----------
+    mpack : DataPack
+        TODO
+    parser : TODO
+        TODO
+    output_path : string
+        Output path
+
+    Returns
+    -------
+    res : list of delayed calls produced by joblib.delayed
+    """
+    # * clean temp files
+    tmpfiles = [_tmp_output_filename(output_path, d)
+                for d in mpack.keys()]
+    for tmpfile in tmpfiles:
+        if fp.exists(tmpfile):
+            os.remove(tmpfile)
+    # * generate delayed decoding jobs
+    res = [delayed(_parse_group)(dpack, parser,
+                                 _tmp_output_filename(output_path, onedoc))
+           for onedoc, dpack in mpack.items()]
+    return res
+
+
 def learn(hconf, econf, dconf, fold):
     """
     Run the learners for the given configuration
@@ -80,7 +109,7 @@ def learn(hconf, econf, dconf, fold):
 
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
-    cache = hconf.model_paths(econf.learner, fold)
+    cache = hconf.model_paths(econf.learner, fold, econf.parser)
     print('learning ', econf.key, '...', file=sys.stderr)
     dpacks = subpacks.values()
     targets = [d.target for d in dpacks]
@@ -107,19 +136,7 @@ def delayed_decode(hconf, dconf, econf, fold):
 
     parser = econf.parser.payload
 
-    # create list of delayed decoding jobs for the various documents in
-    # this group (subpack)
-    # * clean temp files
-    tmpfiles = [_tmp_output_filename(output_path, d)
-                for d in subpack.keys()]
-    for tmpfile in tmpfiles:
-        if fp.exists(tmpfile):
-            os.remove(tmpfile)
-    # * generate delayed decoding jobs
-    res = [delayed(_parse_group)(dpack, parser,
-                                 _tmp_output_filename(output_path, onedoc))
-           for onedoc, dpack in subpack.items()]
-
+    res = jobs(subpack, parser, output_path)
     return res
 
 

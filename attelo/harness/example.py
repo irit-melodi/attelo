@@ -104,7 +104,7 @@ class TinyHarness(Harness):
                                task=mtype,
                                ext=ext)
 
-    def model_paths(self, rconf, fold):
+    def model_paths(self, rconf, fold, parser):
         if fold is None:
             parent_dir = self.combined_dir_path()
         else:

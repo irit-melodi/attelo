@@ -6,7 +6,7 @@ Oracles: return probabilities and values directly from gold data
 # License: CeCILL-B (French BSD3)
 
 # pylint: disable=no-name-in-module
-from numpy import (vectorize as np_vectorize)
+import numpy as np
 # pylint: enable=no-name-in-module
 
 from scipy.sparse import dok_matrix
@@ -18,25 +18,45 @@ from .interface import (AttachClassifier,
 
 
 class AttachOracle(AttachClassifier):
-    '''
-    A faux attachment classifier that returns "probabilities"
-    1.0 for gold attached links and 0.0 for gold unattached
+    """A faux attachment classifier that returns "probabilities"
+    1.0 for gold attached links and 0.0 for gold unattached.
 
     Naturally, this would only do something useful if the
-    test datapack comes with gold predictions
-    '''
+    test datapack comes with gold predictions.
+    """
     def __init__(self):
         super(AttachOracle, self).__init__()
         self.can_predict_proba = True
 
-    def fit(self, dpacks, targets):
+    def fit(self, dpacks, targets, nonfixed_pairs=None):
         return self
 
-    # FIXME should be predict_proba(self, dpacks)
-    def predict_score(self, dpack):
-        # nb: this isn't actually faster with vectorize
-        to_prob = lambda x: 1.0 if x == 1.0 else 0.0
-        return np_vectorize(to_prob)(dpack.target)
+    def predict_score(self, dpack, nonfixed_pairs=None):
+        """Predict 1.0 for gold attachments, 0.0 otherwise.
+
+        Notes
+        -----
+        This assumes that gold attachments are coded as 1 ; this assumption
+        is currently baked in `attelo.table.for_attachment`.
+
+        TODO
+        ----
+        [ ] rename and refactor to predict_proba(self, dpacks)
+        """
+        if nonfixed_pairs is not None:
+            y_true = dpack.target[nonfixed_pairs]
+        else:
+            y_true = dpack.target
+
+        score_true = np.where(y_true == 1, 1.0, 0.0)
+
+        if nonfixed_pairs is not None:
+            res = np.copy(dpack.graph.attach)
+            res[nonfixed_pairs] = score_true
+        else:
+            res = score_true
+
+        return res
 
 
 class LabelOracle(LabelClassifier):
@@ -55,17 +75,46 @@ class LabelOracle(LabelClassifier):
         super(LabelOracle, self).__init__()
         self.can_predict_proba = True
 
-    def fit(self, dpacks, targets):
+    def fit(self, dpacks, targets, nonfixed_pairs=None):
         return self
 
-    # FIXME should be predict_proba(self, dpacks)
-    def predict_score(self, dpack):
+    def predict_score(self, dpack, nonfixed_pairs=None):
+        """Predict 1.0 for the gold label of edges.
+
+        Non-gold edges are attributed "unknown" for their gold label.
+
+        Parameters
+        ----------
+        dpack : DataPack
+            Datapack for which we want labelling scores.
+
+        Returns
+        -------
+        scores : 2D dense array of float
+            Scores for each pairing and each label.
+
+        TODO
+        ----
+        [ ] rename and refactor to predict_proba(self, dpacks)
+        """
         weights = dok_matrix((len(dpack), len(dpack.labels)))
         lbl_unrelated = dpack.label_number(UNRELATED)
         lbl_unk = dpack.label_number(UNKNOWN)
-        for i, lbl in enumerate(dpack.target):
-            if lbl == lbl_unrelated:
-                weights[i, lbl_unk] = 1.0
-            else:
-                weights[i, lbl] = 1.0
+
+        if nonfixed_pairs is not None:
+            for i, lbl in enumerate(dpack.target):
+                if i in nonfixed_pairs:
+                    if lbl == lbl_unrelated:
+                        weights[i, lbl_unk] = 1.0
+                    else:
+                        weights[i, lbl] = 1.0
+                else:
+                    weights[i, :] = dpack.graph.label[i]
+        else:
+            for i, lbl in enumerate(dpack.target):
+                if lbl == lbl_unrelated:
+                    weights[i, lbl_unk] = 1.0
+                else:
+                    weights[i, lbl] = 1.0
+
         return weights.todense()

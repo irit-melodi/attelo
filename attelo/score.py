@@ -3,32 +3,25 @@ Scoring decoding results
 '''
 
 from collections import (defaultdict, namedtuple)
+import itertools
 
-import numpy
+import numpy as np
 from sklearn.metrics import confusion_matrix
+
+# WIP
+from educe.rst_dt.annotation import _binarize
+from educe.rst_dt.corpus import RstRelationConverter, RELMAP_112_18_FILE
+# end WIP
 
 from .table import (UNRELATED,
                     attached_only,
                     get_label_string)
+from .metrics.classification_structured import precision_recall_fscore_support
+from .metrics.constituency import LBL_FNS
+from .metrics.util import get_oracle_ctrees, get_spans, oracle_ctree_spans
+
 
 # pylint: disable=too-few-public-methods
-
-
-class CountPair(namedtuple('CountPair',
-                           ['undirected',
-                            'directed'])):
-    """
-    Number of correct edges etc, both ignoring and taking
-    directionality into account
-    """
-    @classmethod
-    def sum(cls, counts):
-        """
-        Count made of the total of all counts
-        """
-        counts = list(counts)  # accept iterable
-        return cls(Count.sum(x.undirected for x in counts),
-                   Count.sum(x.directed for x in counts))
 
 
 class Count(namedtuple('Count',
@@ -37,7 +30,7 @@ class Count(namedtuple('Count',
                         'tpos_fpos',
                         'tpos_fneg'])):
     """
-    Things we would count during the scoring process
+    Things we would count on dep edges during the scoring process
     """
     @classmethod
     def sum(cls, counts):
@@ -49,6 +42,26 @@ class Count(namedtuple('Count',
                    sum(x.tpos_label for x in counts),
                    sum(x.tpos_fpos for x in counts),
                    sum(x.tpos_fneg for x in counts))
+
+
+# WIP
+class CSpanCount(namedtuple('CSpanCount',
+                            ['tpos',
+                             'tpos_fpos',
+                             'tpos_fneg'])):
+    """
+    Things we would count on cspans during the scoring process
+    """
+    @classmethod
+    def sum(cls, counts):
+        """
+        Count made of the total of all counts
+        """
+        counts = list(counts)  # accept iterable
+        return cls(sum(x.tpos for x in counts),
+                   sum(x.tpos_fpos for x in counts),
+                   sum(x.tpos_fneg for x in counts))
+# end WIP
 
 
 class EduCount(namedtuple('EduCount',
@@ -90,11 +103,26 @@ def select_in_pack(dpack, predictions):
 
 
 def score_edges(dpack, predictions):
-    """Count correctly predicted edges and labels
+    """Count correctly predicted directed and undirected edges and labels.
+
     Note that undirected label counts are undefined and
     hardcoded to 0
 
-    :rtype: :py:class:`attelo.report.CountPair`
+    Parameters
+    ----------
+    dpack : DataPack
+        Datapack containing ground truth edges.
+
+    predictions: list of (string, string, string)
+        Predicted edges: (edu1_id, edu2_id, label)
+
+    Returns
+    -------
+    undirected : attelo.report.Count
+        Count for undirected edges.
+
+    directed : attelo.report.Count
+        Count for directed edges.
     """
     att_pack, _ = attached_only(dpack, dpack.target)
     dict_predicted = {(arg1, arg2): rel for arg1, arg2, rel in predictions
@@ -113,8 +141,7 @@ def score_edges(dpack, predictions):
     # directed
     tpos_attach = 0
     tpos_label = 0
-    for edu_pair, ref_label in zip(att_pack.pairings, att_pack.target):
-        edu1, edu2 = edu_pair
+    for (edu1, edu2), ref_label in zip(att_pack.pairings, att_pack.target):
         pred_label = dict_predicted.get((edu1.id, edu2.id))
         if pred_label is not None:
             tpos_attach += 1
@@ -125,8 +152,111 @@ def score_edges(dpack, predictions):
                      tpos_fpos=len(dict_predicted.keys()),
                      tpos_fneg=len(att_pack.pairings))
 
-    return CountPair(undirected=undirected,
-                     directed=directed)
+    return undirected, directed
+
+
+def score_cspans(dpacks, dpredictions, coarse_rels=True, binary_trees=True,
+                 oracle_ctree_gold=False):
+    """Count correctly predicted spans.
+
+    Parameters
+    ----------
+    dpacks : list of DataPack
+        A DataPack per document
+
+    dpredictions : list of ?
+        Prediction for each document
+
+    coarse_rels : boolean, optional
+        If True, convert relation labels to their coarse-grained version.
+
+    binary_trees : boolean, optional
+        If True, convert (gold) constituency trees to their binary version.
+
+    oracle_ctree_gold : boolean, optional
+        If True, use oracle gold constituency trees, rebuilt from the
+        gold dependency tree. This should emulate the evaluation in (Li 2014).
+
+    Returns
+    -------
+    cnt_s : Count
+        Count S
+
+    cnt_sn : Count
+        Count S+N
+
+    cnt_sr : Count
+        Count S+R
+
+    cnt_snr : Count
+        Count S+N+R
+    """
+    # trim down DataPacks
+    att_packs = [attached_only(dpack, dpack.target)[0]
+                 for dpack in dpacks]
+
+    # ctree_gold: oracle (from dependency version) vs true gold
+    if oracle_ctree_gold:
+        edges_golds = [[(edu1.id, edu2.id, att_pack.get_label(rel))
+                        for (edu1, edu2), rel
+                        in zip(att_pack.pairings, att_pack.target)
+                        if att_pack.get_label(rel) != UNRELATED]
+                       for att_pack in att_packs]
+        ctree_golds = [get_oracle_ctrees(edges_gold, att_pack.edus)
+                       for edges_gold, att_pack
+                       in zip(edges_golds, att_packs)]
+    else:
+        ctree_golds = [dpack.ctarget.values() for dpack in dpacks]
+    # WIP coarse-grained rels and binary
+    # these probably don't belong here because they leak educe stuff in
+    rel_conv = RstRelationConverter(RELMAP_112_18_FILE).convert_tree
+    binarize_tree = _binarize
+    if coarse_rels:
+        ctree_golds = [[rel_conv(ctg) for ctg in ctree_gold]
+                       for ctree_gold in ctree_golds]
+    if binary_trees:
+        ctree_golds = [[binarize_tree(ctg) for ctg in ctree_gold]
+                       for ctree_gold in ctree_golds]
+    # end WIP
+    # spans of the gold constituency trees
+    ctree_spans_golds = [list(itertools.chain.from_iterable(
+        get_spans(ctg) for ctg in ctree_gold))
+                         for ctree_gold in ctree_golds]
+    # spans of the predicted oracle constituency trees
+    edges_preds = [[(edu1, edu2, rel)
+                    for edu1, edu2, rel in predictions
+                    if rel != UNRELATED]
+                   for predictions in dpredictions]
+    ctree_spans_preds = [oracle_ctree_spans(edges_pred, att_pack.edus)
+                         for edges_pred, att_pack
+                         in zip(edges_preds, att_packs)]
+
+    # FIXME replace loop with attelo.metrics.constituency.XXX
+    cnts = []
+    for metric_type, lbl_fn in LBL_FNS:
+        y_true = [[(span[0], lbl_fn(span)) for span in ctree_spans]
+                  for ctree_spans in ctree_spans_golds]
+        y_pred = [[(span[0], lbl_fn(span)) for span in ctree_spans]
+                  for ctree_spans in ctree_spans_preds]
+        # WIP
+        print('{}\t'.format(metric_type) +
+              '\t'.join(str(x) for x in
+                        precision_recall_fscore_support(y_true, y_pred,
+                                                        labels=None,
+                                                        average='micro')))
+        # end WIP
+        # FIXME replace with calls to attelo.metrics.classification_structured.
+        # precision_recall_fscore_support(y_true, y_pred, labels=None,
+        # average='micro')
+        y_tpos = sum(len(set(yt) & set(yp))
+                     for yt, yp in zip(y_true, y_pred))
+        y_tpos_fpos = sum(len(yp) for yp in y_pred)
+        y_tpos_fneg = sum(len(yt) for yt in y_true)
+        cnts.append(CSpanCount(tpos=y_tpos,
+                               tpos_fpos=y_tpos_fpos,
+                               tpos_fneg=y_tpos_fneg))
+
+    return cnts[0], cnts[1], cnts[2], cnts[3]
 
 
 def score_edus(dpack, predictions):
@@ -153,10 +283,9 @@ def score_edus(dpack, predictions):
 
     e_reference = defaultdict(list)
     unrelated = dpack.label_number(UNRELATED)
-    for edu_pair, ref_label in zip(dpack.pairings, dpack.target):
+    for (parent, edu), ref_label in zip(dpack.pairings, dpack.target):
         if ref_label == unrelated:
             continue
-        parent, edu = edu_pair
         e_reference[edu.id].append((parent.id, int(ref_label)))
 
     correct_attach = 0
@@ -192,7 +321,7 @@ def score_edges_by_label(dpack, predictions):
             continue
         label_num = dpack.label_number(label)
         # pylint: disable=no-member
-        r_indices = numpy.where(dpack.target == label_num)[0]
+        r_indices = np.where(dpack.target == label_num)[0]
         # pylint: disable=no-member
         r_dpack = dpack.selected(r_indices)
         r_predictions = [(e1, e2, r) for (e1, e2, r) in predictions
@@ -207,7 +336,7 @@ def build_confusion_matrix(dpack, predictions):
     # we want the confusion matrices to have the same shape regardless
     # of what labels happen to be used in the particular fold
     # pylint: disable=no-member
-    labels = numpy.arange(0, len(dpack.labels))
+    labels = np.arange(0, len(dpack.labels))
     # pylint: enable=no-member
     return confusion_matrix(dpack.target, pred_target, labels)
 
@@ -218,7 +347,7 @@ def empty_confusion_matrix(dpack):
     """
     llen = len(dpack.labels)
     # pylint: disable=no-member
-    return numpy.zeros((llen, llen), dtype=numpy.int32)
+    return np.zeros((llen, llen), dtype=np.int32)
     # pylint: disable=no-member
 
 

@@ -16,28 +16,11 @@ from ..edu import FAKE_ROOT_ID
 from ..util import ArgparserEnum
 from .interface import Decoder
 from .util import (DecoderException,
+                   cap_score,
                    convert_prediction,
                    simple_candidates)
 
 # pylint: disable=too-few-public-methods
-
-# see _cap_score
-MAX_SCORE = 1e90
-MIN_SCORE = -MAX_SCORE
-
-
-def _cap_score(score):
-    '''
-    the depparse package's MST implementation uses a hardcoded minimum score of
-    `-1e100`.
-    Feeding it lower weights crashes the algorithm
-    We set minimum and maximum scores to avoid this
-    Unless we have more than 1e10 nodes, combined scores can't reach the limit
-
-    :type score: float
-    :rtype: float
-    '''
-    return min(MAX_SCORE, max(MIN_SCORE, score))
 
 
 def _leftmost_edu(edus):
@@ -127,7 +110,7 @@ class MstDecoder(Decoder):
                 continue
 
             if self._use_prob:
-                scores[src, tgt] = _cap_score(logit(prob))
+                scores[src, tgt] = cap_score(logit(prob))
             else:
                 scores[src, tgt] = prob
             labels[src, tgt] = rel
@@ -137,7 +120,8 @@ class MstDecoder(Decoder):
                        lambda s, t: scores[s, t],
                        lambda s, t: labels[s, t])
 
-    def decode(self, dpack):
+    def decode(self, dpack, nonfixed_pairs=None):
+        # TODO integrate nonfixed_pairs, maybe?
         graph = self._graph(simple_candidates(dpack))
         subgraph = graph.mst()
         predictions = [(src, tgt, subgraph.get_label(src, tgt))
@@ -148,7 +132,8 @@ class MstDecoder(Decoder):
 class MsdagDecoder(MstDecoder):
     """ Attach according to MSDAG (subgraph of original)"""
 
-    def decode(self, dpack):
+    def decode(self, dpack, nonfixed_pairs=None):
+        # TODO integrate nonfixed_pairs, maybe?
         graph = self._graph(simple_candidates(dpack))
         subgraph = _msdag(graph)
         predictions = [(src, tgt, subgraph.get_label(src, tgt))

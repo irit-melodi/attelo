@@ -204,7 +204,7 @@ class Harness(with_metaclass(ABCMeta, object)):
         return NotImplementedError
 
     @abstractmethod
-    def model_paths(self, rconf, fold):
+    def model_paths(self, rconf, fold, parser):
         """Return attelo model paths in dictionary form
 
         Parameters

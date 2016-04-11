@@ -8,7 +8,8 @@ import joblib
 import numpy as np
 
 from .interface import Parser
-from attelo.table import UNKNOWN, attached_only, for_labelling
+from attelo.table import (UNKNOWN, attached_only, for_labelling,
+                          idxes_attached)
 
 
 class LabelClassifierWrapper(Parser):
@@ -34,7 +35,7 @@ class LabelClassifierWrapper(Parser):
         """
         self._learner = learner
 
-    def fit(self, dpacks, targets, cache=None):
+    def fit(self, dpacks, targets, nonfixed_pairs=None, cache=None):
         """
         Extract whatever models or other information from the multipack
         that is necessary to make the labeller operational
@@ -53,18 +54,30 @@ class LabelClassifierWrapper(Parser):
             return self
 
         # filter and modify data: keep only attached
+        if nonfixed_pairs is not None:
+            attached_pairs = [idxes_attached(dpack, target)
+                              for dpack, target in zip(dpacks, targets)]
+            # find the indices of the attached pairs that are in
+            # nonfixed_pairs
+            att_nf_pairs = [np.in1d(att_pairs, nf_pairs)
+                            for att_pairs, nf_pairs
+                            in zip(attached_pairs, nonfixed_pairs)]
+            nonfixed_pairs = [np.where(anf_pairs)[0]
+                              for anf_pairs in att_nf_pairs]
+
         dpacks, targets = self.dzip(attached_only, dpacks, targets)
         dpacks, targets = self.dzip(for_labelling, dpacks, targets)
-        self._learner.fit(dpacks, targets)
+        self._learner.fit(dpacks, targets, nonfixed_pairs=nonfixed_pairs)
         # save classifier, if necessary
         if cache_file is not None:
             # print('\tsave {}'.format(cache_file))
             joblib.dump(self._learner, cache_file)
         return self
 
-    def transform(self, dpack):
+    def transform(self, dpack, nonfixed_pairs=None):
         dpack, _ = for_labelling(dpack, dpack.target)
-        weights_l = self._learner.predict_score(dpack)
+        weights_l = self._learner.predict_score(
+            dpack, nonfixed_pairs=nonfixed_pairs)
         dpack = self.multiply(dpack, label=weights_l)
         return dpack
 
@@ -83,8 +96,9 @@ class SimpleLabeller(LabelClassifierWrapper):
 
     label: label model path
     """
-    def transform(self, dpack):
-        dpack = super(SimpleLabeller, self).transform(dpack)
+    def transform(self, dpack, nonfixed_pairs=None):
+        dpack = super(SimpleLabeller, self).transform(
+            dpack, nonfixed_pairs=nonfixed_pairs)
         new_best_lbls = np.argmax(dpack.graph.label, axis=1)
         unk_lbl = dpack.label_number(UNKNOWN)
         prediction_ = (new if old == unk_lbl else old
