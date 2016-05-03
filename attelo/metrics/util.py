@@ -67,7 +67,13 @@ def get_oracle_ctrees(dep_edges, att_edus,
         # map global id of EDU to num of EDU inside doc
         gid2num[att_edu.id] = edu_num
         # map EDU to sentence
-        sent_idx = int(att_edu.subgrouping.split('_sent')[1])
+        try:
+            sent_idx = int(att_edu.subgrouping.split('_sent')[1])
+        except IndexError:
+            # this EDU could not be attached to any sentence (ex: missing
+            # text in the PTB), so a default subgrouping identifier was used ;
+            # we aim for consistency with educe and map these to "None"
+            sent_idx = None
         edu2sent_idx[doc_name][edu_num] = sent_idx
     # check that our info covers only one document
     assert len(educe_edus) == 1
