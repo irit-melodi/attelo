@@ -30,18 +30,21 @@ from attelo.table import UNKNOWN
 def get_oracle_ctrees(dep_edges, att_edus,
                       nuc_strategy="unamb_else_most_frequent",
                       rank_strategy="closest-intra-rl-inter-rl",
-                      prioritize_same_unit=True):
-    """Build oracle constituency trees from a dependency tree.
+                      prioritize_same_unit=True,
+                      strict=False):
+    """Build the oracle constituency tree(s) for a dependency tree.
 
     Parameters
     ----------
-    dep_edges : dict(string, [(string, string, string)])
+    dep_edges: dict(string, [(string, string, string)])
         Edges for each document, indexed by doc name
         Cf. type of return value from
         irit-rst-dt/ctree.py:load_attelo_output_file()
-
-    att_edus : cf return type of attelo.io.load_edus
+    att_edus: cf return type of attelo.io.load_edus
         EDUs as they are known to attelo
+    strict: boolean, True by default
+        If True, any link from ROOT to an EDU that is neither 'ROOT' nor
+        UNRELATED raises an exception, otherwise a warning is issued.
 
     Returns
     -------
@@ -67,7 +70,13 @@ def get_oracle_ctrees(dep_edges, att_edus,
         # map global id of EDU to num of EDU inside doc
         gid2num[att_edu.id] = edu_num
         # map EDU to sentence
-        sent_idx = int(att_edu.subgrouping.split('_sent')[1])
+        try:
+            sent_idx = int(att_edu.subgrouping.split('_sent')[1])
+        except IndexError:
+            # this EDU could not be attached to any sentence (ex: missing
+            # text in the PTB), so a default subgrouping identifier was used ;
+            # we aim for consistency with educe and map these to "None"
+            sent_idx = None
         edu2sent_idx[doc_name][edu_num] = sent_idx
     # check that our info covers only one document
     assert len(educe_edus) == 1
@@ -93,10 +102,14 @@ def get_oracle_ctrees(dep_edges, att_edus,
     dtree = RstDepTree(educe_edus)
     for src_id, tgt_id, lbl in dep_edges:
         if src_id == 'ROOT':
-            if lbl == 'ROOT' or lbl == UNKNOWN:
-                dtree.set_root(gid2num[tgt_id])
-            else:
-                raise ValueError('Weird root label: {}'.format(lbl))
+            if lbl not in ['ROOT', UNKNOWN]:
+                err_msg = 'weird root label: {} {} {}'.format(
+                    src_id, tgt_id, lbl)
+                if strict:
+                    raise ValueError(err_msg)
+                else:
+                    print('W: {}, using ROOT instead'.format(err_msg))
+            dtree.set_root(gid2num[tgt_id])
         else:
             dtree.add_dependency(gid2num[src_id], gid2num[tgt_id], lbl)
     # add nuclearity: heuristic baseline
@@ -151,19 +164,12 @@ def oracle_ctree_spans(dep_edges, att_edus):
 
     Parameters
     ----------
-    att_edus : cf return type of attelo.io.load_edus
-        EDUs as they are known to attelo
-
     dep_edges : dict(string, [(string, string, string)])
-        Edges for each document, indexed by doc name
-        Cf. type of return value from
-        irit-rst-dt/ctree.py:load_attelo_output_file()
-
+        Edges for each document, indexed by doc name (cf. return type of
+        return value from
+        irit-rst-dt/ctree.py:load_attelo_output_file()).
     att_edus: list of attelo EDUs
-        List of attelo EDUs
-
-    dtree: RstDepTree
-        Dtree for which we want the spans of the oracle ctree.
+        List of attelo EDUs (cf. return type of attelo.io.load_edus).
 
     Returns
     -------
