@@ -702,14 +702,17 @@ def _sort_table(rows):
 
 
 def show_discriminating_features(listing):
-    """
+    """Build a table of discriminating features per label.
+
     Given a list of discriminating features for each label,
     return a string containing a hopefully friendly 2D table
-    visualisation
+    visualisation.
 
-    :param feats: a list of (label, features) pair; the features
-                  are themselves a list of (feature, weight) pairs
-    :type feats: [ (string, [(string, float)]) ]
+    Parameters
+    ----------
+    listing: list of (string, list of (string, float))
+        List of (label, features) pairs; the features are themselves a
+        list of (feature, weight) pairs.
     """
     rows = [[label] + concat_l(feats) for
             label, feats in listing]
