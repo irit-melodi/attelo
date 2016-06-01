@@ -336,9 +336,9 @@ def build_confusion_matrix(dpack, predictions):
     # FIXME avoid this costly operation: make sure that dpack.pairings
     # and dpack.target keep the same ordering as in the .pairings file ;
     # we need to find where this ordering is lost
-    tgt_dict_true = {(src.id, tgt.id): lbl for (src, tgt), lbl
+    lbl_dict_true = {(src.id, tgt.id): lbl for (src, tgt), lbl
                      in zip(dpack.pairings, dpack.target)}
-    target_true = [tgt_dict_true[(src, tgt)] for src, tgt, _ in predictions]
+    target_true = [lbl_dict_true[(src, tgt)] for src, tgt, _ in predictions]
     target_pred = [dpack.label_number(label) for _, _, label in predictions]
     # we want the confusion matrices to have the same shape regardless
     # of what labels happen to be used in the particular fold
