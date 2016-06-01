@@ -5,13 +5,11 @@ Experiment results
 from __future__ import print_function
 from collections import namedtuple
 import itertools
-import six
 import sys
 
 from tabulate import tabulate
 
 from .score import (Count, CSpanCount, EduCount)
-from .util import (concat_l)
 
 # pylint: disable=too-few-public-methods
 
@@ -257,10 +255,9 @@ class Multiscore(object):
         we can manage it
         """
         scores = self.score.for_json()
-        _f1 = lambda x: x.f1
-        scores["standard_error"] = self.standard_error(_f1)
+        scores["standard_error"] = self.standard_error(lambda x: x.f1)
         if self._check_can_compute_confidence():
-            mean, (int0, _) = self.confidence_interval(_f1)
+            mean, (int0, _) = self.confidence_interval(lambda x: x.f1)
             scores["confidence_mean"] = mean
             scores["confidence_interval"] = mean - int0
         return scores
@@ -268,9 +265,8 @@ class Multiscore(object):
     def summary(self):
         "One line summary string"
 
-        _f1 = lambda x: x.f1
         if self._check_can_compute_confidence():
-            mean, (int0, _) = self.confidence_interval(_f1)
+            mean, (int0, _) = self.confidence_interval(lambda x: x.f1)
         else:
             mean, int0 = (0, 0)
 
@@ -280,7 +276,7 @@ class Multiscore(object):
                        self.score.recall))
         output.append("F1=%1.3f +/- %1.3f (%1.3f +- %1.3f)" %
                       (self.score.f1,
-                       self.standard_error(_f1),
+                       self.standard_error(lambda x: x.f1),
                        mean,
                        mean - int0))
         if self.score.f1_corr is not None:
@@ -627,11 +623,9 @@ def show_confusion_matrix(labels, matrix, main_header=None):
     longest_label = max(labels, key=len)
     len_longest = len(longest_label)
     rlabels = [x.rjust(len_longest, ' ') + '-' for x in labels]
-    # pylint: disable=star-args
     # fake vertical headers by making them rows
     headers = [[''] + list(row)
                for row in itertools.izip_longest(*rlabels, fillvalue='')]
-    # pylint: enable=star-args
     body = []
     for rnum, (label, row) in enumerate(zip(labels, matrix.tolist())):
         body.append([label] + _mk_confusion_row(rnum, row))
@@ -641,66 +635,10 @@ def show_confusion_matrix(labels, matrix, main_header=None):
     else:
         return table
 
+
 # ---------------------------------------------------------------------
 # discriminating features
 # ---------------------------------------------------------------------
-
-
-def _condense_cell(old, new):
-    """
-    Maximise readability of the new cell given that it's sitting
-    below the old one in a 2D table
-    """
-    if isinstance(new, six.string_types):
-        is_eqish = lambda (x, y): x == y and '=' not in [x, y]
-        zipped = list(itertools.izip_longest(old, new))
-        prefix = itertools.takewhile(is_eqish, zipped)
-        suffix = itertools.dropwhile(is_eqish, zipped)
-        return ''.join(['.' for _ in prefix] +
-                       [n if n is not None else '' for _, n in suffix])
-    else:
-        return '{:.2f}'.format(new)
-
-
-def _condense_table(rows):
-    """
-    Make a table more readable by replacing identical columns in
-    subsequent rows by "
-    """
-    if not rows:
-        return rows
-    results = []
-    current_row = ['' for _ in rows[0]]
-    for row in rows:
-        new_row = [row[0]]
-        new_row.extend(_condense_cell(old, new)
-                       for old, new in zip(current_row[1:], row[1:]))
-        results.append(new_row)
-        current_row = row
-    return results
-
-
-def _sort_table(rows):
-    """
-    Return rows in the following order
-
-    * UNRELATED always comes first
-    * otherwise, sort by the names of top N features
-
-    The hope is that this would visually group together the same
-    features so you can see a natural separation
-    """
-    label_value = {'UNRELATED': -2}
-
-    def ordering_key(row):
-        "tweaked version of list of sorting"
-        label = label_value.get(row[0], 0)
-        rest = row[1::2]
-        return (label, rest)
-
-    return sorted(rows, key=ordering_key)
-
-
 def show_discriminating_features(listing):
     """Build a table of discriminating features per label.
 
