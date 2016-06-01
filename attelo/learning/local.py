@@ -33,7 +33,7 @@ class SklearnClassifier(object):
         best: [(int, float)]
             index within the input weight array, and score
         """
-        best_idxes = np.argsort(np.absolute(weights))[-top_n:][::-1]
+        best_idxes = np.argsort(weights)[-top_n:][::-1]
         best_weights = np.take(weights, best_idxes)
         return zip(best_idxes, best_weights)
 
