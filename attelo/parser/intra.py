@@ -45,7 +45,6 @@ class IntraInterPair(namedtuple("IntraInterPair",
         return IntraInterPair(intra=fun(self.intra),
                               inter=fun(self.inter))
 
-
 def for_intra(dpack, target):
     """Adapt a datapack to intrasentential decoding.
 
@@ -63,23 +62,26 @@ def for_intra(dpack, target):
     target : array(int)
 
     """
+    # map EDUs to subgroup ids ; intra = pairs of EDUs with same subgroup id
+    grp = {e.id: e.subgrouping for e in dpack.edus}
     # find all edus that have intra incoming edges (to rule out)
     unrelated = dpack.label_number(UNRELATED)
     intra_tgts = defaultdict(set)
     for i, (edu1, edu2) in enumerate(dpack.pairings):
-        if ((edu1.subgrouping == edu2.subgrouping and
-             target[i] != unrelated)):
-            intra_tgts[edu2.subgrouping].add(edu2.id)
+        if (grp[edu1.id] == grp[edu2.id]
+            and target[i] != unrelated):
+            # edu2 has an incoming relation => not an (intra) root
+            intra_tgts[grp[edu2.id]].add(edu2.id)
     # pick out the (fakeroot, edu) pairs where edu does not have
     # incoming intra edges
     all_heads = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
-                 if (edu1.id == FAKE_ROOT_ID and
-                     edu2.id not in intra_tgts[edu2.subgrouping])]
+                 if (edu1.id == FAKE_ROOT_ID
+                     and edu2.id not in intra_tgts[grp[edu2.id]])]
     # NEW pick out the original inter-sentential links, for removal
     inter_links = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
-                   if (edu1.id != FAKE_ROOT_ID and
-                       edu1.subgrouping != edu2.subgrouping and
-                       target[i] != unrelated)]
+                   if (edu1.id != FAKE_ROOT_ID
+                       and grp[edu1.id] != grp[edu2.id]
+                       and target[i] != unrelated)]
 
     # update datapack and target accordingly
     new_target = np.copy(dpack.target)
