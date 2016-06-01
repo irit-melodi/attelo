@@ -714,6 +714,8 @@ def show_discriminating_features(listing):
         List of (label, features) pairs; the features are themselves a
         list of (feature, weight) pairs.
     """
-    rows = [[label] + concat_l(feats) for
-            label, feats in listing]
-    return tabulate(_condense_table(_sort_table(rows)))
+    rows = []
+    for label, feats in listing:
+        rows.append([label] + list(feats[0]))
+        rows.extend([''] + list(x) for x in feats[1:])
+    return tabulate(rows)
