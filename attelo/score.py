@@ -332,13 +332,20 @@ def score_edges_by_label(dpack, predictions):
 def build_confusion_matrix(dpack, predictions):
     """return a confusion matrix show predictions vs desired labels
     """
-    pred_target = [dpack.label_number(label) for _, _, label in predictions]
+    # first, we need to align target_true and target_pred
+    # FIXME avoid this costly operation: make sure that dpack.pairings
+    # and dpack.target keep the same ordering as in the .pairings file ;
+    # we need to find where this ordering is lost
+    lbl_dict_true = {(src.id, tgt.id): lbl for (src, tgt), lbl
+                     in zip(dpack.pairings, dpack.target)}
+    target_true = [lbl_dict_true[(src, tgt)] for src, tgt, _ in predictions]
+    target_pred = [dpack.label_number(label) for _, _, label in predictions]
     # we want the confusion matrices to have the same shape regardless
     # of what labels happen to be used in the particular fold
     # pylint: disable=no-member
     labels = np.arange(0, len(dpack.labels))
     # pylint: enable=no-member
-    return confusion_matrix(dpack.target, pred_target, labels)
+    return confusion_matrix(target_true, target_pred, labels)
 
 
 def empty_confusion_matrix(dpack):
