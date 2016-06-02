@@ -394,7 +394,10 @@ class StructuredPerceptron(Perceptron):
             loss = 0.0
             inst_ct = 0
             for dpack_idx, dpack in enumerate(datapacks):
-                nf_pairs = nonfixed_pairs[dpack_idx]
+                if nonfixed_pairs is not None:
+                    nf_pairs = nonfixed_pairs[dpack_idx]
+                else:
+                    nf_pairs = None
                 # extract data and target
                 X = dpack.data  # each row is EDU pair
                 Y = dpack.target  # each row is {-1,+1}
@@ -414,7 +417,8 @@ class StructuredPerceptron(Perceptron):
                 pred_tree = self._classify(dpack, X, self.weights)
                 # structured, cost sensitive loss
                 loss_py = self.update(pred_tree, ref_tree, X, fv_index_map,
-                                      dpack.edus)
+                                      dpack.edus,
+                                      nonfixed_pairs=nf_pairs)
                 # from the tree loss, recover the absolute number of errors
                 loss += loss_py
             # progress in this iteration
