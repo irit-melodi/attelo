@@ -377,10 +377,41 @@ class StructuredPerceptron(Perceptron):
         self.learn(datapacks, nonfixed_pairs=nonfixed_pairs)
         return self
 
-    def predict_score(self, dpack):
-        return self.decision_function(dpack.data)
+    def predict_score(self, dpack, nonfixed_pairs=None):
+        """Get prediction scores.
+
+        Currently returns attachment scores.
+
+        Parameters
+        ----------
+        dpack: TODO
+            TODO
+        nonfixed_pairs: TODO
+            TODO
+
+        Returns
+        -------
+        scores: array of floats
+            Predicted attachment score for each pairing of the DataPack ;
+            if nonfixed_pairs is not None, the scores of fixed pairings
+            are preserved.
+        """
+        num_items = len(dpack)
+        if nonfixed_pairs is None:
+            nonfixed_pairs = np.arange(num_items)
+        if dpack.graph is None:
+            scores = np.zeros(num_items)
+        else:
+            scores = np.copy(dpack.graph.attach)
+        # compute decision scores for nonfixed pairs, using the model
+        scores[nonfixed_pairs] = self.decision_function(
+            dpack.data[nonfixed_pairs])
+        return scores
 
     def learn(self, datapacks, nonfixed_pairs=None):
+        if nonfixed_pairs is None:
+            nonfixed_pairs = [None for dpack in datapacks]
+
         verbose = self.verbose
         if verbose > 1:
             print("-"*100, file=sys.stderr)
@@ -394,10 +425,8 @@ class StructuredPerceptron(Perceptron):
             loss = 0.0
             inst_ct = 0
             for dpack_idx, dpack in enumerate(datapacks):
-                if nonfixed_pairs is not None:
-                    nf_pairs = nonfixed_pairs[dpack_idx]
-                else:
-                    nf_pairs = None
+                # nonfixed pairs for this dpack ; can be None
+                nf_pairs = nonfixed_pairs[dpack_idx]
                 # extract data and target
                 X = dpack.data  # each row is EDU pair
                 Y = dpack.target  # each row is {-1,+1}
@@ -414,7 +443,8 @@ class StructuredPerceptron(Perceptron):
                     sys.stderr.write("%s" % ("\b" * len(str(inst_ct)) +
                                              str(inst_ct)))
                 # predict tree based on current weight vector
-                pred_tree = self._classify(dpack, X, self.weights)
+                pred_tree = self._classify(dpack, X, self.weights,
+                                           nonfixed_pairs=nf_pairs)
                 # structured, cost sensitive loss
                 loss_py = self.update(pred_tree, ref_tree, X, fv_index_map,
                                       dpack.edus,
@@ -499,18 +529,34 @@ class StructuredPerceptron(Perceptron):
 
         return loss_py
 
-    def _classify(self, dpack, X, W):
+    def _classify(self, dpack, X, W, nonfixed_pairs=None):
         """ return predicted tree """
         num_items = len(dpack)
-        # compute attachment scores for all EDU pairs
-        scores = X.dot(W.T)  # TODO: should this be self.decision_function?
-        scores = scores.reshape(num_items)  # lose 2nd dim (shape[1] == 1)
+        if nonfixed_pairs is None:
+            nonfixed_pairs = np.arange(num_items)
+
+        if dpack.graph is None:
+            scores = np.zeros(num_items)
+            label = np.zeros((num_items, len(dpack.labels)))
+            prediction = np.empty(num_items)
+        else:
+            scores = np.copy(dpack.graph.attach)
+            label = np.copy(dpack.graph.label)
+            prediction = np.copy(dpack.graph.prediction)
+
+        # compute attachment scores of all EDU pairs
+        # TODO should this be self.decision_function?
+        # we need to reshape, to lose 2nd dim (shape[1] == 1) of dot product
+        scores[nonfixed_pairs] = (X[nonfixed_pairs].dot(W.T)
+                                  .reshape(len(nonfixed_pairs)))
         # dummy labelling scores and predictions (for unlabelled parsing)
         unk = dpack.label_number(UNKNOWN)
-        label = np.zeros((num_items, len(dpack.labels)))
-        label[:, unk] = 1.0
-        prediction = np.empty(num_items)
-        prediction[:] = unk
+        # for every pair, set the best label to UNK
+        # * score(lbl) = 1.0 if lbl == UNK, 0.0 otherwise
+        label[nonfixed_pairs] = 0.0
+        label[nonfixed_pairs, unk] = 1.0
+        # * predicted label = UNK (will be overwritten by the decoder)
+        prediction[nonfixed_pairs] = unk
         dpack = dpack.set_graph(Graph(prediction=prediction,
                                       attach=scores,
                                       label=label))
