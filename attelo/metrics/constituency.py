@@ -161,6 +161,7 @@ def parseval_detailed_report(ctree_true, ctree_pred,
                              metric_type='S+R',
                              labels=None,
                              average=None,
+                             sort_by_support=True,
                              digits=4):
     """Build a text report showing the PARSEVAL discourse metrics.
 
@@ -239,8 +240,12 @@ def parseval_detailed_report(ctree_true, ctree_pred,
     p, r, f1, s = precision_recall_fscore_support(y_true, y_pred,
                                                   labels=labels,
                                                   average=average)
+    sorted_ilbls = enumerate(labels)
+    if sort_by_support:
+        sorted_ilbls = sorted(sorted_ilbls, key=lambda x: s[x[0]],
+                              reverse=True)
     # one line per label
-    for i, label in enumerate(labels):
+    for i, label in sorted_ilbls:
         values = [label]
         for v in (p[i], r[i], f1[i]):
             values += ["{0:0.{1}f}".format(v, digits)]
