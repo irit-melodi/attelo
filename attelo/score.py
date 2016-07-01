@@ -2,6 +2,8 @@
 Scoring decoding results
 '''
 
+from __future__ import print_function
+
 from collections import (defaultdict, namedtuple)
 import itertools
 
@@ -13,11 +15,8 @@ from educe.rst_dt.annotation import _binarize
 from educe.rst_dt.corpus import RstRelationConverter, RELMAP_112_18_FILE
 # end WIP
 
-from .table import (UNRELATED,
-                    attached_only,
-                    get_label_string)
-from .metrics.classification_structured import precision_recall_fscore_support
-from .metrics.constituency import LBL_FNS
+from .table import UNRELATED, attached_only, get_label_string
+from .metrics.constituency import LBL_FNS, parseval_report
 from .metrics.util import get_oracle_ctrees, get_spans, oracle_ctree_spans
 
 
@@ -231,6 +230,14 @@ def score_cspans(dpacks, dpredictions, coarse_rels=True, binary_trees=True,
                          for edges_pred, att_pack
                          in zip(edges_preds, att_packs)]
 
+    # WIP 2016-07-01 FIX this
+    ctree_true = ctree_golds  # yerk
+    ctree_pred = [get_oracle_ctrees(edges_pred, att_pack.edus)
+                  for edges_pred, att_pack
+                  in zip(edges_preds, att_packs)]
+    print(parseval_report(ctree_true, ctree_pred))
+    # end WIP 2016-07-01 FIX this
+
     # FIXME replace loop with attelo.metrics.constituency.XXX
     cnts = []
     for metric_type, lbl_fn in LBL_FNS:
@@ -238,16 +245,7 @@ def score_cspans(dpacks, dpredictions, coarse_rels=True, binary_trees=True,
                   for ctree_spans in ctree_spans_golds]
         y_pred = [[(span[0], lbl_fn(span)) for span in ctree_spans]
                   for ctree_spans in ctree_spans_preds]
-        # WIP
-        print('{}\t'.format(metric_type) +
-              '\t'.join(str(x) for x in
-                        precision_recall_fscore_support(y_true, y_pred,
-                                                        labels=None,
-                                                        average='micro')))
-        # end WIP
-        # FIXME replace with calls to attelo.metrics.classification_structured.
-        # precision_recall_fscore_support(y_true, y_pred, labels=None,
-        # average='micro')
+
         y_tpos = sum(len(set(yt) & set(yp))
                      for yt, yp in zip(y_true, y_pred))
         y_tpos_fpos = sum(len(yp) for yp in y_pred)

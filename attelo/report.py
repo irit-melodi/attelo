@@ -589,7 +589,7 @@ class CombinedReport(object):
                 for k in keys]
         return tabulate(rows,
                         headers=headers,
-                        floatfmt=".3f")
+                        floatfmt=".4f")
 
     def for_json(self):
         """

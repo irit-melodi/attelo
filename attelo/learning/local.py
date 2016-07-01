@@ -14,9 +14,9 @@ from .util import (relabel)
 
 
 class SklearnClassifier(object):
-    '''
-    An scikit classifier used for any purpose
-    '''
+    """
+    An sklearn classifier used for any purpose
+    """
     def __init__(self, learner):
         self._learner = learner
         pfunc = getattr(learner, "predict_proba", None)
@@ -82,19 +82,23 @@ class SklearnClassifier(object):
 
 
 class SklearnAttachClassifier(AttachClassifier, SklearnClassifier):
-    '''
-    A relatively simple way to get an attachment classifier:
-    just pass in a scikit classifier
-    '''
+    """A relatively simple way to get an attachment classifier:
+    just pass in an sklearn classifier.
 
-    def __init__(self, learner):
-        """
-        learner: scikit-compatible classifier
-            Use the given learner for label prediction.
-        """
+    Parameters
+    ----------
+    learner: sklearn API-compatible classifier
+        The learner to use for label prediction.
+
+    pos_label: str or int, 1 by default
+        The class that codes an attachment decision.
+    """
+
+    def __init__(self, learner, pos_label=1):
         AttachClassifier.__init__(self)
         SklearnClassifier.__init__(self, learner)
         self._fitted = False
+        self.pos_label = pos_label
 
     def fit(self, dpacks, targets, nonfixed_pairs=None):
         # WIP select only the nonfixed pairs
@@ -121,7 +125,7 @@ class SklearnAttachClassifier(AttachClassifier, SklearnClassifier):
             dpack_filtd = dpack
 
         if self.can_predict_proba:
-            attach_idx = list(self._learner.classes_).index(1)
+            attach_idx = list(self._learner.classes_).index(self.pos_label)
             probs = self._learner.predict_proba(dpack_filtd.data)
             scores_pred = probs[:, attach_idx]
         else:
@@ -180,8 +184,6 @@ class SklearnLabelClassifier(LabelClassifier, SklearnClassifier):
 
         if self._labels is None:
             raise ValueError('No labels associated with this classifier')
-
-        dpack, _ = for_labelling(dpack, dpack.target)
 
         # WIP don't pass the fixed pairs to the classifier
         if nonfixed_pairs is not None:
