@@ -233,8 +233,16 @@ def _load_harness_multipack(hconf, test_data=False):
                            paths[1],
                            paths[2],
                            paths[3],
-                           corpus_path=(paths[4] if len(paths) == 5
-                                        else None),  # WIP
+                           # WIP additional files, used only for rst-dt
+                           # as of 2016-07-28
+                           cdu_file=(paths[4] if len(paths) > 4 else None),
+                           cdu_pairings_file=(paths[5] if len(paths) > 4
+                                              else None),
+                           cdu_feature_file=(paths[6] if len(paths) > 4
+                                             else None),
+                           corpus_path=(paths[7] if len(paths) > 4
+                                        else None),
+                           # end WIP
                            verbose=True)
     return mpack
 
@@ -242,7 +250,15 @@ def _load_harness_multipack(hconf, test_data=False):
 def _init_corpus(hconf):
     """Start evaluation; generate folds if needed
 
-    :rtype: DataConfig or None
+    Parameters
+    ----------
+    hconf: ??
+        TODO
+
+    Returns
+    -------
+    dconf: DataConfig or None
+        Data configuration
     """
     can_skip_folds = fp.exists(hconf.fold_file)
     msg_skip_folds = ('Skipping generation of fold files '

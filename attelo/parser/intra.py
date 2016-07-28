@@ -11,7 +11,7 @@ from abc import ABCMeta, abstractmethod
 from six import with_metaclass
 import numpy as np
 
-from attelo.edu import (FAKE_ROOT_ID)
+from attelo.edu import (FAKE_ROOT_ID, edu_id2num)
 from attelo.table import (DataPack,
                           Graph,
                           UNRELATED,
@@ -668,15 +668,6 @@ class HeadToHeadParser(IntraInterParser):
                 print('Hallucinated inter edges: {}'.format(sorted(set(inter_edges_pred) - set(inter_edges_true))))
 
         return dpack
-
-
-# small helper for the FrontierToHeadParser
-def edu_id2num(edu_id):
-    """Get the number of an EDU"""
-    edu_num = (int(edu_id.rsplit('_', 1)[1])
-               if edu_id != FAKE_ROOT_ID
-               else 0)
-    return edu_num
 
 
 class FrontierToHeadParser(IntraInterParser):

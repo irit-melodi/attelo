@@ -16,6 +16,7 @@ from sklearn.datasets import load_svmlight_file
 
 import educe  # WIP
 
+from .cdu import CDU
 from .edu import (EDU, FAKE_ROOT_ID, FAKE_ROOT)
 from .table import (DataPack, DataPackException,
                     UNKNOWN, UNRELATED,
@@ -143,6 +144,26 @@ def load_edus(edu_file):
         return [read_edu(r) for r in reader if r]
 
 
+def load_cdus(cdu_file):
+    """Load the description of CDUs.
+
+    As of 2016-07-28, this is WIP.
+
+    Parameters
+    ----------
+    cdu_file: pathname
+        Path to a file that describes CDUs. Each line provides the
+        identifier of the CDU, then the list of its member DUs.
+
+    Returns
+    -------
+    
+    """
+    with open(cdu_file, 'rb') as instream:
+        reader = csv.reader(instream, dialect=csv.excel_tab)
+        return [CDU(x[0], tuple(x[1:])) for x in reader if x]
+
+
 def load_pairings(edu_file):
     """
     Read and return EDU pairings (see :doc:`../input`).
@@ -212,7 +233,47 @@ def _process_edu_links(edus, pairings):
     return edus2, pairings2
 
 
+def _process_cdu_links(cdus, edus, pairings):
+    """Convert from the results of `load_cdus` and `load_pairings` to a
+    sequence of CDUs and pairings respectively.
+
+    Parameters
+    ----------
+    cdus: list of CDU
+        CDUs
+    edus: list of EDU
+        EDUs
+    pairings: list of pairs of string
+        List of pairings from/to CDUs
+
+    Returns
+    -------
+    cdus: list of CDU
+        CDUs
+    pairings: list of pairs of (EDU or CDU, EDU or CDU)
+        List of pairs of DUs
+    """
+    du_map = {e.id: e for e in edus}
+    du_map.update({x.id: x for x in cdus})
+
+    du_names = frozenset(chain.from_iterable(pairings))
+
+    naughty = [x for x in du_names if x not in du_map]
+    if naughty:
+        oops = ('The pairings file mentions the following DUs but the EDU '
+                'and CDU files do not actually include DUs to go with them:'
+                ' {}')
+        raise DataPackException(oops.format(truncate(', '.join(naughty),
+                                                     1000)))
+    pairings = [(du_map[src], du_map[tgt]) for src, tgt in pairings]
+
+    return cdus, pairings
+    
+
+
 def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
+                   cdu_file=None, cdu_pairings_file=None,
+                   cdu_feature_file=None,
                    corpus_path=None,  # WIP
                    verbose=False):
     """Read EDUs and features for edu pairs.
@@ -247,6 +308,31 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
                                            n_features=len(vocab))
         # pylint: enable=unbalanced-tuple-unpacking
 
+    # WIP
+    if (cdu_file is not None
+        and cdu_pairings_file is not None
+        and cdu_feature_file is not None):
+        # augment DataPack with CDUs and pairings from/to them
+        with Torpor("Reading CDUs and pairings", quiet=not verbose):
+            cdus, cdu_pairings = _process_cdu_links(
+                load_cdus(cdu_file),
+                edus,
+                load_pairings(cdu_pairings_file))
+
+        with Torpor("Reading features", quiet=not verbose):
+            # CDU files use the same label set as the EDU files ; this is
+            # not really enforced, but it is implemented this way in
+            # irit_rst_dt.cmd.gather
+            # pylint: disable=unbalanced-tuple-unpacking
+            cdu_data, cdu_targets = load_svmlight_file(
+                cdu_feature_file, n_features=len(vocab))
+            # pylint: enable=unbalanced-tuple-unpacking
+    else:
+        cdus = None
+        cdu_pairings = None
+        cdu_data = None
+        cdu_targets = None
+
     # WIP augment DataPack with the gold structure for each grouping
     if corpus_path is None:
         ctargets = {}
@@ -263,6 +349,7 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
 
     with Torpor("Build data packs", quiet=not verbose):
         dpack = DataPack.load(edus, pairings, data, targets, ctargets,
+                              cdus, cdu_pairings, cdu_data, cdu_targets,
                               labels, vocab)
 
     mpack = {grp_name: dpack.selected(idxs)

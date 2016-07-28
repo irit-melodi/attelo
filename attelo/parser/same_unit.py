@@ -8,6 +8,7 @@ from os import path as fp
 import joblib
 import numpy as np
 
+from attelo.edu import edu_id2num
 from attelo.table import UNKNOWN, DataPack
 from attelo.learning.interface import AttachClassifier
 from attelo.learning.local import SklearnClassifier
@@ -28,11 +29,10 @@ def for_attachment_same_unit(dpack, target):
     label.
 
     This could involve:
-    * selecting some of the features (all for now, but may
-    change in the future)
-    * modifying the features/labels in some way:
-    we currently binarise labels to {-1 ; 1} for UNRELATED and
-    not-UNRELATED respectively.
+    * selecting some of the features (all for now, but may change in the
+    future)
+    * modifying the features/labels in some way: we currently binarise
+    labels to {-1 ; 1} for UNRELATED and not-UNRELATED respectively.
 
     Parameters
     ----------
@@ -62,6 +62,26 @@ def for_attachment_same_unit(dpack, target):
     return dpack, target
 
 
+def right_intra_idc(dpack):
+    """Get the indices of right-attachment, intra-sentential pairings.
+
+    Parameters
+    ----------
+    dpack: DataPack
+        Datapack
+
+    Returns
+    -------
+    right_intra_idc: array of integers
+        Indices of right, intra-sentential candidates in dpack.pairings.
+    """
+    edu_id2sent = {e.id: e.subgrouping for e in dpack.edus}
+    right_intra_idc = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
+                       if (edu_id2sent[edu1.id] == edu_id2sent[edu2.id]
+                           and edu_id2num(edu1.id) < edu_id2num(edu2.id))]
+    return right_intra_idc
+
+
 class SklearnSameUnitClassifier(AttachClassifier, SklearnClassifier):
     """A relatively simple way to get a "same-unit" classifier:
     just pass in an sklearn classifier.
@@ -82,13 +102,25 @@ class SklearnSameUnitClassifier(AttachClassifier, SklearnClassifier):
         self.pos_label = pos_label
 
     def fit(self, dpacks, targets, nonfixed_pairs=None):
-        # WIP select only the nonfixed pairs
+        # WIP filter: pass only nonfixed, right-attachment, intra-sentential
+        # pairs to the classifier
+        ri_pairs = [right_intra_idc(x) for x in dpacks]
         if nonfixed_pairs is not None:
-            dpacks = [dpack.selected(nf_pairs)
-                      for dpack, nf_pairs in zip(dpacks, nonfixed_pairs)]
-            targets = [target[nf_pairs]
-                       for target, nf_pairs in zip(targets, nonfixed_pairs)]
+            nf_pairs = [list(np.intersect1d(rip, nfp)) for rip, nfp
+                        in zip(ri_pairs, nonfixed_pairs)]
+        else:
+            nf_pairs = ri_pairs
 
+        if not any(nf_pairs):
+            # no instance left
+            self._fitted = True
+            return self
+
+        dpacks = [dpack.selected(nfp) for dpack, nfp
+                  in zip(dpacks, nf_pairs)]
+        targets = [target[nfp] for target, nfp
+                   in zip(targets, nf_pairs)]
+        # end filter
         dpack = DataPack.vstack(dpacks)
         target = np.concatenate(targets)
         self._learner.fit(dpack.data, target)
@@ -132,11 +164,26 @@ class SklearnSameUnitClassifier(AttachClassifier, SklearnClassifier):
         if not self._fitted:
             raise ValueError('Fit not yet called')
 
-        # WIP pass only nonfixed pairs to the classifier
+        # return values: we'll update these copies
+        scores_att = np.copy(dpack.graph.attach)
+        scores_lbl = np.copy(dpack.graph.label)
+
+        # WIP filter: pass only nonfixed, right-attachment, intra-sentential
+        # pairs to the classifier
+        ri_pairs = right_intra_idc(dpack)
         if nonfixed_pairs is not None:
-            dpack_filtd = dpack.selected(nonfixed_pairs)
+            nf_pairs = list(np.intersect1d(ri_pairs, nonfixed_pairs))
         else:
-            dpack_filtd = dpack
+            nf_pairs = ri_pairs
+
+        if not nf_pairs:
+            # no prediction to make (ex: doc with 2 EDUs, 1 sentence each):
+            # return (copies of) the original scores
+            print('no prediction where ', dpack.edus[1].id)
+            return scores_att, scores_lbl
+
+        dpack_filtd = dpack.selected(nf_pairs)
+        # end filter
 
         # positive_mask is an array of booleans: True if the
         # corresponding pair has been predicted as "same-unit",
@@ -152,17 +199,15 @@ class SklearnSameUnitClassifier(AttachClassifier, SklearnClassifier):
 
         # get the absolute indices of pairs for which same-unit has been
         # predicted
-        if nonfixed_pairs is not None:
-            su_pred = np.array(nonfixed_pairs)[positive_mask]
-        else:
-            su_pred = np.where(positive_mask)[0]
+        su_pred = np.array(nf_pairs)[positive_mask]
         # DEBUG
-        print('Predicted same-unit in', dpack.edus[1].id.split('.')[0])
-        for su_score_pred, pair in zip(
-                scores_pred[positive_mask],
-                [dpack.pairings[i] for i in su_pred]):
-            print('{:.2f}'.format(su_score_pred), pair[0])
-            print('    ', pair[1])
+        if False:
+            print('Predicted same-unit in', dpack.edus[1].id.split('.')[0])
+            for su_score_pred, pair in zip(
+                    scores_pred[positive_mask],
+                    [dpack.pairings[i] for i in su_pred]):
+                print('{:.2f}'.format(su_score_pred), pair[0])
+                print('    ', pair[1])
         # end DEBUG
 
         # update the lines of predicted "same-unit" in the matrices of
@@ -171,10 +216,8 @@ class SklearnSameUnitClassifier(AttachClassifier, SklearnClassifier):
         # "same-unit",
         # * label: set the score for "same-unit" to the predicted score,
         # set the scores for other labels to 0.
-        scores_att = np.copy(dpack.graph.attach)
         scores_att[su_pred] = scores_pred[positive_mask]
         #
-        scores_lbl = np.copy(dpack.graph.label)
         update_lbl = np.zeros(scores_lbl[su_pred].shape, dtype=float)
         su_idx = dpack.label_number(SAME_UNIT)
         update_lbl[:, su_idx] = scores_pred[positive_mask]
@@ -267,6 +310,55 @@ class SameUnitClassifierWrapper(Parser):
                                   label=scores_lbl)
         dpack = dpack.set_graph(graph)
         return dpack
+
+
+class SameUnitJointPipeline(Pipeline):
+    """Same-unit preprocessor then JointPipeline.
+
+    Predicted "same-unit" are used to generate new instances.
+    The prediction score from the same-unit preprocessor are used to
+    overwrite the corresponding attachment and labelling scores in the
+    arrays of attachment and labelling scores, before the product of
+    scores is computed.
+
+    Parameters
+    ----------
+    learner_su: SameUnitClassifier
+
+    learner_attach: AttachClassifier
+
+    learner_label: LabelClassifier
+
+    decoder: Decoder
+
+    Notes
+    -----
+    *Cache keys*
+
+    * attach: attach model path
+    * label: label model path
+    * su: same-unit model path
+    """
+    def __init__(self, learner_su, learner_attach, learner_label, decoder):
+        if not learner_attach.can_predict_proba:
+            raise ValueError('Attachment model does not know how to predict '
+                             'probabilities.')
+        if not learner_label.can_predict_proba:
+            raise ValueError('Relation labelling model does not '
+                             'know how to predict probabilities')
+        if not learner_su.can_predict_proba:
+            raise ValueError('Same-Unit model does not '
+                             'know how to predict probabilities')
+
+        steps = [
+            ('same-unit weights', SameUnitClassifierWrapper(learner_su)),
+            #
+            ('attach weights', AttachClassifierWrapper(learner_attach)),
+            ('label weights', LabelClassifierWrapper(learner_label)),
+            ('attach x best label', AttachTimesBestLabel()),
+            ('decoder', decoder)
+        ]
+        super(JointSameUnitPipeline, self).__init__(steps=steps)
 
 
 class JointSameUnitPipeline(Pipeline):
