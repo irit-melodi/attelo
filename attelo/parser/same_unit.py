@@ -54,7 +54,14 @@ def for_attachment_same_unit(dpack, target):
                      pairings=dpack.pairings,
                      data=dpack.data,
                      target=np.where(dpack.target == su_idx, 1, -1),
-                     ctarget=dpack.ctarget,  # WIP
+                     # WIP
+                     ctarget=dpack.ctarget,  # old WIP
+                     # 2016-07-28 CDUs
+                     cdus=dpack.cdus,
+                     cdu_pairings=dpack.cdu_pairings,
+                     cdu_data=dpack.cdu_data,
+                     cdu_target=dpack.cdu_target,
+                     # end WIP
                      labels=[UNKNOWN, SAME_UNIT],
                      vocab=dpack.vocab,
                      graph=dpack.graph)

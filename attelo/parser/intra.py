@@ -82,6 +82,29 @@ def for_intra(dpack, target):
                    if (edu1.id != FAKE_ROOT_ID
                        and grp[edu1.id] != grp[edu2.id]
                        and target[i] != unrelated)]
+    # 2016-07-29 CDUs
+    all_heads_cdu = []
+    for i, (du1, du2) in enumerate(dpack.cdu_pairings):
+        tgt = (du2.members[0] if isinstance(du2, CDU) else du2)
+        if (du1.id == FAKE_ROOT_ID
+            and tgt.id not in intra_tgts[grp[tgt.id]]):
+            # leftmost member of du2 is an intra root =>
+            # keep (ROOT, leftmost member of du2)
+            all_heads_cdu.append(i)
+    inter_links_cdu = []
+    for i, (du1, du2) in enumerate(dpack.cdu_pairings):
+        src = (du1.members[0] if isinstance(du1, CDU) else du1)
+        tgt = (du2.members[0] if isinstance(du2, CDU) else du2)
+        if (src.id != FAKE_ROOT_ID
+            and grp[src.id] != grp[tgt.id]
+            and cdu_target[i] != unrelated):
+            # inter link should be removed
+            inter_links_cdu.append(i)
+    new_cdu_target = np.copy(dpack.cdu_target)
+    new_cdu_target[all_heads_cdu] = dpack.label_number('ROOT')
+    new_cdu_target[inter_links_cdu] = unrelated
+    # end CDUs
+
 
     # update datapack and target accordingly
     new_target = np.copy(dpack.target)
@@ -98,6 +121,12 @@ def for_intra(dpack, target):
                      data=dpack.data,
                      target=new_target,
                      ctarget=new_ctarget,
+                     # 2016-07-28 WIP CDUs
+                     cdus=dpack.cdus,
+                     cdu_pairings=dpack.cdu_pairings,
+                     cdu_data=dpack.cdu_data,
+                     cdu_target=new_cdu_target,
+                     # end WIP CDUs
                      labels=dpack.labels,
                      vocab=dpack.vocab,
                      graph=dpack.graph)

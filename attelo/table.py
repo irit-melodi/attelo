@@ -402,6 +402,12 @@ class DataPack(namedtuple('DataPack',
                         data=self.data,
                         target=self.target,
                         ctarget=self.ctarget,
+                        # 2016-07-29 WIP CDUs
+                        cdus=self.cdus,
+                        cdu_pairings=self.cdu_pairings,
+                        cdu_data=self.cdu_data,
+                        cdu_target=self.cdu_target,
+                        # end CDUs
                         labels=self.labels,
                         vocab=self.vocab,
                         graph=graph)
