@@ -9,7 +9,7 @@ import joblib
 import numpy as np
 
 from attelo.edu import edu_id2num
-from attelo.table import UNKNOWN, DataPack
+from attelo.table import UNKNOWN, DataPack, Graph
 from attelo.learning.interface import AttachClassifier
 from attelo.learning.local import SklearnClassifier
 from attelo.parser.attach import AttachClassifierWrapper
@@ -208,7 +208,7 @@ class SklearnSameUnitClassifier(AttachClassifier, SklearnClassifier):
         # predicted
         su_pred = np.array(nf_pairs)[positive_mask]
         # DEBUG
-        if False:
+        if True:
             print('Predicted same-unit in', dpack.edus[1].id.split('.')[0])
             for su_score_pred, pair in zip(
                     scores_pred[positive_mask],
@@ -306,7 +306,23 @@ class SameUnitClassifierWrapper(Parser):
         return self
 
     def transform(self, dpack, nonfixed_pairs=None):
-        dpack_orig = dpack
+        if dpack.graph is None:
+            # WIP initialize the datapack.graph, because
+            # SklearnSameUnitClassifier.predict_score needs it ;
+            # this init is currently done by parsers elsewhere hence
+            # this could be the right place, however weird it seems to
+            # me as of 2016-08-22 ;
+            # code copied from attelo.parser.interface.multiply
+            scores_att = np.ones(len(dpack))
+            scores_lbl = np.ones((len(dpack), len(dpack.labels)))
+            prediction = np.empty(len(dpack))
+            prediction[:] = dpack.label_number(UNKNOWN)
+            gra = Graph(prediction=prediction,
+                        attach=scores_att,
+                        label=scores_lbl)
+            dpack = dpack.set_graph(gra)
+            # end initialize datapack.graph
+
         # su_pack, _ = for_attachment_same_unit(dpack, dpack.target)
         su_pack = dpack
         # FIXME inconsistent, probably broken API
@@ -365,7 +381,7 @@ class SameUnitJointPipeline(Pipeline):
             ('attach x best label', AttachTimesBestLabel()),
             ('decoder', decoder)
         ]
-        super(JointSameUnitPipeline, self).__init__(steps=steps)
+        super(SameUnitJointPipeline, self).__init__(steps=steps)
 
 
 class JointSameUnitPipeline(Pipeline):

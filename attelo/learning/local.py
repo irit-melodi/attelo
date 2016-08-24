@@ -4,6 +4,7 @@ Local classifiers
 
 import numpy as np
 
+from attelo.cdu import CDU
 from attelo.table import (DataPack,
                           for_labelling)
 from .interface import (AttachClassifier,
@@ -123,6 +124,30 @@ class SklearnAttachClassifier(AttachClassifier, SklearnClassifier):
             dpack_filtd = dpack.selected(nonfixed_pairs)
         else:
             dpack_filtd = dpack
+        # end nonfixed_pairs
+
+        # 2016-07-29 WIP compute scores for CDUs
+        # TODO find a cleaner way to compute these scores
+        epairs_map = {(src.id, tgt.id): i for i, (src, tgt)
+                      in enumerate(dpack_filtd.pairings)}
+        # filter CDU pairs on nonfixed_pairs
+        cpairs_idc = []  # indices of selected CDU pairs
+        epairs_idc = []  # indices of corresponding EDU pairs
+        for i, (src, tgt) in enumerate(dpack_filtd.cdu_pairings):
+            esrc = src.members[0] if isinstance(src, CDU) else src.id
+            etgt = tgt.members[0] if isinstance(tgt, CDU) else tgt.id
+            if (esrc, etgt) in epairs_map:
+                cpairs_idc.append(i)
+                epairs_idc.append(epairs_map[(esrc, etgt)])
+        if cpairs_idc:  # DEBUG
+            print('woot!')
+        else:
+            print('.....')
+        if epairs_idc:  # DEBUG
+            print('gnee!')
+        else:
+            print('.....')
+        # end WIP CDUs
 
         if self.can_predict_proba:
             attach_idx = list(self._learner.classes_).index(self.pos_label)
@@ -130,6 +155,37 @@ class SklearnAttachClassifier(AttachClassifier, SklearnClassifier):
             scores_pred = probs[:, attach_idx]
         else:
             scores_pred = self._learner.decision_function(dpack_filtd.data)
+
+        # 2016-07-29 WIP CDUs: score pairs on CDUs, replace the score of
+        # the EDU pair if the score of the CDU pair is higher
+        if cpairs_idc:
+            sel_cdu_data = dpack_filtd.cdu_data[cpairs_idc]
+            if self.can_predict_proba:
+                cdu_probs = self._learner.predict_proba(sel_cdu_data)
+                cdu_scores_pred = cdu_probs[:, attach_idx]
+            else:
+                cdu_scores_pred = self._learner.decision_function(
+                    sel_cdu_data)
+            # DEBUG
+            if False:
+                epairs = [dpack_filtd.pairings[i] for i in epairs_idc]
+                epair_ids = [(src.id, tgt.id) for src, tgt in epairs]
+                print('epair scores')
+                for x, y in zip(epair_ids,
+                                [scores_pred[i] for i in epairs_idc])[:30]:
+                    print(x, y)
+                cpairs = [dpack_filtd.cdu_pairings[i] for i in cpairs_idc]
+                cpair_ids = [(src if isinstance(src, CDU) else src.id,
+                              tgt if isinstance(tgt, CDU) else tgt.id)
+                             for src, tgt in cpairs]
+                print('cpair scores')
+                for x, y in zip(cpair_ids, cdu_scores_pred)[:30]:
+                    print(x, y)
+                raise ValueError('gne')
+            # end DEBUG
+            # was: np.maximum(scores_pred[epairs_idc], cdu_scores_pred)
+            scores_pred[epairs_idc] = cdu_scores_pred
+        # end WIP CDUs
 
         # WIP overwrite only the attachment scores of non-fixed pairs
         if nonfixed_pairs is not None:
