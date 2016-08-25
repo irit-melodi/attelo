@@ -363,7 +363,7 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
     def fit(self, dpacks, targets, cache=None):
         caches = self._split_cache(cache)
 
-        # print('intra.fit')
+        # print('intra.fit')  # DEBUG
         if dpacks:
             dpacks_intra, targets_intra = self.dzip(self._for_intra_fit,
                                                     dpacks, targets)
@@ -385,7 +385,7 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
             targets_spacks.extend(target_spacks)
         self._parsers.intra.fit(dpacks_spacks, targets_spacks,
                                 cache=caches.intra)
-        # print('inter.fit')
+        # print('inter.fit')  # DEBUG
         if dpacks:
             dpacks_inter, targets_inter = self.dzip(self._for_inter_fit,
                                                     dpacks, targets)

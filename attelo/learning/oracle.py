@@ -28,10 +28,10 @@ class AttachOracle(AttachClassifier):
         super(AttachOracle, self).__init__()
         self.can_predict_proba = True
 
-    def fit(self, dpacks, targets, nonfixed_pairs=None):
+    def fit(self, dpacks, targets):
         return self
 
-    def predict_score(self, dpack, nonfixed_pairs=None):
+    def predict_score(self, dpack):
         """Predict 1.0 for gold attachments, 0.0 otherwise.
 
         Notes
@@ -43,20 +43,9 @@ class AttachOracle(AttachClassifier):
         ----
         [ ] rename and refactor to predict_proba(self, dpacks)
         """
-        if nonfixed_pairs is not None:
-            y_true = dpack.target[nonfixed_pairs]
-        else:
-            y_true = dpack.target
-
+        y_true = dpack.target
         score_true = np.where(y_true == 1, 1.0, 0.0)
-
-        if nonfixed_pairs is not None:
-            res = np.copy(dpack.graph.attach)
-            res[nonfixed_pairs] = score_true
-        else:
-            res = score_true
-
-        return res
+        return score_true
 
 
 class LabelOracle(LabelClassifier):
@@ -75,10 +64,10 @@ class LabelOracle(LabelClassifier):
         super(LabelOracle, self).__init__()
         self.can_predict_proba = True
 
-    def fit(self, dpacks, targets, nonfixed_pairs=None):
+    def fit(self, dpacks, targets):
         return self
 
-    def predict_score(self, dpack, nonfixed_pairs=None):
+    def predict_score(self, dpack):
         """Predict 1.0 for the gold label of edges.
 
         Non-gold edges are attributed "unknown" for their gold label.
@@ -98,23 +87,14 @@ class LabelOracle(LabelClassifier):
         [ ] rename and refactor to predict_proba(self, dpacks)
         """
         weights = dok_matrix((len(dpack), len(dpack.labels)))
+
+        y_true = dpack.target
+        # for each pairing, if the true label is "unrelated", set 1.0
+        # score to "unknown" instead (enables gold labelling on non-gold
+        # attachment)
         lbl_unrelated = dpack.label_number(UNRELATED)
         lbl_unk = dpack.label_number(UNKNOWN)
-
-        if nonfixed_pairs is not None:
-            for i, lbl in enumerate(dpack.target):
-                if i in nonfixed_pairs:
-                    if lbl == lbl_unrelated:
-                        weights[i, lbl_unk] = 1.0
-                    else:
-                        weights[i, lbl] = 1.0
-                else:
-                    weights[i, :] = dpack.graph.label[i]
-        else:
-            for i, lbl in enumerate(dpack.target):
-                if lbl == lbl_unrelated:
-                    weights[i, lbl_unk] = 1.0
-                else:
-                    weights[i, lbl] = 1.0
+        lbl_true = np.where(y_true != lbl_unrelated, y_true, lbl_unk)
+        weights[np.arange(len(weights)), lbl_true] = 1.0
 
         return weights.todense()
