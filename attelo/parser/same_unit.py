@@ -10,10 +10,6 @@ import joblib
 import numpy as np
 import os
 
-# WIP 2016-08-25 nary fragmented EDUs
-from educe.rst_dt.deptree import binary_to_nary
-# end nary fragmented EDUs
-
 from attelo.edu import edu_id2num
 from attelo.table import UNKNOWN, DataPack, Graph
 from attelo.learning.interface import AttachClassifier
@@ -310,21 +306,14 @@ class SameUnitClassifierWrapper(Parser):
                 frag_edu_pairs_pred = [dpack.pairings[i] for i in su_pred]
                 frag_edu_pairs_pred = [(src.id, tgt.id) for src, tgt
                                        in frag_edu_pairs_pred]
-                frag_edus_pred = binary_to_nary(
-                    'chain', frag_edu_pairs_pred)
                 with open(fpath_su_pred, 'wb') as f_out:
                     su_writer = csv.writer(f_out, dialect=csv.excel_tab)
                     for i, frag_edu_members in enumerate(
-                            frag_edus_pred, start=1):
-                        if len(frag_edu_members) > 2:
-                            print(frag_edu_members)
-                            raise ValueError('wip wip')
-
-                        doc_name = frag_edu_members[0]
+                            frag_edu_pairs_pred, start=1):
+                        doc_name = frag_edu_members[1].rsplit('_', 1)[0]
                         frag_edu_id = doc_name + '_frag' + str(i)
-                        # FIXME merge same-unit pairs that share an EDU
-                        print('should write', frag_edu_id, pair[0].id, pair[1].id)
-                        su_writer.writerow([frag_edu_id, pair[0].id, pair[1].id])
+                        su_writer.writerow(
+                            [frag_edu_id] + list(frag_edu_members))
         # end dump predicted frag EDUs
 
         # update the lines of predicted "same-unit" in the matrices of
