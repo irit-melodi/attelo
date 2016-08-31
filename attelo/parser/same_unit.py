@@ -14,6 +14,7 @@ from attelo.edu import edu_id2num
 from attelo.table import UNKNOWN, DataPack, Graph
 from attelo.learning.interface import AttachClassifier
 from attelo.learning.local import SklearnClassifier
+from attelo.learning.oracle import AttachOracle
 from attelo.parser.attach import AttachClassifierWrapper
 from attelo.parser.full import AttachTimesBestLabel
 from attelo.parser.label import LabelClassifierWrapper
@@ -91,68 +92,6 @@ def right_intra_idc(dpack):
     return res
 
 
-class SklearnSameUnitClassifier(AttachClassifier, SklearnClassifier):
-    """A relatively simple way to get a "same-unit" classifier:
-    just pass in an sklearn classifier.
-
-    Parameters
-    ----------
-    learner: sklearn API-compatible classifier
-        The learner to use for label prediction.
-
-    pos_label: str or int, 1 by default
-        The class that codes an attachment decision for "same-unit".
-
-    Notes
-    -----
-    This is almost identical to what should be the clean version of
-    SklearnAttachClassifier. When the latter is clean, this class
-    should disappear and be replaced in callers by SklearnAttachClassifier.
-    """
-
-    def __init__(self, learner, pos_label=1):
-        AttachClassifier.__init__(self)
-        SklearnClassifier.__init__(self, learner)
-        self._fitted = False
-        self.pos_label = pos_label
-
-    def fit(self, dpacks, targets):
-        dpack = DataPack.vstack(dpacks)
-        target = np.concatenate(targets)
-        if dpack.pairings:
-            # don't call fit if there is no instance ; as of 2016-08-24,
-            # this happens in an IntraInterParser, because we restrict
-            # candidate same-units to belong to the same sentence
-            self._learner.fit(dpack.data, target)
-        self._fitted = True
-        return self
-
-    def predict_score(self, dpack):
-        """Predict "same-unit" attachment score.
-
-        Parameters
-        ----------
-        dpack: DataPack
-            Original DataPack
-
-        Returns
-        -------
-        scores_pred: array of float
-            Attachment scores for "same-unit" for each pairing of dpack.
-        """
-        if not self._fitted:
-            raise ValueError('Fit not yet called')
-
-        if self.can_predict_proba:
-            attach_idx = list(self._learner.classes_).index(self.pos_label)
-            probs = self._learner.predict_proba(dpack.data)
-            scores_pred = probs[:, attach_idx]
-        else:
-            scores_pred = self._learner.decision_function(dpack.data)
-
-        return scores_pred
-
-
 class SameUnitClassifierWrapper(Parser):
     """
     Parser that extracts attachments weights from a "same-unit"
@@ -174,8 +113,8 @@ class SameUnitClassifierWrapper(Parser):
         """
         Parameters
         ----------
-        learner_su : SklearnSameUnitClassifier
-            Learner to use for "same-unit".
+        learner_su : AttachClassifier
+            Learner to use for prediction of "Same-Unit".
         """
         self._learner_su = learner_su
 
@@ -290,7 +229,10 @@ class SameUnitClassifierWrapper(Parser):
         su_pred = np.array(nf_pairs)[positive_mask]
         # WIP 2016-08-25 dump predicted frag EDUs
         if True:
-            doc_name = dpack.edus[1].id.rsplit('_', 1)[0]
+            doc_names = set(x.grouping for x in dpack.edus)
+            assert len(doc_names) == 1
+            doc_name = doc_names[0]
+            # verbose
             print('Predicted same-unit in', doc_name)
             for i, (su_score_pred, pair) in enumerate(zip(
                     scores_pred[positive_mask],
@@ -299,18 +241,30 @@ class SameUnitClassifierWrapper(Parser):
                 print('    ', pair[1])
 
             # dump
-            fpath_su_pred = doc_name + '.relations.same-unit.deps_pred'
-            # assume the first pass is on the whole doc, not a subset like
-            # sentence dpack (intra/inter)
-            if not os.path.exists(fpath_su_pred):
-                frag_edu_pairs_pred = [dpack.pairings[i] for i in su_pred]
-                frag_edu_pairs_pred = [(src.id, tgt.id) for src, tgt
-                                       in frag_edu_pairs_pred]
-                with open(fpath_su_pred, 'wb') as f_out:
+            out_dir = 'TMP_same_unit'  # FIXME
+            if not os.path.exists(out_dir):
+                os.makedirs(out_dir)
+            # avoid confusing true and predicted Same-Unit
+            if isinstance(self._learner_su, AttachOracle):
+                fn_ext = 'deps_true'
+            else:
+                fn_ext = 'deps_pred'
+
+            # FIXME this assumes the first pass is on the whole doc, not
+            # a subset like sentence dpack as in (intra/inter) ; hence
+            # this works as expected if and only if the first parser run
+            # in the harness is a "global" one
+            fpath_su = os.path.join(
+                out_dir,
+                '{}.relations.same-unit.{}'.format(doc_name, fn_ext))
+            if not os.path.exists(fpath_su):
+                frag_edu_pairs = [dpack.pairings[i] for i in su_pred]
+                frag_edu_pairs = [(src.id, tgt.id) for src, tgt
+                                  in frag_edu_pairs]
+                with open(fpath_su, 'wb') as f_out:
                     su_writer = csv.writer(f_out, dialect=csv.excel_tab)
                     for i, frag_edu_members in enumerate(
-                            frag_edu_pairs_pred, start=1):
-                        doc_name = frag_edu_members[1].rsplit('_', 1)[0]
+                            frag_edu_pairs, start=1):
                         frag_edu_id = doc_name + '_frag' + str(i)
                         su_writer.writerow(
                             [frag_edu_id] + list(frag_edu_members))

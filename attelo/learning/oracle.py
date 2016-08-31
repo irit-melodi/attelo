@@ -36,8 +36,8 @@ class AttachOracle(AttachClassifier):
 
         Notes
         -----
-        This assumes that gold attachments are coded as 1 ; this assumption
-        is currently baked in `attelo.table.for_attachment`.
+        This assumes that gold attachments are coded as 1 ; this
+        assumption is currently baked in `attelo.table.for_attachment`.
 
         TODO
         ----
