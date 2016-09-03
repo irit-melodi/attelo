@@ -224,6 +224,15 @@ class DataPack(namedtuple('DataPack',
         if not dpacks:
             raise ValueError('need non-empty list of datapacks')
         dzero = dpacks[0]
+        # CDUs
+        cdus = concat_l(d.cdus for d in dpacks)
+        cdu_pairings = concat_l(d.cdu_pairings for d in dpacks)
+        cdu_data = scipy.sparse.vstack(d.cdu_data for d in dpacks)
+        cdu_target = (np.concatenate([d.cdu_target for d in dpacks
+                                      if d.cdu_target is not None])
+                      if any(d.cdu_target is not None for d in dpacks)
+                      else None)
+        # end CDUs
         return DataPack(edus=concat_l(d.edus for d in dpacks),
                         pairings=concat_l(d.pairings for d in dpacks),
                         data=scipy.sparse.vstack(d.data for d in dpacks),
@@ -233,10 +242,12 @@ class DataPack(namedtuple('DataPack',
                                  for grp_name in
                                  set(itertools.chain.from_iterable(
                                      d.ctarget.keys() for d in dpacks))},
-                        cdus=concat_l(d.cdus for d in dpacks),
-                        cdu_pairings=concat_l(d.cdu_pairings for d in dpacks),
-                        cdu_data=scipy.sparse.vstack(d.cdu_data for d in dpacks),
-                        cdu_target=np.concatenate([d.cdu_target for d in dpacks]),
+                        # CDUs
+                        cdus=cdus,
+                        cdu_pairings=cdu_pairings,
+                        cdu_data=cdu_data,
+                        cdu_target=cdu_target,
+                        # end CDUs
                         labels=dzero.labels,
                         vocab=dzero.vocab,
                         graph=Graph.vstack(d.graph for d in dpacks))
@@ -349,7 +360,9 @@ class DataPack(namedtuple('DataPack',
             if isinstance(du2, CDU):
                 sel_cdus_.add(du2)
         sel_cdus = [x for x in self.cdus if x in sel_cdus_]
-        sel_cdu_data = self.cdu_data[sel_cdu_indices]
+        sel_cdu_data = (self.cdu_data[sel_cdu_indices]
+                        if self.cdu_data is not None
+                        else None)
         sel_cdu_targets = np.take(self.cdu_target, sel_cdu_indices)
         # end WIP CDU
         return DataPack(edus=sel_edus,

@@ -19,6 +19,7 @@ def load_args_multipack(args):
                           args.pairings,
                           args.features,
                           args.vocab,
+                          args.labels,
                           verbose=not args.quiet)
 
 

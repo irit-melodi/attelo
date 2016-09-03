@@ -229,9 +229,10 @@ class SameUnitClassifierWrapper(Parser):
         su_pred = np.array(nf_pairs)[positive_mask]
         # WIP 2016-08-25 dump predicted frag EDUs
         if True:
-            doc_names = set(x.grouping for x in dpack.edus)
+            # edus[1:] to skip the fake root, as its grouping is None
+            doc_names = set(x.grouping for x in dpack.edus[1:])
             assert len(doc_names) == 1
-            doc_name = doc_names[0]
+            doc_name = list(doc_names)[0]
             # verbose
             print('Predicted same-unit in', doc_name)
             for i, (su_score_pred, pair) in enumerate(zip(

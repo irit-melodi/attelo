@@ -102,9 +102,12 @@ def for_intra(dpack, target):
             and dpack.cdu_target[i] != unrelated):
             # inter link should be removed
             inter_links_cdu.append(i)
-    new_cdu_target = np.copy(dpack.cdu_target)
-    new_cdu_target[all_heads_cdu] = dpack.label_number('ROOT')
-    new_cdu_target[inter_links_cdu] = unrelated
+    if dpack.cdu_target is not None:
+        new_cdu_target = np.copy(dpack.cdu_target)
+        new_cdu_target[all_heads_cdu] = dpack.label_number('ROOT')
+        new_cdu_target[inter_links_cdu] = unrelated
+    else:
+        new_cdu_target = None
     # end CDUs
 
 

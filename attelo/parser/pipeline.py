@@ -25,12 +25,14 @@ class Pipeline(Parser):
 
     def fit(self, dpacks, targets, nonfixed_pairs=None, cache=None):
         for name, parser in self.steps:
-            # print('Pipeline: fit ', name)
+            print('Pipeline: fit ', name)
             parser.fit(dpacks, targets, nonfixed_pairs=nonfixed_pairs,
                        cache=cache)
+            print('... done')
 
     def transform(self, dpack, nonfixed_pairs=None):
         for name, parser in self.steps:
             # print('Pipeline: transform ', name)
             dpack = parser.transform(dpack, nonfixed_pairs=nonfixed_pairs)
+            # print('... done')
         return dpack

@@ -185,12 +185,13 @@ class Harness(with_metaclass(ABCMeta, object)):
     @abstractmethod
     def mpack_paths(self, test_data, stripped=False):
         """
-        Return a tuple of paths needed to read a datapack
+        Return a dict of paths needed to read a datapack
 
         * features
         * edu input
         * pairings
         * vocabulary
+        * labels
 
         Parameters
         ----------

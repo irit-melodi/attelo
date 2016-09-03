@@ -4,7 +4,10 @@ is directed or not depends on the underlying datapack and decoder).
 You could also combine this with the label parser
 """
 
+from __future__ import print_function
+
 from os import path as fp
+import sys
 
 import joblib
 
@@ -69,8 +72,11 @@ class AttachClassifierWrapper(Parser):
         self._learner_attach.fit(dpacks, targets)
         # save classifier, if necessary
         if cache_file is not None:
-            # print('\tsave {}'.format(cache_file))
+            print('dump attach model to {}'.format(cache_file))  # DEBUG
+            sys.stdout.flush()  # DEBUG
             joblib.dump(self._learner_attach, cache_file)
+            print('... done')  # DEBUG
+            sys.stdout.flush()  # DEBUG
         return self
 
     def transform(self, dpack, nonfixed_pairs=None):

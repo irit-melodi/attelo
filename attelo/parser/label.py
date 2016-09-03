@@ -2,7 +2,10 @@
 Labelling
 """
 
+from __future__ import print_function
+
 from os import path as fp
+import sys
 
 import joblib
 import numpy as np
@@ -77,8 +80,12 @@ class LabelClassifierWrapper(Parser):
         self._learner.fit(dpacks, targets)
         # save classifier, if necessary
         if cache_file is not None:
-            # print('\tsave {}'.format(cache_file))
+            print('dump label model to {}'.format(cache_file))  # DEBUG
+            sys.stdout.flush()  # DEBUG
             joblib.dump(self._learner, cache_file)
+            print('... done')  # DEBUG
+            sys.stdout.flush()  # DEBUG
+
         return self
 
     def transform(self, dpack, nonfixed_pairs=None):

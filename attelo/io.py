@@ -9,10 +9,12 @@ import copy
 import csv
 from glob import glob
 import json
+import os
 import sys
 import time
 import traceback
 
+import scipy.sparse as sp
 from sklearn.datasets import load_svmlight_file
 
 import educe  # WIP
@@ -197,12 +199,12 @@ def load_labels(labels_file):
     labels: list of strings
         List of labels
     """
-    labels = dict()
+    lbl_map = dict()
     with codecs.open(labels_file, 'r', 'utf-8') as stream:
         for line in stream:
             i, lbl = line.strip().split()
-            labels[lbl] = i
-    labels = [lbl for lbl, i in sorted(labels.items(), key=lambda x: x[1])]
+            lbl_map[lbl] = int(i)
+    labels = [lbl for lbl, i in sorted(lbl_map.items(), key=lambda x: x[1])]
     return labels
 
 
@@ -271,8 +273,8 @@ def _process_cdu_links(cdus, edus, pairings):
     return cdus, pairings
     
 
-
 def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
+                   labels_file,
                    cdu_file=None, cdu_pairings_file=None,
                    cdu_feature_file=None,
                    corpus_path=None,  # WIP
@@ -313,17 +315,21 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
     # end WIP
 
     # one file per doc (2016-08-30)
-    edu_files = {f.rsplit('.', 1)[0]: f for f in glob(edu_file)}
-    pairings_files = {f.rsplit('.', 1)[0]: f for f in glob(pairings_file)}
-    feature_files = {f: f for f in glob(feature_file)}
+    edu_files = {os.path.basename(f).rsplit('.', 4)[0]: f
+                 for f in glob(edu_file)}
+    pairings_files = {os.path.basename(f).rsplit('.', 4)[0]: f
+                      for f in glob(pairings_file)}
+    feature_files = {os.path.basename(f).rsplit('.', 3)[0]: f
+                     for f in glob(feature_file)}
     if (cdu_file is not None
         and cdu_pairings_file is not None
         and cdu_feature_file is not None):
         # WIP one file per doc
-        cdu_files = {f.rsplit('.', 1)[0]: f for f in glob(cdu_file)}
-        cdu_pairings_files = {f.rsplit('.', 1)[0]: f
+        cdu_files = {os.path.basename(f).rsplit('.', 4)[0]: f
+                     for f in glob(cdu_file)}
+        cdu_pairings_files = {os.path.basename(f).rsplit('.', 4)[0]: f
                               for f in glob(cdu_pairings_file)}
-        cdu_feature_files = {f.rsplit('.', 1)[0]: f
+        cdu_feature_files = {os.path.basename(f).rsplit('.', 3)[0]: f
                              for f in glob(cdu_feature_file)}
     else:
         cdu_files = None
@@ -331,66 +337,103 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
         cdu_feature_files = None
     # end one file per doc
 
+    # common files: vocabulary, labels
     vocab = load_vocab(vocab_file)
+    labels = load_labels(labels_file)
+    assert labels[0] == UNKNOWN
 
-    for prefix in sorted(edu_files):
-        edu_file = edu_files[prefix]
-        pairings_file = pairings_files[prefix]
-        feature_file = feature_files[prefix]
+    doc_names = sorted(edu_files.keys())
 
-        with Torpor("Reading EDUs and pairings", quiet=not verbose):
-            edus, pairings = _process_edu_links(load_edus(edu_file),
-                                                load_pairings(pairings_file))
-        # retrieve doc name
-        grp_names = groupings(pairings).keys()
-        # each file contains info from exactly one grouping
-        assert len(grp_names) == 1
-        doc_name = grp_names[0]
-        print(doc_name)  # DEBUG
+    doc_edus = dict()
+    doc_pairings = dict()
+    with Torpor("Reading EDUs and pairings", quiet=not verbose):
+        for doc_name in doc_names:
+            edu_f = edu_files[doc_name]
+            pairings_f = pairings_files[doc_name]
+            edus, pairings = _process_edu_links(load_edus(edu_f),
+                                                load_pairings(pairings_f))
+            # each file should contain info from exactly one doc (grouping)
+            grp_names = groupings(pairings).keys()
+            assert grp_names == [doc_name]
+            # store
+            doc_edus[doc_name] = edus
+            doc_pairings[doc_name] = pairings
 
-        with Torpor("Reading features", quiet=not verbose):
-            labels = load_labels(feature_file)
-            assert labels[0] == UNKNOWN
+    doc_data = dict()
+    doc_targets = dict()
+    with Torpor("Reading features", quiet=not verbose):
+        for doc_name in doc_names:
+            feature_f = feature_files[doc_name]
             # pylint: disable=unbalanced-tuple-unpacking
-            data, targets = load_svmlight_file(feature_file,
+            data, targets = load_svmlight_file(feature_f,
                                                n_features=len(vocab))
             # pylint: enable=unbalanced-tuple-unpacking
+            doc_data[doc_name] = data
+            doc_targets[doc_name] = targets
 
-        # WIP
-        if (cdu_files is not None
-            and cdu_pairings_files is not None
-            and cdu_feature_files is not None):
-            # one file per doc
-            cdu_file = cdu_files[prefix]
-            cdu_pairings_file = cdu_pairings_files[prefix]
-            feature_file = feature_files[prefix]
-            # end one file per doc
-            # augment DataPack with CDUs and pairings from/to them
-            with Torpor("Reading CDUs and pairings", quiet=not verbose):
+    # WIP
+    doc_cdus = dict()
+    doc_cdu_pairings = dict()
+    doc_cdu_data = dict()
+    doc_cdu_targets = dict()
+    if (cdu_files is not None
+        and cdu_pairings_files is not None
+        and cdu_feature_files is not None):
+        # augment DataPack with CDUs and pairings from/to them
+        with Torpor("Reading CDUs and pairings", quiet=not verbose):
+            for doc_name in doc_names:
+                # one file per doc
+                cdu_f = cdu_files[doc_name]
+                cdu_pairings_f = cdu_pairings_files[doc_name]
+                # end one file per doc
                 cdus, cdu_pairings = _process_cdu_links(
-                    load_cdus(cdu_file),
+                    load_cdus(cdu_f),
                     edus,
-                    load_pairings(cdu_pairings_file))
+                    load_pairings(cdu_pairings_f))
+                doc_cdus[doc_name] = cdus
+                doc_cdu_pairings[doc_name] = cdu_pairings
 
-            with Torpor("Reading features", quiet=not verbose):
-                # CDU files use the same label set as the EDU files ; this is
-                # not really enforced, but it is implemented this way in
-                # irit_rst_dt.cmd.gather
-                # pylint: disable=unbalanced-tuple-unpacking
-                cdu_data, cdu_targets = load_svmlight_file(
-                    cdu_feature_file, n_features=len(vocab))
+        with Torpor("Reading features for CDU pairings", quiet=not verbose):
+            for doc_name in doc_names:
+                cdu_feature_f = cdu_feature_files[doc_name]
+                if doc_cdu_pairings[doc_name]:
+                    # CDU files use the same label set as the EDU files ;
+                    # this is not really enforced, but it is implemented
+                    # this way in irit_rst_dt.cmd.gather
+                    # pylint: disable=unbalanced-tuple-unpacking
+                    cdu_data, cdu_targets = load_svmlight_file(
+                        cdu_feature_f, n_features=len(vocab))
+                else:
+                    cdu_data = None
+                    cdu_targets = None
                 # pylint: enable=unbalanced-tuple-unpacking
-        else:
-            cdus = None
-            cdu_pairings = None
-            cdu_data = None
-            cdu_targets = None
-        # build DataPack
-        with Torpor("Build data packs", quiet=not verbose):
-            dpack = DataPack.load(edus, pairings, data, targets, ctargets,
-                                  cdus, cdu_pairings, cdu_data, cdu_targets,
-                                  labels, vocab)
-        mpack[doc_name] = dpack
+                doc_cdu_data[doc_name] = cdu_data
+                doc_cdu_targets[doc_name] = cdu_targets
+    else:
+        cdus = None
+        cdu_pairings = None
+        cdu_data = None
+        cdu_targets = None
+
+    # build DataPack
+    with Torpor("Build data packs", quiet=not verbose):
+        for doc_name in doc_names:
+            dpack = DataPack.load(doc_edus[doc_name],
+                                  doc_pairings[doc_name],
+                                  doc_data[doc_name],
+                                  doc_targets[doc_name],
+                                  # maybe we could avoid the dict and just
+                                  # have an RSTTree here, but I am afraid
+                                  # it could cause inconsistencies with
+                                  # datapacks created with Datapack.vstack
+                                  dict([(doc_name, ctargets[doc_name])]),
+                                  doc_cdus[doc_name],
+                                  doc_cdu_pairings[doc_name],
+                                  doc_cdu_data[doc_name],
+                                  doc_cdu_targets[doc_name],
+                                  labels,
+                                  vocab)
+            mpack[doc_name] = dpack
 
     return mpack
 
@@ -458,16 +501,18 @@ def load_predictions(edu_file):
         return [mk_pair(r) for r in reader if r]
 
 
-def load_gold_predictions(pairings_file, feature_file, verbose=False):
+def load_gold_predictions(pairings_file, feature_file, labels_file,
+                          verbose=False):
     """
     Load a pairings and feature file as though it were a set of
     predictions
 
     :rtype: [(string, string, string)]
     """
+    labels = load_labels(feature_file)
+
     pairings = load_pairings(pairings_file)
     with Torpor("Reading features", quiet=not verbose):
-        labels = load_labels(feature_file)
         # pylint: disable=unbalanced-tuple-unpacking
         _, targets = load_svmlight_file(feature_file)
         # pylint: enable=unbalanced-tuple-unpacking
