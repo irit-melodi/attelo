@@ -361,7 +361,7 @@ class DataPack(namedtuple('DataPack',
                 sel_cdus_.add(du2)
         sel_cdus = [x for x in self.cdus if x in sel_cdus_]
         sel_cdu_data = (self.cdu_data[sel_cdu_indices]
-                        if self.cdu_data is not None
+                        if self.cdu_data is not None and sel_cdu_indices
                         else None)
         sel_cdu_targets = np.take(self.cdu_target, sel_cdu_indices)
         # end WIP CDU
