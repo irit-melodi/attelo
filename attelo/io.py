@@ -14,7 +14,6 @@ import sys
 import time
 import traceback
 
-import scipy.sparse as sp
 from sklearn.datasets import load_svmlight_file
 
 import educe  # WIP
@@ -160,7 +159,8 @@ def load_cdus(cdu_file):
 
     Returns
     -------
-    
+    cdus: list of CDU
+        CDUs built from the file content.
     """
     with open(cdu_file, 'rb') as instream:
         reader = csv.reader(instream, dialect=csv.excel_tab)
@@ -271,7 +271,7 @@ def _process_cdu_links(cdus, edus, pairings):
     pairings = [(du_map[src], du_map[tgt]) for src, tgt in pairings]
 
     return cdus, pairings
-    
+
 
 def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
                    labels_file,
@@ -518,7 +518,7 @@ def load_gold_predictions(pairings_file, feature_file, labels_file,
 
     :rtype: [(string, string, string)]
     """
-    labels = load_labels(feature_file)
+    labels = load_labels(labels_file)
 
     pairings = load_pairings(pairings_file)
     with Torpor("Reading features", quiet=not verbose):
