@@ -50,20 +50,19 @@ def _mk_econf_graphs(hconf, edus, gold, econf, fold):
             raise Exception('Unknown diff mode {}'.format(diffmode))
 
         want_test = fold is None
-        suffix = 'test' if want_test\
-            else fp.basename(hconf.fold_dir_path(fold))
+        suffix = ('test' if want_test
+                  else fp.basename(hconf.fold_dir_path(fold)))
         output_dir = fp.join(hconf.report_dir_path(want_test, None),
                              output_bn_prefix + suffix,
                              econf.key)
 
         # settings
         to_hide = 'inter' if diffmode == GraphDiffMode.diff_intra else None
-        settings =\
-            GraphSettings(hide=to_hide,
-                          select=hconf.graph_docs,
-                          unrelated=False,
-                          timeout=15,
-                          quiet=False)
+        settings = GraphSettings(hide=to_hide,
+                                 select=hconf.graph_docs,
+                                 unrelated=False,
+                                 timeout=15,
+                                 quiet=False)
 
         if diffmode == GraphDiffMode.solo:
             yield delayed(graph_all)(edus,
@@ -84,12 +83,11 @@ def _mk_gold_graphs(hconf, dconf):
     output_dir = fp.join(hconf.report_dir_path(None),
                          'graphs-gold')
 
-    settings =\
-        GraphSettings(hide=None,
-                      select=hconf.graph_docs,
-                      unrelated=False,
-                      timeout=15,
-                      quiet=True)
+    settings = GraphSettings(hide=None,
+                             select=hconf.graph_docs,
+                             unrelated=False,
+                             timeout=15,
+                             quiet=True)
 
     predictions = to_predictions(dconf.pack)
     edus = concat_l(dpack.edus for dpack in dconf.pack.values())

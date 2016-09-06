@@ -476,12 +476,21 @@ def write_predictions_output(dpack, predicted, filename):
             writer.writerow(mk_row(edu1, edu2))
 
 
-def load_predictions(edu_file):
-    """
-    Read back predictions (see :doc:`../output`), returning a list
-    of triples: parent id, child id, relation label (or 'UNRELATED')
+def load_predictions(edges_file):
+    """Read back predictions (see :doc:`../output`), returning a list
+    of triples: parent id, child id, relation label (or 'UNRELATED').
 
-    :rtype: [(string, string, string)]
+    Parameters
+    ----------
+    edges_file: str
+        Path to the file that contains predicted edges.
+
+    Returns
+    -------
+    edges_pred: list of (str, str, str)
+        List of predicted edges as triples (gov_id, dep_id, lbl_pred).
+        If (gov_id, dep_id) is predicted to be unattached, lbl_pred is
+        'UNRELATED'.
     """
     def mk_pair(row):
         'interpret a single row'
@@ -490,13 +499,13 @@ def load_predictions(edu_file):
             oops = ('This row in the predictions file {efile} has {num} '
                     'elements instead of the expected {expected}: '
                     '{row}')
-            raise IoException(oops.format(efile=edu_file,
+            raise IoException(oops.format(efile=edges_file,
                                           num=len(row),
                                           expected=expected_len,
                                           row=row))
         return tuple(x.decode('utf-8') for x in row)
 
-    with open(edu_file, 'rb') as instream:
+    with open(edges_file, 'rb') as instream:
         reader = csv.reader(instream, dialect=csv.excel_tab)
         return [mk_pair(r) for r in reader if r]
 
