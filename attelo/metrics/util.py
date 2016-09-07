@@ -32,10 +32,8 @@ def barebones_rst_deptree(dep_edges, att_edus, strict=False):
 
     Parameters
     ----------
-    dep_edges: dict(string, [(string, string, string)])
-        Edges for each document, indexed by doc name
-        Cf. type of return value from
-        irit-rst-dt/ctree.py:load_attelo_output_file()
+    dep_edges: [(string, string, string)]
+        List of edges for the document (gov_id, dep_id, lbl).
     att_edus: cf return type of attelo.io.load_edus
         EDUs as they are known to attelo
     strict: boolean, True by default
