@@ -103,7 +103,7 @@ def barebones_rst_deptree(dep_edges, att_edus, strict=False):
 
 def get_oracle_ctrees(dep_edges, att_edus,
                       nuc_strategy="unamb_else_most_frequent",
-                      rank_strategy="closest-intra-rl-inter-rl",
+                      rank_strategy="sdist-edist-rl",
                       prioritize_same_unit=True,
                       strict=False):
     """Build the oracle constituency tree(s) for a dependency tree.
