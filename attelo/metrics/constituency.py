@@ -146,6 +146,10 @@ def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
         y_pred = [[(span[0], lbl_fn(span)) for span in spans]
                   for spans in sp_pred]
         # calculate metric
+        # DEBUG print nb of spans in y_pred ; nb of spans in y_true is
+        # already displayed as the "support"
+        print('spans_pred', sum(len(x) for x in y_pred))
+        # end DEBUG
         p, r, f1, s = precision_recall_fscore_support(y_true, y_pred,
                                                       average='micro')
         # report
