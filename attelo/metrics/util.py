@@ -171,6 +171,8 @@ def get_spans(ctree):
     tnodes = [subtree.label()  # was: educe.internalutil.treenode(subtree)
               for root_child in ctree if isinstance(root_child, RSTTree)
               for subtree in root_child.subtrees()]
+    # print(tnodes)  # DEBUG
+    # raise ValueError('debug')
     spans = [(tn.edu_span, tn.nuclearity, tn.rel)
              for tn in tnodes]
     return spans
