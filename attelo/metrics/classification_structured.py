@@ -34,7 +34,7 @@ def unique_labels(*ys):
 
 
 def precision_recall_fscore_support(y_true, y_pred, labels=None,
-                                    average=None):
+                                    average=None, return_support_pred=True):
     """Compute precision, recall, F-measure and support for each class.
 
     The support is the number of occurrences of each class in
@@ -74,6 +74,11 @@ def precision_recall_fscore_support(y_true, y_pred, labels=None,
             Calculate metrics for each label, and find their unweighted
             mean. This does not take label imbalance into account.
 
+    return_support_pred: boolean, True by default
+        If True, output the support of the prediction. This is useful
+        for structured prediction because y_true and y_pred can differ
+        in length.
+
     Returns
     -------
     precision: float (if average is not None) or array of float, shape=\
@@ -88,6 +93,10 @@ def precision_recall_fscore_support(y_true, y_pred, labels=None,
     support: int (if average is not None) or array of int, shape=\
         [n_unique_labels]
         The number of occurrences of each label in ``ctree_true``.
+
+    support_pred: int (if average is not None) or array of int, shape=\
+        [n_unique_labels], if ``return_support_pred``.
+        If The number of occurrences of each label in ``ctree_pred``.
     """
     average_options = frozenset([None, 'micro', 'macro'])
     if average not in average_options:
@@ -149,5 +158,9 @@ def precision_recall_fscore_support(y_true, y_pred, labels=None,
         recall = np.average(recall)
         f_score = np.average(f_score)
         true_sum = np.average(true_sum)  # != sklearn: we keep the support
+        pred_sum = np.average(pred_sum)
 
-    return precision, recall, f_score, true_sum
+    if return_support_pred:
+        return precision, recall, f_score, true_sum, pred_sum
+    else:
+        return precision, recall, f_score, true_sum

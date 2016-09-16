@@ -80,7 +80,7 @@ def discourse_parseval_scores(ctree_true, ctree_pred,
 
 
 def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
-                    stringent=False):
+                    print_support_pred=True, stringent=False):
     """Build a text report showing the PARSEVAL discourse metrics.
 
     This is the simplest report we need to generate, it corresponds
@@ -108,7 +108,7 @@ def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
     width = max(len(str(x)) for x in metric_types)
     width = max(width, digits)
 
-    headers = ["precision", "recall", "f1-score", "support"]
+    headers = ["precision", "recall", "f1-score", "support", "sup_pred"]
     fmt = '%% %ds' % width  # first col: class name
     fmt += '  '
     fmt += ' '.join(['% 9s' for _ in headers])
@@ -146,17 +146,14 @@ def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
         y_pred = [[(span[0], lbl_fn(span)) for span in spans]
                   for spans in sp_pred]
         # calculate metric
-        # DEBUG print nb of spans in y_pred ; nb of spans in y_true is
-        # already displayed as the "support"
-        print('spans_pred', sum(len(x) for x in y_pred))
-        # end DEBUG
-        p, r, f1, s = precision_recall_fscore_support(y_true, y_pred,
-                                                      average='micro')
+        p, r, f1, s_true, s_pred = precision_recall_fscore_support(
+            y_true, y_pred, average='micro')
         # report
         values = [metric_type]
         for v in (p, r, f1):
             values += ["{0:0.{1}f}".format(v, digits)]
-        values += ["{0}".format(s)]
+        values += ["{0}".format(s_true)]  # support_true
+        values += ["{0}".format(s_pred)]  # support_pred
         report += fmt % tuple(values)
     return report
 
@@ -241,9 +238,8 @@ def parseval_detailed_report(ctree_true, ctree_pred,
 
     # call with average=None to compute per-class scores, then
     # compute average here and print it
-    p, r, f1, s = precision_recall_fscore_support(y_true, y_pred,
-                                                  labels=labels,
-                                                  average=average)
+    p, r, f1, s_true, s_pred = precision_recall_fscore_support(
+        y_true, y_pred, labels=labels, average=average)
     sorted_ilbls = enumerate(labels)
     if sort_by_support:
         sorted_ilbls = sorted(sorted_ilbls, key=lambda x: s[x[0]],
@@ -253,7 +249,8 @@ def parseval_detailed_report(ctree_true, ctree_pred,
         values = [label]
         for v in (p[i], r[i], f1[i]):
             values += ["{0:0.{1}f}".format(v, digits)]
-        values += ["{0}".format(s[i])]
+        values += ["{0}".format(s_true[i])]
+        values += ["{0}".format(s_pred[i])]
         if average is None:  # print per-class scores for average=None only
             report += fmt % tuple(values)
 
@@ -263,11 +260,12 @@ def parseval_detailed_report(ctree_true, ctree_pred,
 
     # compute averages for the bottom line
     values = [last_line_heading]
-    for v in (np.average(p, weights=s),
-              np.average(r, weights=s),
-              np.average(f1, weights=s)):
+    for v in (np.average(p, weights=s_true),
+              np.average(r, weights=s_true),
+              np.average(f1, weights=s_true)):
         values += ["{0:0.{1}f}".format(v, digits)]
-    values += ['{0}'.format(np.sum(s))]
+    values += ['{0}'.format(np.sum(s_true))]
+    values += ['{0}'.format(np.sum(s_pred))]
     report += fmt % tuple(values)
 
     return report
