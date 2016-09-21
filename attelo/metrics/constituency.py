@@ -80,7 +80,8 @@ def discourse_parseval_scores(ctree_true, ctree_pred,
 
 
 def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
-                    print_support_pred=True, stringent=False):
+                    print_support_pred=True, span_sel=None,
+                    stringent=False):
     """Build a text report showing the PARSEVAL discourse metrics.
 
     This is the simplest report we need to generate, it corresponds
@@ -126,15 +127,20 @@ def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
         # possibly filter data
         sp_true = spans_true
         sp_pred = spans_pred
-        if stringent:
-            # stringent variant:
-            if metric_type == 'S':
-                # * S: exclude leaves
-                sp_true = [[xi for xi in x if xi[0][1] != xi[0][0]]
-                           for x in sp_true]
-                sp_pred = [[xi for xi in x if xi[0][1] != xi[0][0]]
-                           for x in sp_pred]
-            elif False and metric_type in ['S+R', 'S+N+R']:
+        if span_sel == 'leaves':
+            # only leaf nodes
+            sp_true = [[xi for xi in x if xi[0][1] == xi[0][0]]
+                       for x in sp_true]
+            sp_pred = [[xi for xi in x if xi[0][1] == xi[0][0]]
+                       for x in sp_pred]
+        elif span_sel == 'non-leaves':
+            # only internal nodes
+            sp_true = [[xi for xi in x if xi[0][1] != xi[0][0]]
+                       for x in sp_true]
+            sp_pred = [[xi for xi in x if xi[0][1] != xi[0][0]]
+                       for x in sp_pred]
+            
+        if stringent and False and metric_type in ['S+R', 'S+N+R']:
                 # * S+R, S+N+R: exclude 'span'
                 sp_true = [[xi for xi in x if xi[2] != 'span']
                            for x in sp_true]
@@ -160,6 +166,7 @@ def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
 
 def parseval_detailed_report(ctree_true, ctree_pred,
                              metric_type='S+R',
+                             span_sel=None,
                              labels=None,
                              average=None,
                              sort_by_support=True,
@@ -204,11 +211,28 @@ def parseval_detailed_report(ctree_true, ctree_pred,
     # extract descriptions of spans from the true and pred trees
     spans_true = [get_spans(ct_true) for ct_true in ctree_true]
     spans_pred = [get_spans(ct_pred) for ct_pred in ctree_pred]
+
+    # possibly filter data
+    sp_true = spans_true
+    sp_pred = spans_pred
+    if span_sel == 'leaves':
+        # only leaf nodes
+        sp_true = [[xi for xi in x if xi[0][1] == xi[0][0]]
+                   for x in sp_true]
+        sp_pred = [[xi for xi in x if xi[0][1] == xi[0][0]]
+                   for x in sp_pred]
+    elif span_sel == 'non-leaves':
+        # only internal nodes
+        sp_true = [[xi for xi in x if xi[0][1] != xi[0][0]]
+                   for x in sp_true]
+        sp_pred = [[xi for xi in x if xi[0][1] != xi[0][0]]
+                   for x in sp_pred]
+
     # use lbl_fn to extract the label of interest
     y_true = [[(span[0], lbl_fn(span)) for span in spans]
-              for spans in spans_true]
+              for spans in sp_true]
     y_pred = [[(span[0], lbl_fn(span)) for span in spans]
-              for spans in spans_pred]
+              for spans in sp_pred]
 
     present_labels = unique_labels(y_true, y_pred)
 
@@ -226,7 +250,7 @@ def parseval_detailed_report(ctree_true, ctree_pred,
     width = max(len(str(lbl)) for lbl in labels)
     width = max(width, len(last_line_heading), digits)
 
-    headers = ["precision", "recall", "f1-score", "support"]
+    headers = ["precision", "recall", "f1-score", "support", "sup_pred"]
     fmt = '%% %ds' % width  # first col: class name
     fmt += '  '
     fmt += ' '.join(['% 9s' for _ in headers])
@@ -242,7 +266,7 @@ def parseval_detailed_report(ctree_true, ctree_pred,
         y_true, y_pred, labels=labels, average=average)
     sorted_ilbls = enumerate(labels)
     if sort_by_support:
-        sorted_ilbls = sorted(sorted_ilbls, key=lambda x: s[x[0]],
+        sorted_ilbls = sorted(sorted_ilbls, key=lambda x: s_true[x[0]],
                               reverse=True)
     # one line per label
     for i, label in sorted_ilbls:
