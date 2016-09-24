@@ -94,16 +94,12 @@ def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
         Metrics that need to be included in the report ; if None is
         given, defaults to ['S', 'S+N', 'S+R', 'S+N+R'].
     """
+    # select metrics and the corresponding functions
     if metric_types is None:
         metric_types = ['S', 'S+N', 'S+R', 'S+N+R']
     if set(metric_types) - set(x[0] for x in LBL_FNS):
         raise ValueError('Unknown metric types in {}'.format(metric_types))
-
-    # FIXME refactor in tandem with discourse_parseval_scores, to
-    # get a coherent and non-redundant API
-    # extract descriptions of spans from the true and pred trees
-    spans_true = [get_spans(ct_true) for ct_true in ctree_true]
-    spans_pred = [get_spans(ct_pred) for ct_pred in ctree_pred]
+    metric2lbl_fn = dict(LBL_FNS)
 
     # prepare report
     width = max(len(str(x)) for x in metric_types)
@@ -120,8 +116,13 @@ def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
     report += '\n'
     # end prepare report
 
-    metric2lbl_fn = dict(LBL_FNS)
+    # FIXME refactor in tandem with discourse_parseval_scores, to
+    # get a coherent and non-redundant API
+    # extract descriptions of spans from the true and pred trees
+    spans_true = [get_spans(ct_true) for ct_true in ctree_true]
+    spans_pred = [get_spans(ct_pred) for ct_pred in ctree_pred]
 
+    metric_scores = dict()
     for metric_type in metric_types:
         lbl_fn = metric2lbl_fn[metric_type]
         # possibly filter data
@@ -154,13 +155,18 @@ def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
         # calculate metric
         p, r, f1, s_true, s_pred = precision_recall_fscore_support(
             y_true, y_pred, average='micro')
-        # report
+        metric_scores[metric_type] = (p, r, f1, s_true, s_pred)
+
+    # report
+    for metric_type in metric_types:
+        (p, r, f1, s_true, s_pred) = metric_scores[metric_type]
         values = [metric_type]
         for v in (p, r, f1):
             values += ["{0:0.{1}f}".format(v, digits)]
         values += ["{0}".format(s_true)]  # support_true
         values += ["{0}".format(s_pred)]  # support_pred
         report += fmt % tuple(values)
+
     return report
 
 
