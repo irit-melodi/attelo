@@ -81,6 +81,7 @@ def discourse_parseval_scores(ctree_true, ctree_pred,
 
 def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
                     print_support_pred=True, span_sel=None,
+                    per_doc=False,
                     stringent=False):
     """Build a text report showing the PARSEVAL discourse metrics.
 
@@ -90,9 +91,27 @@ def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
 
     Parameters
     ----------
+    ctree_true: TODO
+        TODO
+    ctree_pred: TODO
+        TODO
     metric_types: list of strings, optional
         Metrics that need to be included in the report ; if None is
         given, defaults to ['S', 'S+N', 'S+R', 'S+N+R'].
+    digits: int, defaults to 4
+        Number of decimals to print.
+    print_support_pred: boolean, defaults to True
+        If True, the predicted support, i.e. the number of predicted
+        spans, is also displayed. This is useful for non-binary ctrees
+        as the number of spans in _true and _pred can differ.
+    span_sel: TODO
+        TODO
+    per_doc: boolean, defaults to False
+        If True, compute p, r, f for each doc separately then compute the
+        mean of each score over docs. This is *not* the correct
+        implementation, but it corresponds to that in DPLP.
+    stringent: boolean, defaults to False
+        TODO
     """
     # select metrics and the corresponding functions
     if metric_types is None:
@@ -153,9 +172,35 @@ def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
         y_pred = [[(span[0], lbl_fn(span)) for span in spans]
                   for spans in sp_pred]
         # calculate metric
-        p, r, f1, s_true, s_pred = precision_recall_fscore_support(
-            y_true, y_pred, average='micro')
-        metric_scores[metric_type] = (p, r, f1, s_true, s_pred)
+        if per_doc:
+            # calculate p, r, f1 for each doc separately, then take their
+            # mean over documents ; this is *not* the right way to compute
+            # our metrics but it corresponds to their implementation in
+            # DPLP
+            scores = []
+            for doc_spans_true, doc_spans_pred in zip(y_true, y_pred):
+                p, r, f1, s_true, s_pred = precision_recall_fscore_support(
+                    [doc_spans_true], [doc_spans_pred], average='micro')
+                scores.append((p, r, f1, s_true, s_pred))
+            # DEBUG
+            if metric_type == 'S+N+R':
+                print('detail')
+                print(['{:.4f} ({})'.format(x[2], int(x[4]))
+                       for x in scores])
+            # end DEBUG
+            metric_scores[metric_type] = (
+                np.array([x[0] for x in scores]).mean(),
+                np.array([x[1] for x in scores]).mean(),
+                np.array([x[2] for x in scores]).mean(),
+                np.array([x[3] for x in scores]).sum(),
+                np.array([x[4] for x in scores]).sum()
+            )
+        else:
+            # the *right* implementation
+            p, r, f1, s_true, s_pred = precision_recall_fscore_support(
+                y_true, y_pred, average='micro')
+            metric_scores[metric_type] = (p, r, f1, s_true, s_pred)
+
 
     # report
     for metric_type in metric_types:
