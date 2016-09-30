@@ -159,25 +159,6 @@ def get_oracle_ctrees(dep_edges, att_edus,
     return ctrees
 
 
-def get_spans(ctree):
-    """Get the spans of a constituency tree, except for the root node.
-
-    This corresponds to the spans used in the PARSEVAL metric modified
-    for discourse, as described in (Marcu 2000) and implemented in
-    Joty's evaluation scripts.
-
-    Each span is descried by a triplet (edu_span, nuclearity, relation).
-    """
-    tnodes = [subtree.label()  # was: educe.internalutil.treenode(subtree)
-              for root_child in ctree if isinstance(root_child, RSTTree)
-              for subtree in root_child.subtrees()]
-    # print(tnodes)  # DEBUG
-    # raise ValueError('debug')
-    spans = [(tn.edu_span, tn.nuclearity, tn.rel)
-             for tn in tnodes]
-    return spans
-
-
 def oracle_ctree_spans(dep_edges, att_edus):
     """Get the spans of the oracle ctree for a given dtree.
 
@@ -199,5 +180,5 @@ def oracle_ctree_spans(dep_edges, att_edus):
     # to a forest of constituency trees
     oracle_ctrees = get_oracle_ctrees(dep_edges, att_edus)
     oracle_spans = list(itertools.chain.from_iterable(
-        [get_spans(oracle_ctree) for oracle_ctree in oracle_ctrees]))
+        [oracle_ctree.get_spans() for oracle_ctree in oracle_ctrees]))
     return oracle_spans

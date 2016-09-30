@@ -17,7 +17,7 @@ from educe.rst_dt.corpus import RstRelationConverter, RELMAP_112_18_FILE
 
 from .table import UNRELATED, attached_only, get_label_string
 from .metrics.constituency import LBL_FNS, parseval_report
-from .metrics.util import get_oracle_ctrees, get_spans, oracle_ctree_spans
+from .metrics.util import get_oracle_ctrees, oracle_ctree_spans
 
 
 # pylint: disable=too-few-public-methods
@@ -219,7 +219,7 @@ def score_cspans(dpacks, dpredictions, coarse_rels=True, binary_trees=True,
     # end WIP
     # spans of the gold constituency trees
     ctree_spans_golds = [list(itertools.chain.from_iterable(
-        get_spans(ctg) for ctg in ctree_gold))
+        ctg.get_spans() for ctg in ctree_gold))
                          for ctree_gold in ctree_golds]
     # spans of the predicted oracle constituency trees
     edges_preds = [[(edu1, edu2, rel)

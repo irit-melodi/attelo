@@ -14,7 +14,6 @@ import numpy as np
 
 from .classification_structured import (precision_recall_fscore_support,
                                         unique_labels)
-from .util import get_spans
 
 
 # label extraction functions
@@ -65,8 +64,8 @@ def discourse_parseval_scores(ctree_true, ctree_pred,
     """
 
     # extract descriptions of spans from the true and pred trees
-    spans_true = [get_spans(ct_true) for ct_true in ctree_true]
-    spans_pred = [get_spans(ct_pred) for ct_pred in ctree_pred]
+    spans_true = [ct_true.get_spans() for ct_true in ctree_true]
+    spans_pred = [ct_pred.get_spans() for ct_pred in ctree_pred]
     # use lbl_fn to define labels
     spans_true = [[(span[0], lbl_fn(span)) for span in spans]
                   for spans in spans_true]
@@ -138,8 +137,8 @@ def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
     # FIXME refactor in tandem with discourse_parseval_scores, to
     # get a coherent and non-redundant API
     # extract descriptions of spans from the true and pred trees
-    spans_true = [get_spans(ct_true) for ct_true in ctree_true]
-    spans_pred = [get_spans(ct_pred) for ct_pred in ctree_pred]
+    spans_true = [ct_true.get_spans() for ct_true in ctree_true]
+    spans_pred = [ct_pred.get_spans() for ct_pred in ctree_pred]
 
     metric_scores = dict()
     for metric_type in metric_types:
@@ -260,8 +259,8 @@ def parseval_detailed_report(ctree_true, ctree_pred,
     lbl_fn = metric2lbl_fn[metric_type]
 
     # extract descriptions of spans from the true and pred trees
-    spans_true = [get_spans(ct_true) for ct_true in ctree_true]
-    spans_pred = [get_spans(ct_pred) for ct_pred in ctree_pred]
+    spans_true = [ct_true.get_spans() for ct_true in ctree_true]
+    spans_pred = [ct_pred.get_spans() for ct_pred in ctree_pred]
 
     # possibly filter data
     sp_true = spans_true
