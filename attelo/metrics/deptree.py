@@ -166,3 +166,50 @@ def compute_uas_las_np(dtree_true, dtree_pred):
     score_ls = float(ls_num) / nb_tot  # NEW
 
     return (score_uas, score_las, score_ls)
+
+
+# 2016-09-30 undirected variants
+def compute_uas_las_undirected(dtree_true, dtree_pred):
+    """Compute dependency metrics for trees in dtree_pred wrt dtree_true.
+
+    The computed metrics are the traditional UAS and LAS, plus LS
+    for Labelling Score (counts of correct labels, regardless of head).
+
+    Parameters
+    ----------
+    dtree_true: list of RstDepTree
+        Reference trees
+
+    dtree_pred: list of RstDepTree
+        Predicted trees
+
+    Returns
+    -------
+    (uas, las, ls): (float, float, float)
+        The Unlabelled and Labelled Attachment Scores, plus the
+        Labelling Score (new).
+    """
+    nb_ua_ok = 0  # correct unlabelled deps
+    nb_la_ok = 0  # correct labelled deps
+    nb_tot = 0  # total deps
+
+    for dt_true, dt_pred in itertools.izip(dtree_true, dtree_pred):
+        # undirected dependencies are equivalent to the span they cover
+        # each span is a tuple with a tuple inside ((fst, snd), lbl)
+        spans_true = set((tuple(sorted((gov, dep))), lbl)
+                         for dep, (gov, lbl)
+                         in enumerate(zip(dt_true.heads[1:], dt_true.labels[1:]),
+                                      start=1))
+        spans_pred = set((tuple(sorted((gov, dep))), lbl)
+                         for dep, (gov, lbl)
+                         in enumerate(zip(dt_pred.heads[1:], dt_pred.labels[1:]),
+                                      start=1))
+        nb_tot += len(spans_pred)
+        nb_ua_ok += len(set(x[0] for x in spans_true).intersection(
+            set(x[0] for x in spans_pred)))
+        nb_la_ok += len(spans_true.intersection(spans_pred))
+
+    score_uas = float(nb_ua_ok) / nb_tot
+    score_las = float(nb_la_ok) / nb_tot
+
+    return (score_uas, score_las)
