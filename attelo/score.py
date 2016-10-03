@@ -230,13 +230,25 @@ def score_cspans(dpacks, dpredictions, coarse_rels=True, binary_trees=True,
                          for edges_pred, att_pack
                          in zip(edges_preds, att_packs)]
 
-    # WIP 2016-07-01 FIX this
     ctree_true = ctree_golds  # yerk
     ctree_pred = [get_oracle_ctrees(edges_pred, att_pack.edus)
                   for edges_pred, att_pack
                   in zip(edges_preds, att_packs)]
+    # 2016-10-02 force one ctree per doc ; we need to reconsider when we
+    # do doc-level eval
+    for ct_true in ctree_true:
+        if len(ct_true) > 1:
+            raise NotImplementedError(
+                "Currently unable to handle multiple ctrees per doc")
+    ctree_true = [ct_true[0] for ct_true in ctree_true]
+    for ct_pred in ctree_pred:
+        if len(ct_pred) > 1:
+            raise NotImplementedError(
+                "Currently unable to handle multiple ctrees per doc")
+    ctree_pred = [ct_pred[0] for ct_pred in ctree_pred]
+    # end force one ctree per doc
+
     print(parseval_report(ctree_true, ctree_pred))
-    # end WIP 2016-07-01 FIX this
 
     # FIXME replace loop with attelo.metrics.constituency.XXX
     cnts = []
