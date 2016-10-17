@@ -182,7 +182,7 @@ def parseval_report(ctree_true, ctree_pred, metric_types=None, digits=4,
                     [doc_spans_true], [doc_spans_pred], average='micro')
                 scores.append((p, r, f1, s_true, s_pred))
             # DEBUG
-            if metric_type == 'S+N+R':
+            if False and metric_type == 'S+N+R':
                 print('detail')
                 print(['{:.4f} ({})'.format(x[2], int(x[4]))
                        for x in scores])
