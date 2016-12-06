@@ -1,12 +1,15 @@
 """Common metrics on dependency trees.
 """
 
+from __future__ import absolute_import, print_function
+
 import itertools
 
 import numpy as np
 
 
-def compute_uas_las(dtree_true, dtree_pred):
+def compute_uas_las(dtree_true, dtree_pred, include_ls=True,
+                    include_las_n_o_no=False):
     """Compute dependency metrics for trees in dtree_pred wrt dtree_true.
 
     The computed metrics are the traditional UAS and LAS, plus LS
@@ -20,25 +23,51 @@ def compute_uas_las(dtree_true, dtree_pred):
     dtree_pred: list of RstDepTree
         Predicted trees
 
+    include_ls: boolean, defauts to True
+        If True, the LS metric is computed. This evaluates the accuracy
+        of the label of the incoming relation of each EDU.
+
+    include_las_n_o_no: boolean, defaults to False
+        If True, the LAS+N, LAS+O, LAS+N+O metrics are computed. These
+        include respectively nuclearity, order, and both to the usual
+        LAS.
+
     Returns
     -------
-    (uas, las, ls): (float, float, float)
+    res: tuple of float
         The Unlabelled and Labelled Attachment Scores, plus the
-        Labelling Score (new).
+        Labelling Score (new) if include_ls, plus LAS+N, LAS+O, LAS+N+O
+        if include_las_n_o_no.
     """
     nb_ua_ok = 0  # correct unlabelled deps
     nb_la_ok = 0  # correct labelled deps
-    nb_l_ok = 0  # correct labellings (right labels, possibly wrong heads)
+    if include_ls:
+        # correct labellings (right labels, possibly wrong heads)
+        nb_l_ok = 0
+    if include_las_n_o_no:
+        # nuclearity and order
+        nb_lan_ok = 0
+        nb_lao_ok = 0
+        nb_lano_ok = 0
     nb_tot = 0  # total deps
 
     for dt_true, dt_pred in itertools.izip(dtree_true, dtree_pred):
         # heads and labels are stored as two lists
         # exclude fake root from metrics
+        # _true
         heads_true = dt_true.heads[1:]
         labels_true = dt_true.labels[1:]
-
+        # _pred
         heads_pred = dt_pred.heads[1:]
         labels_pred = dt_pred.labels[1:]
+        if include_las_n_o_no:
+            # LAS + nuclearity and order
+            # _true
+            nucs_true = dt_true.nucs[1:]
+            rnks_true = dt_true.ranks[1:]
+            # _pred
+            nucs_pred = dt_pred.nucs[1:]
+            rnks_pred = dt_pred.ranks[1:]
 
         for i in range(len(heads_pred)):
             # attachments
@@ -46,16 +75,41 @@ def compute_uas_las(dtree_true, dtree_pred):
                 nb_ua_ok += 1
                 if labels_pred[i] == labels_true[i]:
                     nb_la_ok += 1
+                    #
+                    if include_las_n_o_no:
+                        # LAS + nuclearity and order
+                        if nucs_pred[i] == nucs_true[i]:
+                            nb_lan_ok += 1
+                        if rnks_pred[i] == rnks_true[i]:
+                            nb_lao_ok += 1
+                        if (nucs_pred[i] == nucs_true[i] and
+                            rnks_pred[i] == rnks_true[i]):
+                            # both order and nuclearity
+                            nb_lano_ok += 1
+
             # NEW evaluate labelling only
-            if labels_pred[i] == labels_true[i]:
-                nb_l_ok += 1
+            if include_ls:
+                if labels_pred[i] == labels_true[i]:
+                    nb_l_ok += 1
+                
+            # update total
             nb_tot += 1
 
     score_uas = float(nb_ua_ok) / nb_tot
     score_las = float(nb_la_ok) / nb_tot
-    score_ls = float(nb_l_ok) / nb_tot  # NEW
+    res = [score_uas, score_las]
 
-    return (score_uas, score_las, score_ls)
+    if include_ls:
+        score_ls = float(nb_l_ok) / nb_tot  # NEW
+        res += [score_ls]
+    if include_las_n_o_no:
+        score_las_n = float(nb_lan_ok) / nb_tot
+        score_las_o = float(nb_lao_ok) / nb_tot
+        score_las_no = float(nb_lano_ok) / nb_tot
+        res += [score_las_n, score_las_o, score_las_no]
+
+    res = tuple(res)
+    return res
 
 
 def compute_uas_las_listcomp(dtree_true, dtree_pred):
