@@ -46,44 +46,24 @@ class IntraInterPair(namedtuple("IntraInterPair",
         return IntraInterPair(intra=fun(self.intra),
                               inter=fun(self.inter))
 
-def for_intra(dpack, target):
-    """Adapt a datapack to intrasentential decoding.
+def _for_intra_cdu(dpack, target, grp, unrelated, intra_tgts):
+    """Helper to for_intra to contain CDU-specific code.
 
-    An intrasentential datapack is almost identical to its original,
-    except that we set the label for each ('ROOT', edu) pairing to
-    'ROOT' if that edu is a subgrouping head (if it has no parents other
-    than 'ROOT' within its subgrouping).
-
-    This should be done before either `for_labelling` or `for_attachment`
-
-    Returns
-    -------
+    Parameters
+    ----------
     dpack : DataPack
-
-    target : array(int)
-
+        DataPack
+    target : TODO
+        TODO
+    grp : :obj:`dict` of (str, str)
+        Map from EDU identifier to subgroup identifier.
+    unrelated : int
+        Number of the "unrelated" label for this datapack.
+    intra_tgts : :obj:`dict` of (str, set(str))
+        Map each subgroup (identifier) to the set of its EDUs
+        (identifiers) that have incoming edges whose source is in the
+        same subgroup.
     """
-    # map EDUs to subgroup ids ; intra = pairs of EDUs with same subgroup id
-    grp = {e.id: e.subgrouping for e in dpack.edus}
-    # find all edus that have intra incoming edges (to rule out)
-    unrelated = dpack.label_number(UNRELATED)
-    intra_tgts = defaultdict(set)
-    for i, (edu1, edu2) in enumerate(dpack.pairings):
-        if (grp[edu1.id] == grp[edu2.id]
-            and target[i] != unrelated):
-            # edu2 has an incoming relation => not an (intra) root
-            intra_tgts[grp[edu2.id]].add(edu2.id)
-    # pick out the (fakeroot, edu) pairs where edu does not have
-    # incoming intra edges
-    all_heads = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
-                 if (edu1.id == FAKE_ROOT_ID
-                     and edu2.id not in intra_tgts[grp[edu2.id]])]
-    # NEW pick out the original inter-sentential links, for removal
-    inter_links = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
-                   if (edu1.id != FAKE_ROOT_ID
-                       and grp[edu1.id] != grp[edu2.id]
-                       and target[i] != unrelated)]
-    # 2016-07-29 CDUs
     all_heads_cdu = []
     for i, (du1, du2) in enumerate(dpack.cdu_pairings):
         src = (du1.members[0] if isinstance(du1, CDU) else du1.id)
@@ -108,8 +88,49 @@ def for_intra(dpack, target):
         new_cdu_target[inter_links_cdu] = unrelated
     else:
         new_cdu_target = None
-    # end CDUs
+    return all_heads_cdu, inter_links_cdu, new_cdu_target
 
+def for_intra(dpack, target):
+    """Adapt a datapack to intrasentential decoding.
+
+    An intrasentential datapack is almost identical to its original,
+    except that we set the label for each ('ROOT', edu) pairing to
+    'ROOT' if that edu is a subgrouping head (if it has no parents other
+    than 'ROOT' within its subgrouping).
+
+    This should be done before either `for_labelling` or `for_attachment`
+
+    Returns
+    -------
+    dpack : DataPack
+        DataPack.
+    target : array(int)
+        TODO.
+    """
+    # map EDUs to subgroup ids ; intra = pairs of EDUs with same subgroup id
+    grp = {e.id: e.subgrouping for e in dpack.edus}
+    # find all edus that have intra incoming edges (to rule out)
+    unrelated = dpack.label_number(UNRELATED)
+    intra_tgts = defaultdict(set)
+    for i, (edu1, edu2) in enumerate(dpack.pairings):
+        if (grp[edu1.id] == grp[edu2.id]
+            and target[i] != unrelated):
+            # edu2 has an incoming relation => not an (intra) root
+            intra_tgts[grp[edu2.id]].add(edu2.id)
+
+    # pick out the (fakeroot, edu) pairs where edu does not have
+    # incoming intra edges
+    all_heads = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
+                 if (edu1.id == FAKE_ROOT_ID
+                     and edu2.id not in intra_tgts[grp[edu2.id]])]
+    # NEW pick out the original inter-sentential links, for removal
+    inter_links = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
+                   if (edu1.id != FAKE_ROOT_ID
+                       and grp[edu1.id] != grp[edu2.id]
+                       and target[i] != unrelated)]
+    # 2016-07-29 CDUs
+    all_heads_cdu, inter_links_cdu, new_cdu_target = self._for_intra_cdu(dpack, target, grp, unrelated, intra_tgts)
+    # end CDUs
 
     # update datapack and target accordingly
     new_target = np.copy(dpack.target)

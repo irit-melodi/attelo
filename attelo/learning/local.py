@@ -119,54 +119,77 @@ class SklearnAttachClassifier(AttachClassifier, SklearnClassifier):
             scores_pred = probs[:, attach_idx]
         else:
             scores_pred = self._learner.decision_function(dpack.data)
-
         if False:
-            # FIXME move the part where we overwrite scores of EDU pairings
-            # with scores of CDU pairings, to a submodule of parser
-            # 2016-07-29 WIP compute scores for CDUs
-            # TODO find a cleaner way to compute these scores
-            epairs_map = {(src.id, tgt.id): i for i, (src, tgt)
-                          in enumerate(dpack.pairings)}
-            # filter CDU pairs
-            cpairs_idc = []  # indices of selected CDU pairs
-            epairs_idc = []  # indices of corresponding EDU pairs
-            for i, (src, tgt) in enumerate(dpack.cdu_pairings):
-                esrc = src.members[0] if isinstance(src, CDU) else src.id
-                etgt = tgt.members[0] if isinstance(tgt, CDU) else tgt.id
-                if (esrc, etgt) in epairs_map:
-                    cpairs_idc.append(i)
-                    epairs_idc.append(epairs_map[(esrc, etgt)])
-            # score pairs on CDUs, replace the score of the EDU pair if the
-            # score of the CDU pair is higher
-            if cpairs_idc:
-                print('woot!')  # DEBUG
-                sel_cdu_data = dpack.cdu_data[cpairs_idc]
-                if self.can_predict_proba:
-                    cdu_probs = self._learner.predict_proba(sel_cdu_data)
-                    cdu_scores_pred = cdu_probs[:, attach_idx]
-                else:
-                    cdu_scores_pred = self._learner.decision_function(
-                        sel_cdu_data)
-                # DEBUG
-                if False:
-                    epairs = [dpack.pairings[i] for i in epairs_idc]
-                    epair_ids = [(src.id, tgt.id) for src, tgt in epairs]
-                    print('epair scores')
-                    for x, y in zip(epair_ids,
-                                    [scores_pred[i] for i in epairs_idc])[:30]:
-                        print(x, y)
-                    cpairs = [dpack.cdu_pairings[i] for i in cpairs_idc]
-                    cpair_ids = [(src if isinstance(src, CDU) else src.id,
-                                  tgt if isinstance(tgt, CDU) else tgt.id)
-                                 for src, tgt in cpairs]
-                    print('cpair scores')
-                    for x, y in zip(cpair_ids, cdu_scores_pred)[:30]:
-                        print(x, y)
-                    raise ValueError('gne')
-                # end DEBUG
-                # was: np.maximum(scores_pred[epairs_idc], cdu_scores_pred)
-                scores_pred[epairs_idc] = cdu_scores_pred
-            # end WIP CDUs
+            # scoring of CDU pairings is currently de-activated
+            scores_pred = self.overwrite_scores_cdu(dpack, scores_pred)
+        return scores_pred
+
+    def overwrite_scores_cdu(self, dpack, scores_pred):
+        """Overwrite scores of EDU pairings with scores of CDU pairings.
+
+        Parameters
+        ----------
+        dpack : DataPack
+            DataPack
+
+        scores_pred : array of float, dimensions=(len(edu_pairings), 1)
+            Predicted scores for pairs of EDUs.
+
+        Returns
+        -------
+        scores_pred : array of float, dimensions=(len(edu_pairings), 1)
+            Updated array of predicted scores.
+
+        Notes
+        -----
+        All CDU-related code might be better off in a dedicated submodule
+        of parser.
+        """
+        attach_idx = list(self._learner.classes_).index(self.pos_label)
+        # 2016-07-29 WIP compute scores for CDUs
+        # TODO find a cleaner way to compute these scores
+        epairs_map = {(src.id, tgt.id): i for i, (src, tgt)
+                      in enumerate(dpack.pairings)}
+        # filter CDU pairs
+        cpairs_idc = []  # indices of selected CDU pairs
+        epairs_idc = []  # indices of corresponding EDU pairs
+        for i, (src, tgt) in enumerate(dpack.cdu_pairings):
+            esrc = src.members[0] if isinstance(src, CDU) else src.id
+            etgt = tgt.members[0] if isinstance(tgt, CDU) else tgt.id
+            if (esrc, etgt) in epairs_map:
+                cpairs_idc.append(i)
+                epairs_idc.append(epairs_map[(esrc, etgt)])
+        # score pairs on CDUs, replace the score of the EDU pair if the
+        # score of the CDU pair is higher
+        if cpairs_idc:
+            print('woot!')  # DEBUG
+            sel_cdu_data = dpack.cdu_data[cpairs_idc]
+            if self.can_predict_proba:
+                cdu_probs = self._learner.predict_proba(sel_cdu_data)
+                cdu_scores_pred = cdu_probs[:, attach_idx]
+            else:
+                cdu_scores_pred = self._learner.decision_function(
+                    sel_cdu_data)
+            # DEBUG
+            if False:
+                epairs = [dpack.pairings[i] for i in epairs_idc]
+                epair_ids = [(src.id, tgt.id) for src, tgt in epairs]
+                print('epair scores')
+                for x, y in zip(epair_ids,
+                                [scores_pred[i] for i in epairs_idc])[:30]:
+                    print(x, y)
+                cpairs = [dpack.cdu_pairings[i] for i in cpairs_idc]
+                cpair_ids = [(src if isinstance(src, CDU) else src.id,
+                              tgt if isinstance(tgt, CDU) else tgt.id)
+                             for src, tgt in cpairs]
+                print('cpair scores')
+                for x, y in zip(cpair_ids, cdu_scores_pred)[:30]:
+                    print(x, y)
+                raise ValueError('gne')
+            # end DEBUG
+            # was: np.maximum(scores_pred[epairs_idc], cdu_scores_pred)
+            scores_pred[epairs_idc] = cdu_scores_pred
+        # end WIP CDUs
 
         return scores_pred
 

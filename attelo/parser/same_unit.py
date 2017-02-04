@@ -3,12 +3,12 @@
 
 from __future__ import print_function
 
-from os import path as fp
-
 import csv
+from os import path as fp
+import os
+
 import joblib
 import numpy as np
-import os
 
 from attelo.edu import edu_id2num
 from attelo.table import UNKNOWN, DataPack, Graph
@@ -57,14 +57,13 @@ def for_attachment_same_unit(dpack, target):
                      pairings=dpack.pairings,
                      data=dpack.data,
                      target=np.where(dpack.target == su_idx, 1, -1),
-                     # WIP
-                     ctarget=dpack.ctarget,  # old WIP
-                     # 2016-07-28 CDUs
+                     ctarget=dpack.ctarget,  # ctree target ; old WIP
+                     # 2016-07-28 WIP CDUs
                      cdus=dpack.cdus,
                      cdu_pairings=dpack.cdu_pairings,
                      cdu_data=dpack.cdu_data,
                      cdu_target=dpack.cdu_target,
-                     # end WIP
+                     # end WIP CDUs
                      labels=[UNKNOWN, SAME_UNIT],
                      vocab=dpack.vocab,
                      graph=dpack.graph)

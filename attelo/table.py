@@ -187,8 +187,9 @@ class DataPack(namedtuple('DataPack',
 
     # pylint: disable=too-many-arguments
     @classmethod
-    def load(cls, edus, pairings, data, target, ctarget, cdus,
-             cdu_pairings, cdu_data, cdu_target, labels, vocab):
+    def load(cls, edus, pairings, data, target, ctarget,
+             cdus, cdu_pairings, cdu_data, cdu_target,
+             labels, vocab):
         '''
         Build a data pack and run some sanity checks
         (see :py:method:sanity_check')
@@ -196,17 +197,14 @@ class DataPack(namedtuple('DataPack',
 
         :rtype: :py:class:`DataPack`
         '''
-        pack = cls(edus=edus,
-                   pairings=pairings,
-                   data=data,
-                   target=target,
+        pack = cls(edus=edus, pairings=pairings,
+                   data=data, target=target,
                    ctarget=ctarget,
-                   cdus=cdus,
-                   cdu_pairings=cdu_pairings,
-                   cdu_data=cdu_data,
-                   cdu_target=cdu_target,
-                   labels=labels,
-                   vocab=vocab,
+                   # WIP CDUs
+                   cdus=cdus, cdu_pairings=cdu_pairings,
+                   cdu_data=cdu_data, cdu_target=cdu_target,
+                   # end CDUs
+                   labels=labels, vocab=vocab,
                    graph=None)
         pack.sanity_check()
         return pack
@@ -309,6 +307,36 @@ class DataPack(namedtuple('DataPack',
         self._check_target()
         self._check_table_shape()
 
+    def _selected_cdu(self, sel_pairings):
+        """Helper to selected() for CDUs"""
+        # 2016-07-28 restrict pairings from/to CDUs: keep only those
+        # that correspond to selected pairings from/to the first member
+        # of a CDU
+        sel_pairings_id_set = set((src.id, tgt.id)
+                                  for src, tgt in sel_pairings)
+        # get the EDU pairings that correspond to each CDU pairing
+        edu_pairings_cdu = [
+            (src.members[0] if isinstance(src, CDU) else src.id,
+             tgt.members[0] if isinstance(tgt, CDU) else tgt.id)
+            for src, tgt in self.cdu_pairings
+        ]
+        # filter against the set of selected EDU pairings
+        sel_cdu_indices = [i for i, x in enumerate(edu_pairings_cdu)
+                           if x in sel_pairings_id_set]
+        sel_cdu_pairings = [self.cdu_pairings[x] for x in sel_cdu_indices]
+        sel_cdus_ = set()
+        for du1, du2 in sel_cdu_pairings:
+            if isinstance(du1, CDU):
+                sel_cdus_.add(du1)
+            if isinstance(du2, CDU):
+                sel_cdus_.add(du2)
+        sel_cdus = [x for x in self.cdus if x in sel_cdus_]
+        sel_cdu_data = (self.cdu_data[sel_cdu_indices]
+                        if self.cdu_data is not None and sel_cdu_indices
+                        else None)
+        sel_cdu_targets = np.take(self.cdu_target, sel_cdu_indices)
+        return sel_cdus, sel_cdu_pairings, sel_cdu_data, sel_cdu_targets
+
     def selected(self, indices):
         '''
         Return only the items in the specified rows
@@ -338,32 +366,9 @@ class DataPack(namedtuple('DataPack',
             graph = None
         else:
             graph = self.graph.selected(indices)
-        # 2016-07-28 restrict pairings from/to CDUs: keep only those
-        # that correspond to selected pairings from/to the first member
-        # of a CDU
-        sel_pairings_id_set = set((src.id, tgt.id)
-                                  for src, tgt in sel_pairings)
-        # get the EDU pairings that correspond to each CDU pairing
-        edu_pairings_cdu = [
-            (src.members[0] if isinstance(src, CDU) else src.id,
-             tgt.members[0] if isinstance(tgt, CDU) else tgt.id)
-            for src, tgt in self.cdu_pairings
-        ]
-        # filter against the set of selected EDU pairings
-        sel_cdu_indices = [i for i, x in enumerate(edu_pairings_cdu)
-                           if x in sel_pairings_id_set]
-        sel_cdu_pairings = [self.cdu_pairings[x] for x in sel_cdu_indices]
-        sel_cdus_ = set()
-        for du1, du2 in sel_cdu_pairings:
-            if isinstance(du1, CDU):
-                sel_cdus_.add(du1)
-            if isinstance(du2, CDU):
-                sel_cdus_.add(du2)
-        sel_cdus = [x for x in self.cdus if x in sel_cdus_]
-        sel_cdu_data = (self.cdu_data[sel_cdu_indices]
-                        if self.cdu_data is not None and sel_cdu_indices
-                        else None)
-        sel_cdu_targets = np.take(self.cdu_target, sel_cdu_indices)
+        # CDUs: restrict pairings from/to CDUs to selected pairings
+        # from/to the first member of each CDU
+        sel_cdus, sel_cdu_pairings, sel_cdu_data, sel_cdu_targets = self._selected_cdu(sel_pairings)
         # end WIP CDU
         return DataPack(edus=sel_edus,
                         pairings=sel_pairings,
