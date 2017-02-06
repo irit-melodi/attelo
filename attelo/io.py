@@ -379,6 +379,7 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
                    cdu_file=None, cdu_pairings_file=None,
                    cdu_feature_file=None,
                    corpus_path=None,  # WIP
+                   file_split='corpus',  # WIP
                    verbose=False):
     """Read EDUs and features for edu pairs.
 
@@ -389,16 +390,27 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
     ----------
     ... TODO
 
-    corpus_path : string
+    corpus_path : str
         Path to the labelled corpus, to retrieve the original gold
         structures ; at the moment, only works with the RST corpus to
         access gold RST constituency trees.
 
+    file_split : str, one of {'corpus', 'dialogue', 'doc'}
+        Whether groups of files are generated for each corpus section,
+        dialogue (eg. for STAC) or document (eg. for RST-DT).
+
     Returns
     -------
-    mpack: Multipack
+    mpack : Multipack
         Multipack (= dict) from grouping to DataPack.
     """
+    # WIP 2017-02-07 file_split
+    # support both doc- and corpus-centric calls
+    if file_split not in ('corpus', 'dialogue', 'doc'):
+        raise ValueError("file_split should be one of "
+                         "\{'corpus', 'dialogue', 'doc'\}")
+    # end WIP file_split
+
     mpack = dict()
 
     # WIP augment DataPack with the gold structure for each grouping
@@ -439,9 +451,11 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
             pairings_f = pairings_files[doc_name]
             edus, pairings = _process_edu_links(load_edus(edu_f),
                                                 load_pairings(pairings_f))
-            # each file should contain info from exactly one doc (grouping)
-            grp_names = groupings(pairings).keys()
-            assert grp_names == [doc_name]
+            if file_split == 'doc':
+                # TODO for 'dialogue' too?
+                # each file should contain info from exactly one doc
+                grp_names = groupings(pairings).keys()
+                assert grp_names == [doc_name]
             # store
             doc_edus[doc_name] = edus
             doc_pairings[doc_name] = pairings

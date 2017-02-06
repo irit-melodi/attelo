@@ -255,11 +255,9 @@ def _load_harness_multipack(hconf, test_data=False):
         paths = stripped_paths
     else:
         paths = hconf.mpack_paths(test_data, stripped=False)
-    mpack = load_multipack(paths['edu_input'],
-                           paths['pairings'],
+    mpack = load_multipack(paths['edu_input'], paths['pairings'],
                            paths['features'],
-                           paths['vocab'],
-                           paths['labels'],
+                           paths['vocab'], paths['labels'],
                            # WIP additional files, used only for rst-dt
                            # as of 2016-07-28
                            cdu_file=paths.get('cdu_input', None),
@@ -267,6 +265,7 @@ def _load_harness_multipack(hconf, test_data=False):
                            cdu_feature_file=paths.get('cdu_features', None),
                            corpus_path=paths.get('corpus', None),
                            # end WIP
+                           file_split='corpus',  # WIP
                            verbose=True)
     return mpack
 
