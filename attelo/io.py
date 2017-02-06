@@ -274,7 +274,7 @@ def _process_cdu_links(cdus, edus, pairings):
 
 
 def _load_multipack_cdus(cdu_file, cdu_pairings_file, cdu_feature_file,
-                         vocab, doc_names):
+                         vocab, doc_names, verbose=False):
     """Helper to load the CDU part of a multipack.
 
     Parameters
@@ -473,7 +473,7 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
             doc_targets[doc_name] = targets
 
     # WIP CDUs
-    doc_cdus, doc_cdu_pairings, doc_cdu_data, doc_cdu_targets = _load_multipack_cdus(cdu_file, cdu_pairings_file, cdu_feature_file, vocab, doc_names)
+    doc_cdus, doc_cdu_pairings, doc_cdu_data, doc_cdu_targets = _load_multipack_cdus(cdu_file, cdu_pairings_file, cdu_feature_file, vocab, doc_names, verbose=verbose)
 
     # build DataPack
     with Torpor("Build data packs", quiet=not verbose):
