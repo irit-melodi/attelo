@@ -371,7 +371,7 @@ def _load_multipack_cdus(cdu_file, cdu_pairings_file, cdu_feature_file,
         doc_cdu_data = {doc_name: None for doc_name in doc_names}
         doc_cdu_targets = {doc_name: None for doc_name in doc_names}
     # end WIP CDUs
-    return tuple(doc_cdus, doc_cdu_pairings, doc_cdu_data, doc_cdu_targets)
+    return tuple([doc_cdus, doc_cdu_pairings, doc_cdu_data, doc_cdu_targets])
 
 
 def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
