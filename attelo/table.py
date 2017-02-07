@@ -372,9 +372,16 @@ class DataPack(namedtuple('DataPack',
             graph = None
         else:
             graph = self.graph.selected(indices)
+
         # CDUs: restrict pairings from/to CDUs to selected pairings
         # from/to the first member of each CDU
-        sel_cdus, sel_cdu_pairings, sel_cdu_data, sel_cdu_targets = self._selected_cdu(sel_pairings)
+        if self.cdus:
+            sel_cdus, sel_cdu_pairings, sel_cdu_data, sel_cdu_targets = self._selected_cdu(sel_pairings)
+        else:
+            sel_cdus = self.cdus
+            sel_cdu_pairings = self.cdu_pairings
+            sel_cdu_data = self.cdu_data
+            sel_cdu_targets = self.cdu_target
         # end WIP CDU
         return DataPack(edus=sel_edus,
                         pairings=sel_pairings,
