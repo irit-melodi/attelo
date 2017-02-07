@@ -1,13 +1,13 @@
-'''
+"""
 Group-aware n-fold evaluation.
 
 Attelo uses a variant of n-fold evaluation, where we (still)
-andomly partition the dataset into a set of folds of roughly even
+randomly partition the dataset into a set of folds of roughly even
 size, but respecting the additional constraint that any two data
-entries belonging in the same "group" (determined a single
+entries belonging in the same "group" (determined by a single
 distiguished feature, eg. the document id, the dialogue id, etc)
 are always in the same fold. Note that this makes it a bit harder
-to have perfectly evenly sized folds
+to have perfectly evenly sized folds.
 
 
 Created on Jun 20, 2012
@@ -15,7 +15,12 @@ Created on Jun 20, 2012
 @author: stergos
 
 contribs: phil
-'''
+
+TODO
+----
+* [ ] refactor after `sklearn.model_selection._split`: encapsulate
+      into a class similar to GroupKFold.
+"""
 
 import random
 

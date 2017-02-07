@@ -223,13 +223,19 @@ class DataPack(namedtuple('DataPack',
             raise ValueError('need non-empty list of datapacks')
         dzero = dpacks[0]
         # CDUs
-        cdus = concat_l(d.cdus for d in dpacks)
-        cdu_pairings = concat_l(d.cdu_pairings for d in dpacks)
-        cdu_data = scipy.sparse.vstack(d.cdu_data for d in dpacks)
-        cdu_target = (np.concatenate([d.cdu_target for d in dpacks
-                                      if d.cdu_target is not None])
-                      if any(d.cdu_target is not None for d in dpacks)
-                      else None)
+        if any(d.cdus for d in dpacks):
+            cdus = concat_l(d.cdus for d in dpacks)
+            cdu_pairings = concat_l(d.cdu_pairings for d in dpacks)
+            cdu_data = scipy.sparse.vstack(d.cdu_data for d in dpacks)
+            cdu_target = (np.concatenate([d.cdu_target for d in dpacks
+                                          if d.cdu_target is not None])
+                          if any(d.cdu_target is not None for d in dpacks)
+                          else None)
+        else:
+            cdus = None
+            cdu_pairings = None
+            cdu_data = None
+            cdu_target = None
         # end CDUs
         return DataPack(edus=concat_l(d.edus for d in dpacks),
                         pairings=concat_l(d.pairings for d in dpacks),

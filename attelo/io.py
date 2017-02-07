@@ -5,6 +5,7 @@ Saving and loading data or models
 from __future__ import print_function
 from itertools import chain
 import codecs
+from collections import defaultdict
 import copy
 import csv
 from glob import glob
@@ -411,7 +412,12 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
                          "\{'corpus', 'dialogue', 'doc'\}")
     # end WIP file_split
 
+    # setup result, load common files
     mpack = dict()
+    # common files: vocabulary, labels
+    vocab = load_vocab(vocab_file)
+    labels = load_labels(labels_file)
+    assert labels[0] == UNKNOWN
 
     # WIP augment DataPack with the gold structure for each grouping
     if corpus_path is None:
@@ -427,53 +433,90 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
         # but this one and call slurp* with coarse_rels=False
     # end WIP
 
-    # one file per doc (2016-08-30)
-    edu_files = {os.path.basename(f).rsplit('.', 4)[0]: f
-                 for f in glob(edu_file)}
-    pairings_files = {os.path.basename(f).rsplit('.', 4)[0]: f
-                      for f in glob(pairings_file)}
-    feature_files = {os.path.basename(f).rsplit('.', 3)[0]: f
-                     for f in glob(feature_file)}
-    # end one file per doc
-
-    # common files: vocabulary, labels
-    vocab = load_vocab(vocab_file)
-    labels = load_labels(labels_file)
-    assert labels[0] == UNKNOWN
-
-    doc_names = sorted(edu_files.keys())
-
-    doc_edus = dict()
-    doc_pairings = dict()
-    with Torpor("Reading EDUs and pairings", quiet=not verbose):
-        for doc_name in doc_names:
-            edu_f = edu_files[doc_name]
-            pairings_f = pairings_files[doc_name]
+    if file_split == 'corpus':
+        # one file per corpus split
+        edu_files = list(glob(edu_file))
+        pairings_files = list(glob(pairings_file))
+        feature_files = list(glob(feature_file))
+        assert len(edu_files) == 1
+        assert len(pairings_files) == 1
+        assert len(feature_files) == 1
+        edu_f = edu_files[0]
+        pairings_f = pairings_files[0]
+        feature_f = feature_files[0]
+        # load EDUs and pairings for each doc
+        doc_edus = defaultdict(list)
+        doc_pairings = dict()
+        with Torpor("Reading EDUs and pairings", quiet=not verbose):
             edus, pairings = _process_edu_links(load_edus(edu_f),
                                                 load_pairings(pairings_f))
-            if file_split == 'doc':
+            grp2idc = groupings(pairings)  # map group names to indices
+            for edu in edus:
+                doc_edus[edu.grouping].append(edu)
+            for grp_name, pair_idc in grp2idc.items():
+                # for RST-DT, grp_name is a doc_name ; for STAC it is a
+                # dialogue identifier
+                doc_pairings[grp_name] = [pairings[i] for i in pair_idc]
+        # load the corresponding feature vectors and targets
+        doc_data = dict()
+        doc_targets = dict()
+        with Torpor("Reading features", quiet=not verbose):
+            data, targets = load_svmlight_file(
+                feature_f, n_features=len(vocab))
+            for grp_name, pair_idc in grp2idc.items():
+                doc_data[grp_name] = data[pair_idc]
+                doc_targets[grp_name] = targets[pair_idc]
+        # load the same info for CDUs
+        # 2017-02-07 inactive
+        doc_names = sorted(grp2idc.keys())
+        doc_cdus, doc_cdu_pairings, doc_cdu_data, doc_cdu_targets = _load_multipack_cdus(
+            cdu_file, cdu_pairings_file, cdu_feature_file, vocab, doc_names,
+            verbose=verbose)
+
+    elif file_split == 'doc':  # TODO dialogue?
+        # one file per doc (2016-08-30)
+        edu_files = {os.path.basename(f).rsplit('.', 4)[0]: f
+                     for f in glob(edu_file)}
+        pairings_files = {os.path.basename(f).rsplit('.', 4)[0]: f
+                          for f in glob(pairings_file)}
+        feature_files = {os.path.basename(f).rsplit('.', 3)[0]: f
+                         for f in glob(feature_file)}
+
+        doc_names = sorted(edu_files.keys())
+        # load EDUs and pairings for each doc
+        doc_edus = dict()
+        doc_pairings = dict()
+        with Torpor("Reading EDUs and pairings", quiet=not verbose):
+            for doc_name in doc_names:
+                edu_f = edu_files[doc_name]
+                pairings_f = pairings_files[doc_name]
+                edus, pairings = _process_edu_links(load_edus(edu_f),
+                                                    load_pairings(pairings_f))
                 # TODO for 'dialogue' too?
                 # each file should contain info from exactly one doc
                 grp_names = groupings(pairings).keys()
                 assert grp_names == [doc_name]
-            # store
-            doc_edus[doc_name] = edus
-            doc_pairings[doc_name] = pairings
+                # store
+                doc_edus[doc_name] = edus
+                doc_pairings[doc_name] = pairings
+        # load the corresponding feature vectors and targets
+        doc_data = dict()
+        doc_targets = dict()
+        with Torpor("Reading features", quiet=not verbose):
+            for doc_name in doc_names:
+                feature_f = feature_files[doc_name]
+                # pylint: disable=unbalanced-tuple-unpacking
+                data, targets = load_svmlight_file(feature_f,
+                                                   n_features=len(vocab))
+                # pylint: enable=unbalanced-tuple-unpacking
+                doc_data[doc_name] = data
+                doc_targets[doc_name] = targets
 
-    doc_data = dict()
-    doc_targets = dict()
-    with Torpor("Reading features", quiet=not verbose):
-        for doc_name in doc_names:
-            feature_f = feature_files[doc_name]
-            # pylint: disable=unbalanced-tuple-unpacking
-            data, targets = load_svmlight_file(feature_f,
-                                               n_features=len(vocab))
-            # pylint: enable=unbalanced-tuple-unpacking
-            doc_data[doc_name] = data
-            doc_targets[doc_name] = targets
-
-    # WIP CDUs
-    doc_cdus, doc_cdu_pairings, doc_cdu_data, doc_cdu_targets = _load_multipack_cdus(cdu_file, cdu_pairings_file, cdu_feature_file, vocab, doc_names, verbose=verbose)
+        # load the same info for CDUs
+        # 2017-02-07 inactive
+        doc_cdus, doc_cdu_pairings, doc_cdu_data, doc_cdu_targets = _load_multipack_cdus(
+            cdu_file, cdu_pairings_file, cdu_feature_file, vocab, doc_names,
+            verbose=verbose)
 
     # build DataPack
     with Torpor("Build data packs", quiet=not verbose):
