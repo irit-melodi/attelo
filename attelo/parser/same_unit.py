@@ -256,7 +256,9 @@ class SameUnitClassifierWrapper(Parser):
         if not nf_pairs:
             # no prediction to make (ex: doc with 2 EDUs, 1 sentence each):
             # return (copies of) the original scores
-            print('no same-unit prediction where ', su_pack.edus[1].id)
+            # DIRTY this assumes that su_pack.edus[0] is the first real
+            # EDU, not the fake root
+            print('no same-unit prediction where ', su_pack.edus[0].id)
             return dpack
 
         su_pack = su_pack.selected(nf_pairs)
