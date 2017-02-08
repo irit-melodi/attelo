@@ -10,7 +10,7 @@ import os
 import joblib
 import numpy as np
 
-from attelo.edu import edu_id2num
+from attelo.edu import edu_id2num, FAKE_ROOT_ID
 from attelo.table import UNKNOWN, DataPack, Graph
 from attelo.learning.interface import AttachClassifier
 from attelo.learning.local import SklearnClassifier
@@ -86,7 +86,7 @@ def right_intra_idc(dpack):
     """
     edu_id2sent = {e.id: e.subgrouping for e in dpack.edus}
     res = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
-           if (edu1.id != 'ROOT' and
+           if (edu1.id != FAKE_ROOT_ID and
                edu_id2sent[edu1.id] == edu_id2sent[edu2.id] and
                edu_id2num(edu1.id) < edu_id2num(edu2.id))]
     return res

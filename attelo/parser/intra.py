@@ -46,6 +46,7 @@ class IntraInterPair(namedtuple("IntraInterPair",
         return IntraInterPair(intra=fun(self.intra),
                               inter=fun(self.inter))
 
+
 def _for_intra_cdu(dpack, target, grp, unrelated, intra_tgts):
     """Helper to for_intra to contain CDU-specific code.
 
@@ -90,6 +91,7 @@ def _for_intra_cdu(dpack, target, grp, unrelated, intra_tgts):
         new_cdu_target = None
     return all_heads_cdu, inter_links_cdu, new_cdu_target
 
+
 def for_intra(dpack, target):
     """Adapt a datapack to intrasentential decoding.
 
@@ -113,7 +115,8 @@ def for_intra(dpack, target):
     unrelated = dpack.label_number(UNRELATED)
     intra_tgts = defaultdict(set)
     for i, (edu1, edu2) in enumerate(dpack.pairings):
-        if (grp[edu1.id] == grp[edu2.id]
+        if (edu1.id != FAKE_ROOT_ID
+            and grp[edu1.id] == grp[edu2.id]
             and target[i] != unrelated):
             # edu2 has an incoming relation => not an (intra) root
             intra_tgts[grp[edu2.id]].add(edu2.id)
@@ -129,7 +132,8 @@ def for_intra(dpack, target):
                        and grp[edu1.id] != grp[edu2.id]
                        and target[i] != unrelated)]
     # 2016-07-29 CDUs
-    all_heads_cdu, inter_links_cdu, new_cdu_target = self._for_intra_cdu(dpack, target, grp, unrelated, intra_tgts)
+    all_heads_cdu, inter_links_cdu, new_cdu_target = _for_intra_cdu(
+        dpack, target, grp, unrelated, intra_tgts)
     # end CDUs
 
     # update datapack and target accordingly
