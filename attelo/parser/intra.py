@@ -65,6 +65,13 @@ def _for_intra_cdu(dpack, target, grp, unrelated, intra_tgts):
         (identifiers) that have incoming edges whose source is in the
         same subgroup.
     """
+    if not dpack.cdu_pairings:
+        # no CDU pairings: fail early
+        all_heads_cdu = []
+        inter_links_cdu = []
+        new_cdu_target = None
+        return all_heads_cdu, inter_links_cdu, new_cdu_target
+
     all_heads_cdu = []
     for i, (du1, du2) in enumerate(dpack.cdu_pairings):
         src = (du1.members[0] if isinstance(du1, CDU) else du1.id)
