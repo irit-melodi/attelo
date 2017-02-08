@@ -86,8 +86,9 @@ def right_intra_idc(dpack):
     """
     edu_id2sent = {e.id: e.subgrouping for e in dpack.edus}
     res = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
-           if (edu_id2sent[edu1.id] == edu_id2sent[edu2.id]
-               and edu_id2num(edu1.id) < edu_id2num(edu2.id))]
+           if (edu1.id != 'ROOT' and
+               edu_id2sent[edu1.id] == edu_id2sent[edu2.id] and
+               edu_id2num(edu1.id) < edu_id2num(edu2.id))]
     return res
 
 
