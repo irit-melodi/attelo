@@ -178,6 +178,52 @@ class SameUnitClassifierWrapper(Parser):
             joblib.dump(self._learner_su, cache_file)
         return self
 
+    def _dump_frag_edus(self, dpack, scores_pred, positive_mask, su_pred):
+        """Helper to dump fragmented EDUs predicted by this classifier.
+
+        Called by `transform()`.
+        """
+        # edus[1:] to skip the fake root, as its grouping is None
+        doc_names = set(x.grouping for x in dpack.edus[1:])
+        assert len(doc_names) == 1
+        doc_name = list(doc_names)[0]
+        # verbose
+        print('Predicted same-unit in', doc_name)
+        for i, (su_score_pred, pair) in enumerate(zip(
+                scores_pred[positive_mask],
+                [dpack.pairings[i] for i in su_pred]), start=1):
+            print('{:.2f}'.format(su_score_pred), pair[0])
+            print('    ', pair[1])
+
+        # dump
+        out_dir = 'TMP_same_unit'  # FIXME
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        # avoid confusing true and predicted Same-Unit
+        if isinstance(self._learner_su, AttachOracle):
+            fn_ext = 'deps_true'
+        else:
+            fn_ext = 'deps_pred'
+
+        # FIXME this assumes the first pass is on the whole doc, not
+        # a subset like sentence dpack as in (intra/inter) ; hence
+        # this works as expected if and only if the first parser run
+        # in the harness is a "global" one
+        fpath_su = os.path.join(
+            out_dir,
+            '{}.relations.same-unit.{}'.format(doc_name, fn_ext))
+        if not os.path.exists(fpath_su):
+            frag_edu_pairs = [dpack.pairings[i] for i in su_pred]
+            frag_edu_pairs = [(src.id, tgt.id) for src, tgt
+                              in frag_edu_pairs]
+            with open(fpath_su, 'wb') as f_out:
+                su_writer = csv.writer(f_out, dialect=csv.excel_tab)
+                for i, frag_edu_members in enumerate(
+                        frag_edu_pairs, start=1):
+                    frag_edu_id = doc_name + '_frag' + str(i)
+                    su_writer.writerow(
+                        [frag_edu_id] + list(frag_edu_members))
+
     def transform(self, dpack, nonfixed_pairs=None):
         """
         Its main effect is to update the arrays of
@@ -227,48 +273,8 @@ class SameUnitClassifierWrapper(Parser):
         # predicted
         su_pred = np.array(nf_pairs)[positive_mask]
         # WIP 2016-08-25 dump predicted frag EDUs
-        if True:
-            # edus[1:] to skip the fake root, as its grouping is None
-            doc_names = set(x.grouping for x in dpack.edus[1:])
-            assert len(doc_names) == 1
-            doc_name = list(doc_names)[0]
-            # verbose
-            print('Predicted same-unit in', doc_name)
-            for i, (su_score_pred, pair) in enumerate(zip(
-                    scores_pred[positive_mask],
-                    [dpack.pairings[i] for i in su_pred]), start=1):
-                print('{:.2f}'.format(su_score_pred), pair[0])
-                print('    ', pair[1])
-
-            # dump
-            out_dir = 'TMP_same_unit'  # FIXME
-            if not os.path.exists(out_dir):
-                os.makedirs(out_dir)
-            # avoid confusing true and predicted Same-Unit
-            if isinstance(self._learner_su, AttachOracle):
-                fn_ext = 'deps_true'
-            else:
-                fn_ext = 'deps_pred'
-
-            # FIXME this assumes the first pass is on the whole doc, not
-            # a subset like sentence dpack as in (intra/inter) ; hence
-            # this works as expected if and only if the first parser run
-            # in the harness is a "global" one
-            fpath_su = os.path.join(
-                out_dir,
-                '{}.relations.same-unit.{}'.format(doc_name, fn_ext))
-            if not os.path.exists(fpath_su):
-                frag_edu_pairs = [dpack.pairings[i] for i in su_pred]
-                frag_edu_pairs = [(src.id, tgt.id) for src, tgt
-                                  in frag_edu_pairs]
-                with open(fpath_su, 'wb') as f_out:
-                    su_writer = csv.writer(f_out, dialect=csv.excel_tab)
-                    for i, frag_edu_members in enumerate(
-                            frag_edu_pairs, start=1):
-                        frag_edu_id = doc_name + '_frag' + str(i)
-                        su_writer.writerow(
-                            [frag_edu_id] + list(frag_edu_members))
-        # end dump predicted frag EDUs
+        self._dump_frag_edus(dpack, scores_pred, positive_mask, su_pred)
+        # end WIP dump predicted frag EDUs
 
         # update the lines of predicted "same-unit" in the matrices of
         # scores for attachment and labels:
