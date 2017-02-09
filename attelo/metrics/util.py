@@ -105,20 +105,27 @@ def get_oracle_ctrees(dep_edges, att_edus,
                       nuc_strategy="unamb_else_most_frequent",
                       rank_strategy="sdist-edist-rl",
                       prioritize_same_unit=True,
-                      strict=False):
+                      strict=False,
+                      allow_forest=False):
     """Build the oracle constituency tree(s) for a dependency tree.
 
     Parameters
     ----------
-    dep_edges: dict(string, [(string, string, string)])
+    dep_edges : dict(string, [(string, string, string)])
         Edges for each document, indexed by doc name
         Cf. type of return value from
         irit-rst-dt/ctree.py:load_attelo_output_file()
-    att_edus: cf return type of attelo.io.load_edus
+
+    att_edus : cf return type of attelo.io.load_edus
         EDUs as they are known to attelo
-    strict: boolean, True by default
+
+    strict : boolean, True by default
         If True, any link from ROOT to an EDU that is neither 'ROOT' nor
         UNRELATED raises an exception, otherwise a warning is issued.
+
+    allow_forest : boolean, False by default
+        If True, allows several real roots in the d-tree, hence a forest
+        of RST c-trees.
 
     Returns
     -------
@@ -148,7 +155,9 @@ def get_oracle_ctrees(dep_edges, att_edus,
 
     # create pred ctree
     try:
-        bin_srtrees = deptree_to_simple_rst_tree(dtree, allow_forest=True)
+        # FIXME replace with a straight call to deptree_to_rst_tree
+        bin_srtrees = deptree_to_simple_rst_tree(
+            dtree, allow_forest=allow_forest)
         bin_rtrees = [SimpleRSTTree.to_binary_rst_tree(bin_srtree)
                       for bin_srtree in bin_srtrees]
     except RstDtException as rst_e:

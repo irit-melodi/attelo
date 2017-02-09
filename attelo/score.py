@@ -231,7 +231,8 @@ def score_cspans(dpacks, dpredictions, coarse_rels=True, binary_trees=True,
                          in zip(edges_preds, att_packs)]
 
     ctree_true = ctree_golds  # yerk
-    ctree_pred = [get_oracle_ctrees(edges_pred, att_pack.edus)
+    ctree_pred = [get_oracle_ctrees(edges_pred, att_pack.edus,
+                                    allow_forest=False)
                   for edges_pred, att_pack
                   in zip(edges_preds, att_packs)]
     # 2016-10-02 force one ctree per doc ; we need to reconsider when we
