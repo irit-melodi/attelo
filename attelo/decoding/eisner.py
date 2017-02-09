@@ -3,6 +3,7 @@
 
 import numpy as np
 
+from ..edu import FAKE_ROOT
 from .interface import Decoder
 # temporary? imports
 from ..table import _edu_positions
@@ -46,6 +47,9 @@ class EisnerDecoder(Decoder):
         """
         # whether the output tree should contain a unique real root
         unique_real_root = self._unique_real_root
+        # check that the first EDU is the fake root ; this is an
+        # important assumption for the following code
+        assert dpack.edus[0] == FAKE_ROOT
 
         # get number of EDUs and possible labels
         nb_edus = len(dpack.edus)

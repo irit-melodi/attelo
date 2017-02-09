@@ -450,13 +450,22 @@ def load_multipack(edu_file, pairings_file, feature_file, vocab_file,
         with Torpor("Reading EDUs and pairings", quiet=not verbose):
             edus, pairings = _process_edu_links(load_edus(edu_f),
                                                 load_pairings(pairings_f))
+            # BEWARE _process_edu_links() prepends a unique fake root EDU
+            # to the list of EDUs ; it is currently shared between all
+            # groupings (docs), which makes me (MM) quite uncomfortable ;
+            # let's figure out a proper fix later, shall we?
             grp2idc = groupings(pairings)  # map group names to indices
-            for edu in edus:
-                doc_edus[edu.grouping].append(edu)
             for grp_name, pair_idc in grp2idc.items():
+                # DIRTY initialize the list of EDUs for each grouping (doc)
+                # with the fake root EDU that is at (the global) edus[0]
+                doc_edus[grp_name].append(FAKE_ROOT)
                 # for RST-DT, grp_name is a doc_name ; for STAC it is a
                 # dialogue identifier
                 doc_pairings[grp_name] = [pairings[i] for i in pair_idc]
+            # distribute *real* EDUs to their grouping ; DIRTY again
+            for edu in edus[1:]:
+                doc_edus[edu.grouping].append(edu)
+
         # load the corresponding feature vectors and targets
         doc_data = dict()
         doc_targets = dict()
