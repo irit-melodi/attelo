@@ -18,6 +18,7 @@ from educe.annotation import Span as EduceSpan
 from educe.rst_dt.annotation import (EDU as EduceEDU,
                                      RSTTree,
                                      SimpleRSTTree)
+from educe.rst_dt.corpus import mk_key
 from educe.rst_dt.dep2con import (deptree_to_simple_rst_tree,
                                   DummyNuclearityClassifier,
                                   InsideOutAttachmentRanker)
@@ -84,8 +85,10 @@ def barebones_rst_deptree(dep_edges, att_edus, strict=False):
     doc_edus = list(sorted(doc_edus, key=lambda e: e.num))
     # rebuild educe-style edu2sent ; prepend 0 for the fake root
     edu2sent = [0] + [edu2sent_idx[e.num] for e in doc_edus]
+    # 2017-02-10 create origin (FileId)
+    origin = mk_key(doc_name)
     # rebuild RstDepTrees
-    dtree = RstDepTree(doc_edus)
+    dtree = RstDepTree(edus=doc_edus, origin=origin)
     for src_id, tgt_id, lbl in dep_edges:
         if src_id == 'ROOT':
             if lbl not in ['ROOT', UNKNOWN]:
@@ -152,12 +155,18 @@ def get_oracle_ctrees(dep_edges, att_edus,
     dtree.sent_idx = edu2sent  # FIXME
     dtree.ranks = rank_classifier.predict([dtree])[0]
     # end NEW
-
     # create pred ctree
     try:
         # FIXME replace with a straight call to deptree_to_rst_tree
         bin_srtrees = deptree_to_simple_rst_tree(
             dtree, allow_forest=allow_forest)
+        # FIXME inconsistent API
+        if not allow_forest:
+            # if allow_forest is False, deptree_to_simple_rst_tree()
+            # returns a SimpleRSTTree, vs a list of SimpleRSTTrees
+            # if allow_forest is True :-/
+            bin_srtrees = [bin_srtrees]
+        # end of FIXME inconsistent API
         bin_rtrees = [SimpleRSTTree.to_binary_rst_tree(bin_srtree)
                       for bin_srtree in bin_srtrees]
     except RstDtException as rst_e:
