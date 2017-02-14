@@ -7,6 +7,7 @@ from __future__ import print_function
 # FIXME: look into using sklearn.pipeline.Pipeline
 # I wasn't too successful last time
 
+from attelo.io import Torpor
 from .interface import Parser
 
 
@@ -25,10 +26,9 @@ class Pipeline(Parser):
 
     def fit(self, dpacks, targets, nonfixed_pairs=None, cache=None):
         for name, parser in self.steps:
-            print('Pipeline: fit ', name)
-            parser.fit(dpacks, targets, nonfixed_pairs=nonfixed_pairs,
-                       cache=cache)
-            print('... done')
+            with Torpor('Pipeline: fit {}'.format(name)):
+                parser.fit(dpacks, targets, nonfixed_pairs=nonfixed_pairs,
+                           cache=cache)
 
     def transform(self, dpack, nonfixed_pairs=None):
         for name, parser in self.steps:

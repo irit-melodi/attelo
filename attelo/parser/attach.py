@@ -72,11 +72,7 @@ class AttachClassifierWrapper(Parser):
         self._learner_attach.fit(dpacks, targets)
         # save classifier, if necessary
         if cache_file is not None:
-            print('dump attach model to {}'.format(cache_file))  # DEBUG
-            sys.stdout.flush()  # DEBUG
             joblib.dump(self._learner_attach, cache_file)
-            print('... done')  # DEBUG
-            sys.stdout.flush()  # DEBUG
         return self
 
     def transform(self, dpack, nonfixed_pairs=None):
