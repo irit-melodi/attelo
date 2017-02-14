@@ -179,7 +179,8 @@ class SameUnitClassifierWrapper(Parser):
             joblib.dump(self._learner_su, cache_file)
         return self
 
-    def _dump_frag_edus(self, dpack, scores_pred, positive_mask, su_pred):
+    def _dump_frag_edus(self, dpack, scores_pred, positive_mask, su_pred,
+                        verbose=0):
         """Helper to dump fragmented EDUs predicted by this classifier.
 
         Called by `transform()`.
@@ -189,12 +190,13 @@ class SameUnitClassifierWrapper(Parser):
         assert len(doc_names) == 1
         doc_name = list(doc_names)[0]
         # verbose
-        print('Predicted same-unit in', doc_name)
-        for i, (su_score_pred, pair) in enumerate(zip(
-                scores_pred[positive_mask],
-                [dpack.pairings[i] for i in su_pred]), start=1):
-            print('{:.2f}'.format(su_score_pred), pair[0])
-            print('    ', pair[1])
+        if verbose:
+            print('Predicted same-unit in', doc_name)
+            for i, (su_score_pred, pair) in enumerate(zip(
+                    scores_pred[positive_mask],
+                    [dpack.pairings[i] for i in su_pred]), start=1):
+                print('{:.2f}'.format(su_score_pred), pair[0])
+                print('    ', pair[1])
 
         # dump
         out_dir = 'TMP_same_unit'  # FIXME
@@ -225,7 +227,7 @@ class SameUnitClassifierWrapper(Parser):
                     su_writer.writerow(
                         [frag_edu_id] + list(frag_edu_members))
 
-    def transform(self, dpack, nonfixed_pairs=None):
+    def transform(self, dpack, nonfixed_pairs=None, verbose=0):
         """
         Its main effect is to update the arrays of
         scores for attachment and labelling in `dpack`, for all
@@ -258,7 +260,8 @@ class SameUnitClassifierWrapper(Parser):
             # return (copies of) the original scores
             # DIRTY this assumes that su_pack.edus[0] is the first real
             # EDU, not the fake root
-            print('no same-unit prediction where ', su_pack.edus[0].id)
+            if verbose:
+                print('no same-unit prediction where ', su_pack.edus[0].id)
             return dpack
 
         su_pack = su_pack.selected(nf_pairs)
@@ -275,9 +278,9 @@ class SameUnitClassifierWrapper(Parser):
         # get the absolute indices of pairs for which same-unit has been
         # predicted
         su_pred = np.array(nf_pairs)[positive_mask]
-        # WIP 2016-08-25 dump predicted frag EDUs
-        self._dump_frag_edus(dpack, scores_pred, positive_mask, su_pred)
-        # end WIP dump predicted frag EDUs
+        if verbose:
+            # WIP 2016-08-25 dump predicted frag EDUs
+            self._dump_frag_edus(dpack, scores_pred, positive_mask, su_pred)
 
         # update the lines of predicted "same-unit" in the matrices of
         # scores for attachment and labels:
