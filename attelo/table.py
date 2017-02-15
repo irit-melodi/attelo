@@ -222,6 +222,14 @@ class DataPack(namedtuple('DataPack',
         if not dpacks:
             raise ValueError('need non-empty list of datapacks')
         dzero = dpacks[0]
+
+        # merge ctargets
+        new_ctarget = defaultdict(list)
+        for d in dpacks:
+            for grp_name, ctgt in d.ctarget.items():
+                new_ctarget[grp_name].append(ctgt)
+        # end merge ctargets
+
         # CDUs
         if any(d.cdus for d in dpacks):
             cdus = concat_l(d.cdus for d in dpacks)
@@ -241,11 +249,7 @@ class DataPack(namedtuple('DataPack',
                         pairings=concat_l(d.pairings for d in dpacks),
                         data=scipy.sparse.vstack(d.data for d in dpacks),
                         target=np.concatenate([d.target for d in dpacks]),
-                        ctarget={grp_name: list(itertools.chain.from_iterable(
-                            d.ctarget.get(grp_name, []) for d in dpacks))
-                                 for grp_name in
-                                 set(itertools.chain.from_iterable(
-                                     d.ctarget.keys() for d in dpacks))},
+                        ctarget=new_ctarget,
                         # CDUs
                         cdus=cdus,
                         cdu_pairings=cdu_pairings,
