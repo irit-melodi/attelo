@@ -4,6 +4,8 @@ Local classifiers
 
 from __future__ import print_function
 
+import warnings
+
 import numpy as np
 
 from attelo.cdu import CDU
@@ -114,6 +116,15 @@ class SklearnAttachClassifier(AttachClassifier, SklearnClassifier):
             raise ValueError('Fit not yet called')
 
         if self.can_predict_proba:
+            # retro-compatibility
+            if not hasattr(self, 'pos_label'):
+                warnings.warn(
+                    "Assuming pos_label=1 ; you are probably using an {0} "
+                    "unpickled from an older version of educe.".format(
+                        self.__class__.__name__),
+                    UserWarning)
+                self.pos_label = 1
+            # end retro-compatibility
             attach_idx = list(self._learner.classes_).index(self.pos_label)
             probs = self._learner.predict_proba(dpack.data)
             scores_pred = probs[:, attach_idx]
