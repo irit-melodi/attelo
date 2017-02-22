@@ -42,6 +42,10 @@ def config_argparser(psr):
                      help="only report on this fold")
     psr.add_argument("--output", metavar="DIR",
                      help="save report to this file")
+    # 2017-02-22 number of digits (precision) for floats in report
+    psr.add_argument("--digits", metavar="DIGITS",
+                     default=3,
+                     help="number of digits to display floats in report")
     psr.set_defaults(func=main)
 
 
@@ -106,5 +110,5 @@ def main(args):
                        edge_by_rel=rel_report,
                        confusion=cmatrix,
                        confusion_labels=dpack.labels)
-    rpack.dump(output_dir)
+    rpack.dump(output_dir, digits=args.digits)
     announce_output_dir(output_dir)
