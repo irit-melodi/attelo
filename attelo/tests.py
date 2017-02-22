@@ -90,6 +90,7 @@ class DataPackTest(unittest.TestCase):
                           triv.pairings,
                           triv.data,
                           [1, 1],
+                          dict(),  # ctarget, DIRTY
                           ['__UNK__', 'UNRELATED', 'foo'],
                           None)
 
