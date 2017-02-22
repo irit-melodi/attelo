@@ -41,6 +41,7 @@ class DataPackTest(unittest.TestCase):
                        pairings=[(edus[0], edus[1])],
                        data=scipy.sparse.csr_matrix([[6, 8]]),
                        target=numpy.array([1]),
+                       ctarget=dict(),  # DIRTY
                        labels=['__UNK__', 'x', 'UNRELATED'],
                        graph=None,
                        vocab=None)
@@ -106,12 +107,14 @@ class DataPackTest(unittest.TestCase):
                                       [(self.edus[0], FAKE_ROOT)],
                                       triv.data,
                                       triv.target,
+                                      dict(),  # ctarget: DIRTY
                                       triv.labels,
                                       None))
         dpack2 = DataPack.load(triv.edus,
                                triv.pairings,
                                triv.data,
                                triv.target,
+                               dict(),  # ctarget: DIRTY
                                triv.labels,
                                None)
         self.assertEqualishDatapack(triv, dpack2)
@@ -125,6 +128,7 @@ class DataPackTest(unittest.TestCase):
                                   (self.edus[2], self.edus[0])],
                         data=scipy.sparse.csr_matrix([[6], [7], [1], [5]]),
                         target=numpy.array([2, 1, 1, 3]),
+                        ctarget=dict(),  # DIRTY
                         labels=['__UNK__', 'x', 'y', 'UNRELATED'],
                         graph=None,
                         vocab=None)
@@ -151,6 +155,7 @@ class DataPackTest(unittest.TestCase):
                                                            [7, 0],
                                                            [3, 9]]),
                              target=numpy.array([3, 4, 2]),
+                             ctarget=dict(),  # DIRTY
                              labels=orig_classes,
                              vocab=None)
 
@@ -183,6 +188,7 @@ class DataPackTest(unittest.TestCase):
                                     pairings=[(a1, a2)],
                                     data=scipy.sparse.csr_matrix([[6, 8]]),
                                     target=numpy.array([1]),
+                                    ctarget=dict(),  # DIRTY
                                     labels=labels,
                                     vocab=None),
                  'b': DataPack.load(edus=[b1, b2],
@@ -191,18 +197,21 @@ class DataPackTest(unittest.TestCase):
                                     data=scipy.sparse.csr_matrix([[7, 0],
                                                                   [3, 9]]),
                                     target=numpy.array([0, 1]),
+                                    ctarget=dict(),  # DIRTY
                                     labels=labels,
                                     vocab=None),
                  'c': DataPack.load(edus=[c1, c2],
                                     pairings=[(c1, c2)],
                                     data=scipy.sparse.csr_matrix([[1, 1]]),
                                     target=numpy.array([1]),
+                                    ctarget=dict(),  # DIRTY
                                     labels=labels,
                                     vocab=None),
                  'd': DataPack.load(edus=[d1, d2],
                                     pairings=[(d1, d2)],
                                     data=scipy.sparse.csr_matrix([[0, 4]]),
                                     target=numpy.array([0]),
+                                    ctarget=dict(),  # DIRTY
                                     labels=labels,
                                     vocab=None)}
         fold_dict = {'a': 0,
