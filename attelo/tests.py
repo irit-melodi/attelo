@@ -50,6 +50,7 @@ class DataPackTest(unittest.TestCase):
                             data=scipy.sparse.csr_matrix([[6, 8],
                                                           [7, 0]]),
                             target=numpy.array([1, 0]),
+                            ctarget=dict(),  # DIRTY
                             labels=['__UNK__', 'x', 'UNRELATED'],
                             graph=None,
                             vocab=None)
