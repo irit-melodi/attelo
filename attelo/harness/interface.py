@@ -11,23 +11,23 @@ from .config import RuntimeConfig
 
 
 class HarnessException(Exception):
-    """Things that go wrong in the test harness itself
+    """Things that go wrong in the test harness itself.
     """
     pass
 
 
 class Harness(with_metaclass(ABCMeta, object)):
-    """Test harness configuration
+    """Test harness configuration.
 
     Among other things, this is about defining conventions for
-    filepaths
+    filepaths.
 
     Notes
     -----
     You should have a method that calls `load`.
-    It should be invoked once before running the harness
+    It should be invoked once before running the harness.
     A natural idiom may be to implement a single `run` function
-    that does this
+    that does this.
     """
 
     # pylint: disable=too-many-arguments
@@ -37,12 +37,12 @@ class Harness(with_metaclass(ABCMeta, object)):
         """
         Parameters
         ----------
-        dataset: string
+        dataset : string
             Basename for training data files
 
-        testset: string or None
+        testset : string or None
             Basename for test data files.
-            None if there is no test set set
+            None if there is no test set set.
 
         """
         self.dataset = dataset
@@ -146,6 +146,18 @@ class Harness(with_metaclass(ABCMeta, object)):
         Set of evaluations for which we would like detailed reporting
         """
         return []
+
+    @property
+    def metrics(self):
+        """Selection of metrics to compute in reports."""
+        # default metrics: ['edges', 'edges_by_label', 'edus']
+        return ['edges', 'edges_by_label', 'edus']
+
+    @property
+    def report_digits(self):
+        """Number of digits to display floats in reports."""
+        # default value: 3
+        return 3
 
     @property
     def graph_docs(self):
@@ -276,17 +288,20 @@ class Harness(with_metaclass(ABCMeta, object)):
     def report_dir_path(self, test_data,
                         fold=None,
                         is_tmp=True):
-        """
-        Path to a directory containing reports.
+        """Path to a directory containing reports.
 
         Parameters
         ----------
-        test_data: bool
+        test_data : bool
+            If True, the report is about the test set, otherwise the
+            (usually, training) dataset.
 
-        fold: int
+        fold : int, optional
+            Number of the fold under scrutiny ; if None, all folds.
 
-        is_tmp: bool
-            Only return the path to a provisional report in progress
+        is_tmp : bool, defaults to True
+            If True, only return the path to a provisional report in
+            progress.
         """
         if not is_tmp:
             parent_dir = self.eval_dir
