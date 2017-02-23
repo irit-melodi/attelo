@@ -156,7 +156,7 @@ def score_edges(dpack, predictions):
 
 
 def score_cspans(dpacks, dpredictions, coarse_rels=True, binary_trees=True,
-                 oracle_ctree_gold=False):
+                 oracle_ctree_gold=False, verbose=1):
     """Count correctly predicted spans.
 
     Parameters
@@ -175,7 +175,12 @@ def score_cspans(dpacks, dpredictions, coarse_rels=True, binary_trees=True,
 
     oracle_ctree_gold : boolean, optional
         If True, use oracle gold constituency trees, rebuilt from the
-        gold dependency tree. This should emulate the evaluation in (Li 2014).
+        gold dependency tree. This should emulate the evaluation in
+        (Li 2014).
+
+    verbose : int, defaults to 1
+        Verbosity level ; currently set to 1 because it's still
+        considered WIP.
 
     Returns
     -------
@@ -239,12 +244,17 @@ def score_cspans(dpacks, dpredictions, coarse_rels=True, binary_trees=True,
         y_pred = [[(span[0], lbl_fn(span)) for span in ctree_spans]
                   for ctree_spans in ctree_spans_preds]
         # WIP
-        print('{}\t'.format(metric_type) +
-              '\t'.join(str(x) for x in
-                        precision_recall_fscore_support(y_true, y_pred,
-                                                        labels=None,
-                                                        average='micro')))
+        if verbose:
+            digits = 4
+            values = [metric_type]
+            p, r, f1, s = precision_recall_fscore_support(
+                y_true, y_pred, labels=None, average='micro')
+            for v in (p, r, f1):
+                values += ["{0:0.{1}f}".format(v, digits)]
+            values += ["{0}".format(s)]
+            print('\t'.join(values))
         # end WIP
+
         # FIXME replace with calls to attelo.metrics.classification_structured.
         # precision_recall_fscore_support(y_true, y_pred, labels=None,
         # average='micro')

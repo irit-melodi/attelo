@@ -462,9 +462,10 @@ def _mk_model_summary(hconf, dconf, rconf, test_data, fold, parser):
 def _mk_hashfile(hconf, dconf, test_data):
     "Hash the features and models files for long term archiving"
     # data files
-    hash_me = list(hconf.mpack_paths(False))
+    hash_me = [v for k, v in sorted(hconf.mpack_paths(False).items())]
     if hconf.test_evaluation is not None:
-        hash_me.extend(hconf.mpack_paths(True))
+        hash_me.extend(
+            [v for k, v in sorted(hconf.mpack_paths(True).items())])
 
     # model files
     model_files = []

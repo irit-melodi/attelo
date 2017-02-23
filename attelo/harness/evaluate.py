@@ -207,8 +207,7 @@ def do_global_decode(hconf, dconf):
 
 
 def _load_harness_multipack(hconf, test_data=False):
-    """
-    Load the multipack for our current configuration.
+    """Load the multipack for our current configuration.
 
     Load the stripped features file if we don't actually need to
     use the features (this would only make sense on the cluster
@@ -217,24 +216,25 @@ def _load_harness_multipack(hconf, test_data=False):
 
     Parameters
     ----------
-    test_data: bool
+    test_data : bool, defaults to False
+        If True, it's test data we wanted.
 
     Returns
     -------
-    mpack: Multipack
+    mpack : Multipack
+        Multipack loaded from the harness' configuration.
     """
     stripped_paths = hconf.mpack_paths(test_data, stripped=True)
     if (hconf.runcfg.stage in [ClusterStage.end, ClusterStage.start] and
-        fp.exists(stripped_paths[2])):
+        fp.exists(stripped_paths['features'])):
         paths = stripped_paths
     else:
         paths = hconf.mpack_paths(test_data, stripped=False)
-    mpack = load_multipack(paths[0],
-                           paths[1],
-                           paths[2],
-                           paths[3],
-                           corpus_path=(paths[4] if len(paths) == 5
-                                        else None),  # WIP
+    mpack = load_multipack(paths['edu_input'],
+                           paths['pairings'],
+                           paths['features'],
+                           paths['vocab'],
+                           corpus_path=paths.get('corpus', None),  # WIP
                            verbose=True)
     return mpack
 

@@ -196,22 +196,27 @@ class Harness(with_metaclass(ABCMeta, object)):
 
     @abstractmethod
     def mpack_paths(self, test_data, stripped=False):
-        """
-        Return a tuple of paths needed to read a datapack
+        """Return a dict of paths needed to read a datapack.
 
-        * features
-        * edu input
+        Usual keys are:
+        * edu_input
         * pairings
-        * vocabulary
+        * features
+        * vocab
 
         Parameters
         ----------
-        test_data: bool
-            if it's test data we wanted
+        test_data : bool
+            If True, it's test data we wanted.
 
-        stripped: bool
-            return path for a "stripped" version of the data
-            (faster loading, but only useful for scoring)
+        stripped : bool, defaults to False
+            If True, return path for a "stripped" version of the data
+            (faster loading, but only useful for scoring).
+
+        Returns
+        -------
+        res : dict
+            Paths to files that enable to read a datapack.
         """
         return NotImplementedError
 
