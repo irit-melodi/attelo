@@ -9,7 +9,7 @@ import sys
 
 from joblib import (delayed)
 
-from ..io import (write_predictions_output)
+from attelo.io import Torpor, write_predictions_output
 from attelo.decoding.util import (prediction_to_triples)
 from attelo.fold import (select_training,
                          select_testing)
@@ -110,10 +110,10 @@ def learn(hconf, econf, dconf, fold):
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
     cache = hconf.model_paths(econf.learner, fold, econf.parser)
-    print('learning ', econf.key, '...', file=sys.stderr)
-    dpacks = subpacks.values()
-    targets = [d.target for d in dpacks]
-    econf.parser.payload.fit(dpacks, targets, cache=cache)
+    with Torpor('learning {}'.format(econf.key)):
+        dpacks = subpacks.values()
+        targets = [d.target for d in dpacks]
+        econf.parser.payload.fit(dpacks, targets, cache=cache)
 
 
 def delayed_decode(hconf, dconf, econf, fold):
@@ -141,10 +141,10 @@ def delayed_decode(hconf, dconf, econf, fold):
 
 
 def decode_on_the_fly(hconf, dconf, fold):
-    """
-    Learn each parser, returning decoder jobs as each is learned.
-    Return a decoder job generator that should hopefully allow us
-    to effectively learn and decode in parallel.
+    """Learn each parser, returning decoder jobs as each is learned.
+
+    Yields decoder jobs, which should hopefully allow us to effectively
+    learn and decode in parallel.
     """
     for econf in hconf.evaluations:
         learn(hconf, econf, dconf, fold)

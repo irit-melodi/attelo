@@ -37,8 +37,7 @@ class AttachTimesBestLabel(Parser):
 
 
 class JointPipeline(Pipeline):
-    """
-    Parser that performs attach, direction, and labelling tasks.
+    """Parser that performs attach, direction, and labelling tasks.
 
     For the moment, this assumes AD.L models, but we hope to
     explore possible generalisations of this idea over time.
@@ -50,21 +49,23 @@ class JointPipeline(Pipeline):
 
     Notes
     -----
-    *Cache keys*
-
-    * attach: attach model path
-    * label: label model path
+    fit() and transform() have a `cache` parameter, it should be a
+    dict with keys:
+    * 'attach': attach model path
+    * 'label': label model path
     """
-    def __init__(self,
-                 learner_attach,
-                 learner_label,
-                 decoder):
+    def __init__(self, learner_attach, learner_label, decoder):
         """
         Parameters
         ----------
-        attach_learner: AttachClassifier
-        label_learner: LabelClassifier
-        decoder: Decoder
+        learner_attach : AttachClassifier
+            Classifier for attachment.
+
+        label_learner : LabelClassifier
+            Classifier for labelling.
+
+        decoder : Decoder
+            Decoder.
         """
         if not learner_attach.can_predict_proba:
             raise ValueError('Attachment model does not know how to predict '
@@ -72,9 +73,9 @@ class JointPipeline(Pipeline):
         if not learner_label.can_predict_proba:
             raise ValueError('Relation labelling model does not '
                              'know how to predict probabilities')
-        steps = [('attach weights', AttachClassifierWrapper(learner_attach)),
-                 ('label weights', LabelClassifierWrapper(learner_label)),
-                 ('attach x best label', AttachTimesBestLabel()),
+        steps = [('attach_weights', AttachClassifierWrapper(learner_attach)),
+                 ('label_weights', LabelClassifierWrapper(learner_label)),
+                 ('attach_x_best_label', AttachTimesBestLabel()),
                  ('decoder', decoder)]
         super(JointPipeline, self).__init__(steps=steps)
 
@@ -95,23 +96,25 @@ class PostlabelPipeline(Pipeline):
 
     Notes
     -----
-    *Cache keys*
-
-    * attach: attach model path
-    * label: label model path
+    fit() and transform() have a 'cache' parameter that is a dict with
+    expected keys:
+    * 'attach': attach model path
+    * 'label': label model path
     """
-    def __init__(self,
-                 learner_attach,
-                 learner_label,
-                 decoder):
+    def __init__(self, learner_attach, learner_label, decoder):
         """
         Parameters
         ----------
-        attach_learner: AttachClassifier
-        label_learner: LabelClassifier
-        decoder: Decoder
+        learner_attach : AttachClassifier
+            Classifier for attachment.
+
+        learner_label : LabelClassifier
+            Classifier for labelling.
+
+        decoder : Decoder
+            Decoder.
         """
-        steps = [('attach weights', AttachClassifierWrapper(learner_attach)),
+        steps = [('attach_weights', AttachClassifierWrapper(learner_attach)),
                  ('decode', decoder),
                  ('label', SimpleLabeller(learner=learner_label))]
         super(PostlabelPipeline, self).__init__(steps=steps)

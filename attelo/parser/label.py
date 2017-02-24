@@ -7,38 +7,39 @@ from os import path as fp
 import joblib
 import numpy as np
 
-from .interface import Parser
 from attelo.table import (UNKNOWN, attached_only, for_labelling,
                           idxes_attached)
+from .interface import Parser
 
 
 class LabelClassifierWrapper(Parser):
-    """
-    Parser that extracts label weights from a label classifier.
+    """Parser that extracts label weights from a label classifier.
+
     This parser is really meant to be used in conjunction with
     other parsers downstream that make use of these weights.
 
     If you use it in standalone mode, it will just provide the
-    standard unknown prediction everywhere
+    standard unknown prediction everywhere.
 
     Notes
     -----
-    *Cache keys*:
-
-    * label: label model path
+    fit() and transform() have a 'cache' argument that is a dict with
+    expected keys:
+    * 'label': label model path
     """
     def __init__(self, learner):
         """
         Parameters
         ----------
-        learner: LabelClassifier
+        learner : LabelClassifier
+            Classifier for labelling.
         """
         self._learner = learner
 
     def fit(self, dpacks, targets, nonfixed_pairs=None, cache=None):
         """
         Extract whatever models or other information from the multipack
-        that is necessary to make the labeller operational
+        that is necessary to make the labeller operational.
 
         Returns
         -------
@@ -83,8 +84,7 @@ class LabelClassifierWrapper(Parser):
 
 
 class SimpleLabeller(LabelClassifierWrapper):
-    """
-    A simple parser that assigns the best label to any edges with
+    """A simple parser that assigns the best label to any edges with
     unknown labels.
 
     This can be used as a standalone parser if the underlying
@@ -92,9 +92,9 @@ class SimpleLabeller(LabelClassifierWrapper):
 
     Notes
     -----
-    *Cache keys*
-
-    label: label model path
+    fit() and transform() have a 'cache' parameter that is a dict with
+    expected keys:
+    * 'label': label model path
     """
     def transform(self, dpack, nonfixed_pairs=None):
         dpack = super(SimpleLabeller, self).transform(
