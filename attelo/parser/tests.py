@@ -4,11 +4,13 @@ attelo.parser tests
 
 from __future__ import print_function
 
-from sklearn.linear_model import (LogisticRegression)
 import itertools as itr
+import unittest
+
 import numpy as np
 import scipy
-import unittest
+
+from sklearn.linear_model import (LogisticRegression)
 
 from attelo.decoding.astar import (AstarArgs,
                                    Heuristic,
@@ -57,7 +59,7 @@ DECODERS = [
     MST_DECODER,
     ASTAR_DECODER,
     LocallyGreedy(),
-    Pipeline(steps=[('window pruner', WindowPruner(2)),
+    Pipeline(steps=[('window_pruner', WindowPruner(2)),
                     ('decoder', ASTAR_DECODER)]),
 ]
 
@@ -86,10 +88,10 @@ class ParserTest(DecoderTest):
             self._test_parser(parser)
 
     def test_joint_parser(self):
-        for l, d in itr.product(LEARNERS, DECODERS):
-            parser = JointPipeline(learner_attach=l.attach,
-                                   learner_label=l.label,
-                                   decoder=d)
+        for lrn, dcd in itr.product(LEARNERS, DECODERS):
+            parser = JointPipeline(learner_attach=lrn.attach,
+                                   learner_label=lrn.label,
+                                   decoder=dcd)
             self._test_parser(parser)
 
     def test_postlabel_parser(self):
@@ -100,10 +102,10 @@ class ParserTest(DecoderTest):
                                              use_prob=False),
                  label=SklearnLabelClassifier(LogisticRegression())),
         ]
-        for l, d in itr.product(learners, DECODERS):
-            parser = PostlabelPipeline(learner_attach=l.attach,
-                                       learner_label=l.label,
-                                       decoder=d)
+        for lrn, dcd in itr.product(learners, DECODERS):
+            parser = PostlabelPipeline(learner_attach=lrn.attach,
+                                       learner_label=lrn.label,
+                                       decoder=dcd)
             self._test_parser(parser)
 
 
