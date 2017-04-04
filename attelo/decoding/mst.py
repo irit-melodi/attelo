@@ -9,6 +9,7 @@ from collections import defaultdict
 
 from depparse.graph import Digraph
 # pylint: disable=no-name-in-module
+from numpy import isnan
 from scipy.special import logit
 # pylint: enable=no-name-in-module
 
@@ -108,6 +109,11 @@ class MstDecoder(Decoder):
             # Ignore all edges directed to the root
             if tgt == root_id:
                 continue
+
+            # Detection of invalid scores
+            if isnan(prob):
+                raise ValueError('NaN score found in pair ({}, {})'.format(
+                    src, tgt))
 
             if self._use_prob:
                 scores[src, tgt] = cap_score(logit(prob))
