@@ -84,6 +84,11 @@ class TinyHarness(Harness):
         return attelo.fold.make_n_fold(mpack, 2, None)
 
     def mpack_paths(self, _, stripped=False):
+        """Return a dict of paths needed to read a datapack.
+
+        The 2nd argument denoted by '_' is test_data, which is unused in
+        this example.
+        """
         core_path = fp.join(self._basedir, 'data', 'tiny')
         return {'edu_input': core_path + '.edus',
                 'pairings': core_path + '.pairings',

@@ -93,32 +93,35 @@ class AttachClassifierWrapper(Parser):
 
 
 class AttachPipeline(Pipeline):
-    """
-    Parser that perform the attachment task (may be directed
-    or undirected depending on datapack and models)
+    """Parser that performs the attachment task.
+
+    Attachments may be directed or undirected depending on
+    the datapack and models.
 
     For the moment, this assumes AD models, but perhaps over
-    time could be generalised to A.D models too
+    time could be generalised to A.D models too.
 
     This can work as a standalone parser: if the datapack is
     unweighted it will initalise it from the classifier.
     Also, if there are pre-existing weights, they will be
-    multiplied with the new weights
+    multiplied with the new weights.
 
     Notes
     -----
-    *Cache keys*:
-
+    fit() and transform() have a 'cache' parameter that is a dict
+    with expected keys:
     * attach: attachment model path
     """
     def __init__(self, learner, decoder):
         """
         Parameters
         ----------
-        learner: AttachClassifier
-        labeller: Labeller
-        decoder: Decoder
+        learner : AttachClassifier
+            Classifier for attachment.
+
+        decoder : Decoder
+            Decoder.
         """
-        steps = [('attach weights', AttachClassifierWrapper(learner)),
+        steps = [('attach_weights', AttachClassifierWrapper(learner)),
                  ('decoder', decoder)]
         super(AttachPipeline, self).__init__(steps=steps)

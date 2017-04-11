@@ -262,8 +262,14 @@ class Multiscore(object):
             scores["confidence_interval"] = mean - int0
         return scores
 
-    def summary(self):
-        "One line summary string"
+    def summary(self, digits=3):
+        """One line summary string.
+
+        Parameters
+        ----------
+        digits : int, defaults to 3
+            Number of digits for formatting floating point values.
+        """
 
         if self._check_can_compute_confidence():
             mean, (int0, _) = self.confidence_interval(lambda x: x.f1)
@@ -271,19 +277,23 @@ class Multiscore(object):
             mean, int0 = (0, 0)
 
         output = []
-        output.append("Prec=%1.3f, Recall=%1.3f," %
-                      (self.score.precision,
-                       self.score.recall))
-        output.append("F1=%1.3f +/- %1.3f (%1.3f +- %1.3f)" %
-                      (self.score.f1,
-                       self.standard_error(lambda x: x.f1),
-                       mean,
-                       mean - int0))
+        output.append("Prec={:1.{digits}f}, Recall={:1.{digits}f},".format(
+            self.score.precision,
+            self.score.recall,
+            digits=digits))
+        output.append("F1={:1.{digits}f} +/- {:1.{digits}f} "
+                      "({:1.{digits}f} +- {:1.{digits}f})".format(
+                          self.score.f1,
+                          self.standard_error(lambda x: x.f1),
+                          mean,
+                          mean - int0,
+                          digits=digits))
         if self.score.f1_corr is not None:
             output.append("\t with recall correction estimate, "
-                          "R=%1.3f, F1=%1.3f" %
-                          (self.score.recall_corr,
-                           self.score.f1_corr))
+                          "R={:1.{digits}f}, F1={:1.{digits}f}".format(
+                              self.score.recall_corr,
+                              self.score.f1_corr,
+                              digits=digits))
         return " ".join(output)
 
     def table_row(self):
@@ -351,13 +361,13 @@ class EdgeReport(object):
                   "rfc={rfc}")
         return pieces.format(**self.params.__dict__)
 
-    def summary(self):
-        "One line summary string"
+    def summary(self, digits=3):
+        """One line summary string"""
 
         output = [self._params_to_filename(),
-                  "\tATT", self.attach_dir.summary(),
-                  "\t+DIR", self.attach_undir.summary(),
-                  "\t+LAB", self.label.summary()]
+                  "\tATT", self.attach_dir.summary(digits=digits),
+                  "\t+DIR", self.attach_undir.summary(digits=digits),
+                  "\t+LAB", self.label.summary(digits=digits)]
         return " ".join(output)
 
     def table_row(self):
@@ -442,15 +452,15 @@ class CSpanReport(object):
                   "rfc={rfc}")
         return pieces.format(**self.params.__dict__)
 
-    def summary(self):
+    def summary(self, digits=3):
         "One line summary string"
 
         output = [
             self._params_to_filename(),
-            "\tS", self.score_s.summary(),
-            "\tS+N", self.score_sn.summary(),
-            "\tS+R", self.score_sr.summary(),
-            "\tS+N+R", self.score_snr.summary(),
+            "\tS", self.score_s.summary(digits=digits),
+            "\tS+N", self.score_sn.summary(digits=digits),
+            "\tS+R", self.score_sr.summary(digits=digits),
+            "\tS+N+R", self.score_snr.summary(digits=digits),
         ]
         return " ".join(output)
 
@@ -565,7 +575,7 @@ class CombinedReport(object):
         "dictionary from config name (string) to Report"
     # pylint: enable=pointless-string-statement
 
-    def table(self, main_header=None, sortkey=None):
+    def table(self, main_header=None, sortkey=None, digits=3):
         """
         2D tabular output
 
@@ -589,7 +599,7 @@ class CombinedReport(object):
                 for k in keys]
         return tabulate(rows,
                         headers=headers,
-                        floatfmt=".4f")
+                        floatfmt=".{digits}f".format(digits=digits))
 
     def for_json(self):
         """

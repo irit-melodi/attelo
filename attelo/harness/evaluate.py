@@ -233,8 +233,7 @@ def do_global_decode(hconf, dconf):
 
 
 def _load_harness_multipack(hconf, test_data=False):
-    """
-    Load the multipack for our current configuration.
+    """Load the multipack for our current configuration.
 
     Load the stripped features file if we don't actually need to
     use the features (this would only make sense on the cluster
@@ -243,11 +242,13 @@ def _load_harness_multipack(hconf, test_data=False):
 
     Parameters
     ----------
-    test_data: bool
+    test_data : bool, defaults to False
+        If True, it's test data we wanted.
 
     Returns
     -------
-    mpack: Multipack
+    mpack : Multipack
+        Multipack loaded from the harness' configuration.
     """
     stripped_paths = hconf.mpack_paths(test_data, stripped=True)
     if (hconf.runcfg.stage in [ClusterStage.end, ClusterStage.start] and

@@ -106,9 +106,19 @@ class ReportPack(namedtuple('ReportPack',
                 filenames[fkey] = fp.join(confusion_dir, '-'.join(key))
         return filenames
 
-    def dump(self, output_dir, header=None):
-        """
-        Save reports to an output directory
+    def dump(self, output_dir, header=None, digits=3):
+        """Save reports to an output directory.
+
+        Parameters
+        ----------
+        output_dir : str
+            Output folder.
+
+        header : str, optional
+            Additional header text to display.
+
+        digits : int, defaults to 3
+            Number of digits for formatting output floating point values.
         """
         makedirs(output_dir)
         fnames = self._filenames(output_dir).values()
@@ -116,19 +126,21 @@ class ReportPack(namedtuple('ReportPack',
         for fname in fnames:
             with open(fname, 'w'):
                 pass
-        self.append(output_dir, header=header)
+        self.append(output_dir, header, digits=digits)
 
-    def append(self, output_dir, header):
-        """
-        Append reports to a pre-existing output directory
+    def append(self, output_dir, header, digits=3):
+        """Append reports to a pre-existing output directory.
 
         Parameters
         ----------
-        header: string or None
-            name for the tables
+        output_dir : str
+            Output folder.
 
-        hint: string or None
-            additional header text to display
+        header : str
+            Additional header text to display.
+
+        digits : int, defaults to 3
+            Number of digits for formatting output floating point values.
         """
         longheader = header + ' ({} edges)'.format(self.num_edges)
         fnames = self._filenames(output_dir)
@@ -139,7 +151,7 @@ class ReportPack(namedtuple('ReportPack',
                     longheader,
                     '=' * len(longheader),
                     '',
-                    self.edge.table(),
+                    self.edge.table(digits=digits),
                     ''
                 ]
                 print('\n'.join(block), file=ostream)
@@ -151,7 +163,7 @@ class ReportPack(namedtuple('ReportPack',
                     longheader,
                     '=' * len(longheader),
                     '',
-                    self.cspan.table(),
+                    self.cspan.table(digits=digits),
                     '',
                 ]
                 print('\n'.join(block), file=ostream)
@@ -160,7 +172,8 @@ class ReportPack(namedtuple('ReportPack',
         if self.edu is not None:
             # edu scores
             with open(fnames['edu'], 'a') as ostream:
-                print(self.edu.table(main_header=header), file=ostream)
+                print(self.edu.table(main_header=header, digits=digits),
+                      file=ostream)
                 print(file=ostream)
 
         if self.edge_by_label is not None:
@@ -168,7 +181,7 @@ class ReportPack(namedtuple('ReportPack',
                 fkey = ('label', key)
                 with open(fnames[fkey], 'a') as ostream:
                     print(report.table(sortkey=lambda (_, v): 0 - v.count,
-                                       main_header=header),
+                                       main_header=header, digits=digits),
                           file=ostream)
                     print(file=ostream)
 
@@ -223,27 +236,31 @@ def full_report(mpack, fold_dict, slices, metrics,
 
     Parameters
     ----------
-    mpack: TODO
+    mpack : TODO
         TODO
-    fold_dict: TODO
+
+    fold_dict : TODO
         TODO
-    slices: iterable of Slice
+
+    slices : iterable of Slice
         Predictions for each configuration, for each fold.
         Folds should be contiguous for maximum efficiency.
         It may be worthwhile to generate this lazily.
-    metrics: iterable of {'edges', 'edges_by_label', 'edus', 'cspans'}
+
+    metrics : iterable of {'edges', 'edges_by_label', 'edus', 'cspans'}
         Set of selected metrics.
         For the RST corpus, 'cspans' should not be selected for evaluation
         on the intra, inter and root subsets until I find out how to restrict
         RSTTrees along DataPack.selected().
-    adjust_pack: function from DataPack to DataPack, optional
+
+    adjust_pack : function from DataPack to DataPack, optional
         Function that modifies a DataPack, for example by picking out a
         subset of the pairings.
 
 
     Returns
     -------
-    rpack: ReportPack
+    rpack : ReportPack
         Group of reports on a set of folds and configurations.
 
     TODO
@@ -503,9 +520,27 @@ def _copy_version_files(hconf, test_data):
 
 
 def _mk_report(hconf, dconf, slices, fold, test_data=False):
-    """helper for report generation
+    """Helper for report generation.
 
-    :type fold: int or None
+    Parameters
+    ----------
+    hconf : attelo.harness.interface.Harness
+        Harness configuration.
+
+    dconf : TODO
+        TODO
+
+    slices : TODO
+        TODO
+
+    fold : int or None
+        Number of the fold to report.
+
+    test_data : boolean, defaults to False
+        If True, report on the test data.
+
+    digits : int, defaults to 3
+        Number of digits for formatting output floating point values.
     """
     # we could just use slices = list(slices) here but we have a
     # bit of awkward lazy IO where it says 'scoring fold N...'
@@ -515,7 +550,7 @@ def _mk_report(hconf, dconf, slices, fold, test_data=False):
     slices_ = itr.tee(slices, 4)
     rpack = full_report(dconf.pack, dconf.folds, slices_[0], hconf.metrics)
     rdir = hconf.report_dir_path(test_data, fold)
-    rpack.dump(rdir, header='whole')
+    rpack.dump(rdir, header='whole', digits=hconf.report_digits)
 
     # TMP exclude cspan eval for subsets of edges
     subeval_metrics = [x for x in hconf.metrics if x != 'cspans']
@@ -528,7 +563,7 @@ def _mk_report(hconf, dconf, slices, fold, test_data=False):
         rpack = full_report(dconf.pack, dconf.folds, slices_[i],
                             subeval_metrics,
                             adjust_pack=adjust_pack)
-        rpack.append(rdir, header=header)
+        rpack.append(rdir, header, digits=hconf.report_digits)
     # FIXME what we really want is the set of (learner, data_selection)
     # with data_selection: all pairings for global parsers ; all intra
     # pairings + one of several possible subsets of the inter pairings
@@ -539,13 +574,13 @@ def _mk_report(hconf, dconf, slices, fold, test_data=False):
 
 
 def mk_fold_report(hconf, dconf, fold):
-    "Generate reports for the given fold"
+    """Generate reports for the given fold"""
     slices = _fold_report_slices(hconf, fold)
     _mk_report(hconf, dconf, slices, fold)
 
 
 def mk_global_report(hconf, dconf):
-    "Generate reports for all folds"
+    """Generate reports for all folds"""
     slices = itr.chain.from_iterable(_fold_report_slices(hconf, f)
                                      for f in frozenset(dconf.folds.values()))
     _mk_report(hconf, dconf, slices, None)
@@ -565,7 +600,7 @@ def mk_global_report(hconf, dconf):
 
 
 def mk_test_report(hconf, dconf):
-    "Generate reports for test data"
+    """Generate reports for test data"""
     econf = hconf.test_evaluation
     if econf is None:
         return
@@ -575,8 +610,7 @@ def mk_test_report(hconf, dconf):
                     configuration=_report_key(econf),
                     predictions=load_predictions(p_path),
                     enable_details=True)]
-    _mk_report(hconf, dconf, slices, None,
-               test_data=True)
+    _mk_report(hconf, dconf, slices, None, test_data=True)
     _copy_version_files(hconf, True)
 
     report_dir = hconf.report_dir_path(True, fold=None)
