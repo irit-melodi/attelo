@@ -3,13 +3,13 @@
 
 from __future__ import absolute_import, print_function
 
+from collections import Counter
 import itertools
 
 import numpy as np
 
 
-def compute_uas_las(dtree_true, dtree_pred, include_ls=True,
-                    include_las_n_o_no=False):
+def compute_uas_las(dtree_true, dtree_pred, metrics=None):
     """Compute dependency metrics for trees in dtree_pred wrt dtree_true.
 
     The computed metrics are the traditional UAS and LAS, plus LS
@@ -17,98 +17,99 @@ def compute_uas_las(dtree_true, dtree_pred, include_ls=True,
 
     Parameters
     ----------
-    dtree_true: list of RstDepTree
+    dtree_true : list of RstDepTree
         Reference trees
 
-    dtree_pred: list of RstDepTree
+    dtree_pred : list of RstDepTree
         Predicted trees
 
-    include_ls: boolean, defauts to True
-        If True, the LS metric is computed. This evaluates the accuracy
-        of the label of the incoming relation of each EDU.
-
-    include_las_n_o_no: boolean, defaults to False
-        If True, the LAS+N, LAS+O, LAS+N+O metrics are computed. These
-        include respectively nuclearity, order, and both to the usual
-        LAS.
+    metrics : list of str
+        If None, defaults to ['U', 'R'] aka. UAS and LAS. Possible
+        values in {'U', 'R', 'R+N', 'R+O', 'F', 'tag_R'}.
 
     Returns
     -------
-    res: tuple of float
-        The Unlabelled and Labelled Attachment Scores, plus the
-        Labelling Score (new) if include_ls, plus LAS+N, LAS+O, LAS+N+O
-        if include_las_n_o_no.
+    res : tuple of float
+        Score for each metric in order.
     """
-    nb_ua_ok = 0  # correct unlabelled deps
-    nb_la_ok = 0  # correct labelled deps
-    if include_ls:
-        # correct labellings (right labels, possibly wrong heads)
-        nb_l_ok = 0
-    if include_las_n_o_no:
-        # nuclearity and order
-        nb_lan_ok = 0
-        nb_lao_ok = 0
-        nb_lano_ok = 0
+    # 'U': correct unlabelled deps ; was: nb_ua_ok
+    # 'R': correct labelled deps ; was: nb_la_ok
+    # 'tag_R': correct labellings: right labels, possibly wrong heads ; was: nb_l_ok
+    # 'R+N': relation and nuclearity
+    # 'R+O': relation and order
+    # 'F': relation, order, nuclearity
+    nb_tp = Counter({k: 0 for k in metrics})
     nb_tot = 0  # total deps
 
     for dt_true, dt_pred in itertools.izip(dtree_true, dtree_pred):
-        # heads and labels are stored as two lists
+        tp = dict()
+        tp_bins = dict()
         # exclude fake root from metrics
-        # _true
-        heads_true = dt_true.heads[1:]
-        labels_true = dt_true.labels[1:]
-        # _pred
-        heads_pred = dt_pred.heads[1:]
-        labels_pred = dt_pred.labels[1:]
-        if include_las_n_o_no:
-            # LAS + nuclearity and order
-            # _true
-            nucs_true = dt_true.nucs[1:]
-            rnks_true = dt_true.ranks[1:]
-            # _pred
-            nucs_pred = dt_pred.nucs[1:]
-            rnks_pred = dt_pred.ranks[1:]
+        # head : dependencies
+        if any(x in set(['U', 'N', 'R', 'O', 'R+N', 'R+O', 'F'])
+               for x in metrics):
+            heads_true = np.array(dt_true.heads[1:])
+            heads_pred = np.array(dt_pred.heads[1:])
+            tp['U'] = heads_true == heads_pred
+            tp_bins['U'] = heads_true[tp['U']]
+        # relation tag
+        if any(x in set(['tag_R', 'R', 'R+N', 'R+O', 'F']) for x in metrics):
+            labels_true = np.array(dt_true.labels[1:])
+            labels_pred = np.array(dt_pred.labels[1:])
+            tp['tag_R'] = labels_true == labels_pred
+            tp_bins['tag_R'] = labels_true[tp['tag_R']]
+            # dep
+            tp['R'] = np.logical_and(tp['U'], tp['tag_R'])
+            tp_bins['R'] = labels_true[tp['R']]
+        # nuclearity tag
+        if any(x in set(['tag_N', 'N', 'R+N', 'F']) for x in metrics):
+            nucs_true = np.array(dt_true.nucs[1:])
+            nucs_pred = np.array(dt_pred.nucs[1:])
+            tp['tag_N'] = nucs_true == nucs_pred
+            tp_bins['tag_N'] = nucs_true[tp['tag_N']]
+            # dep
+            tp['N'] = np.logical_and(tp['U'], tp['tag_N'])
+            tp_bins['N'] = nucs_true[tp['N']]
+        # order tag
+        if any(x in set(['tag_O', 'O', 'R+O', 'F']) for x in metrics):
+            rnks_true = np.array(dt_true.ranks[1:])
+            rnks_pred = np.array(dt_pred.ranks[1:])
+            tp['tag_O'] = rnks_true == rnks_pred
+            tp_bins['tag_O'] = rnks_true[tp['tag_O']]
+            # dep
+            tp['O'] = np.logical_and(tp['U'], tp['tag_O'])
+            tp_bins['O'] = rnks_true[tp['O']]
 
-        for i in range(len(heads_pred)):
-            # attachments
-            if heads_pred[i] == heads_true[i]:
-                nb_ua_ok += 1
-                if labels_pred[i] == labels_true[i]:
-                    nb_la_ok += 1
-                    #
-                    if include_las_n_o_no:
-                        # LAS + nuclearity and order
-                        if nucs_pred[i] == nucs_true[i]:
-                            nb_lan_ok += 1
-                        if rnks_pred[i] == rnks_true[i]:
-                            nb_lao_ok += 1
-                        if (nucs_pred[i] == nucs_true[i] and
-                            rnks_pred[i] == rnks_true[i]):
-                            # both order and nuclearity
-                            nb_lano_ok += 1
+        # dep on complex labels, build on simpler labelled deps
+        if 'R+O' in metrics:
+            tp['R+O'] = np.logical_and(tp['R'], tp['O'])
+            tp_bins['R+O'] = np.array([
+                (x, y) for x, y in zip(
+                    labels_true[tp['R+O']], rnks_true[tp['R+O']])
+            ])
+        if 'R+N' in metrics:
+            tp['R+N'] = np.logical_and(tp['R'], tp['N'])
+            tp_bins['R+N'] = np.array([
+                (x, y) for x, y in zip(
+                    labels_true[tp['R+N']], nucs_true[tp['R+N']])
+            ])
+        if 'F' in metrics:
+            tp['F'] = np.logical_and.reduce((tp['R'], tp['N'], tp['O']))
+            tp_bins['F'] = np.array([
+                (x, y, z) for x, y, z in zip(
+                    labels_true[tp['F']], nucs_true[tp['F']],
+                    rnks_true[tp['F']])
+            ])
 
-            # NEW evaluate labelling only
-            if include_ls:
-                if labels_pred[i] == labels_true[i]:
-                    nb_l_ok += 1
-                
-            # update total
-            nb_tot += 1
+        # for each metric, update the number of true positives with
+        # the count for the current instance
+        for k, v in nb_tp.items():
+            nb_tp[k] = v + len(tp_bins[k])
 
-    score_uas = float(nb_ua_ok) / nb_tot
-    score_las = float(nb_la_ok) / nb_tot
-    res = [score_uas, score_las]
+        nb_tot += len(heads_true)
 
-    if include_ls:
-        score_ls = float(nb_l_ok) / nb_tot  # NEW
-        res += [score_ls]
-    if include_las_n_o_no:
-        score_las_n = float(nb_lan_ok) / nb_tot
-        score_las_o = float(nb_lao_ok) / nb_tot
-        score_las_no = float(nb_lano_ok) / nb_tot
-        res += [score_las_n, score_las_o, score_las_no]
-
-    res = tuple(res)
+    scores = {k: float(nb_tp[k]) / nb_tot for k in nb_tp}
+    res = tuple([scores[k] for k in metrics])
     return res
 
 
