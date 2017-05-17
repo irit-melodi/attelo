@@ -9,7 +9,7 @@ import itertools
 import numpy as np
 
 
-def compute_uas_las(dtree_true, dtree_pred, metrics=None):
+def compute_uas_las(dtree_true, dtree_pred, metrics=None, doc_names=None):
     """Compute dependency metrics for trees in dtree_pred wrt dtree_true.
 
     The computed metrics are the traditional UAS and LAS, plus LS
@@ -41,7 +41,10 @@ def compute_uas_las(dtree_true, dtree_pred, metrics=None):
     nb_tp = Counter({k: 0 for k in metrics})
     nb_tot = 0  # total deps
 
-    for dt_true, dt_pred in itertools.izip(dtree_true, dtree_pred):
+    for i, (dt_true, dt_pred) in enumerate(
+            itertools.izip(dtree_true, dtree_pred)):
+        if doc_names is not None:
+            doc_name = doc_names[i]  # for verbose/debug
         tp = dict()
         tp_bins = dict()
         # exclude fake root from metrics
