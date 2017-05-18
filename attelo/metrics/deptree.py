@@ -1,4 +1,7 @@
 """Common metrics on dependency trees.
+
+As of 2017-05-18, all implementations assume that _true and _pred both
+rely on the same segmentation.
 """
 
 from __future__ import absolute_import, print_function
@@ -271,3 +274,78 @@ def compute_uas_las_undirected(dtree_true, dtree_pred):
     score_las = float(nb_la_ok) / nb_tot
 
     return (score_uas, score_las)
+
+
+def dep_compact_report(parser_true, d_preds, dep_metrics, doc_names,
+                       labelset_true, digits=3, percent=False):
+    """Compact textual report of parser accuracies with dependency metrics.
+
+    Parameters
+    ----------
+    parser_true : str
+        Name of the parser used as reference.
+
+    d_preds : list of (str, dict from str to RstDepTree)
+        List of predicted head-ordered d-trees for each parser.
+
+    dep_metrics : list of str
+        List of dependency metrics to include in the report.
+
+    Returns
+    -------
+    report : str
+        Textual report
+    """
+    # report
+    # * table format
+    width = max(len(parser_name) for parser_name, _ in d_preds)
+    headers = dep_metrics
+    fmt = '%% %ds' % width  # first col: parser name
+    fmt += '  '
+    fmt += ' '.join(['% 9s' for _ in headers])
+    fmt += '\n'
+
+    headers = [""] + headers
+    report = fmt % tuple(headers)
+    report += '\n'
+    # display percentages
+    dep_digits = digits - 2 if percent else digits
+    # end table format and header line
+
+    # * table content
+    # dtree_true_list = [dtree_true[doc_name] for doc_name in doc_names]
+    # FIXME
+    dtree_true_list = []
+    for parser_name, dtree_pred in d_preds:
+        if parser_name == parser_true:
+            dtree_true_list = [dtree_pred[doc_name] for doc_name in doc_names]
+            break
+    # end FIXME
+    # _pred
+    for parser_name, dtree_pred in d_preds:
+        dtree_pred_list = [dtree_pred[doc_name] for doc_name in doc_names]
+        # check that labelset_pred is a subset of labelset_true
+        labelset_pred = set(itertools.chain.from_iterable(
+            x.labels for x in dtree_pred_list))
+        try:
+            assert labelset_pred.issubset(labelset_true)
+        except AssertionError:
+            print(parser_name)
+            print('T & P', sorted(labelset_true.intersection(labelset_pred)))
+            print('T - P', sorted(labelset_true - labelset_pred))
+            print('P - T', sorted(labelset_pred - labelset_true))
+            raise
+        # end check
+        all_scores = []
+        all_scores += list(compute_uas_las(
+            dtree_true_list, dtree_pred_list, metrics=dep_metrics,
+            doc_names=doc_names))
+        # append to report
+        values = ['{pname: <{fill}}'.format(pname=parser_name, fill=width)]
+        for v in all_scores:
+            if percent:
+                v = v * 100.0
+            values += ["{0:0.{1}f}".format(v, dep_digits)]
+        report += fmt % tuple(values)
+    # end table content
+    return report
