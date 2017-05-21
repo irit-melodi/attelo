@@ -443,6 +443,6 @@ def dep_similarity(d_preds, doc_names, labelset_true, dep_metric=None,
             '\\caption{\\label{dtree-sim} Pairwise similarity between parsers predictions, dependency metric U.}',
             '\\end{table}'
         ])
-        report = report.replace('_', '\_')
+    report = report.replace('_', ' ')
 
     return report
