@@ -349,3 +349,100 @@ def dep_compact_report(parser_true, d_preds, dep_metrics, doc_names,
         report += fmt % tuple(values)
     # end table content
     return report
+
+
+def dep_similarity(d_preds, doc_names, labelset_true, dep_metric=None,
+                   digits=3, percent=False, out_format='str'):
+    """Compact textual report of parser accuracies with dependency metrics.
+
+    Parameters
+    ----------
+    d_preds : list of (str, dict from str to RstDepTree)
+        List of predicted head-ordered d-trees for each parser.
+
+    doc_names : list of str
+        List of document names.
+
+    labelset_true : list of str
+        List of true labels.
+
+    dep_metric : str, optional
+        Dependency metric to use ; defaults to 'U' (aka UAS).
+
+    digits : int, defaults to 3
+        Significant digits for rounding.
+
+    percent : boolean, defaults to False
+        Display scores as percentages.
+
+    Returns
+    -------
+    report : str
+        Textual report
+    """
+    if dep_metric is None:
+        dep_metric = 'U'
+
+    # prepare scaffold for report
+    width = max(len(parser_name) for parser_name, _ in d_preds)
+    headers = [k[:7] for k, v in d_preds]
+    # if we wanted to print the support, would be here for col name
+    fmt = '%% %ds' % width  # first col: parser name
+    if out_format == 'str':
+        fmt += '  '
+        fmt += ' '.join(['% 9s' for _ in headers])
+    elif out_format == 'latex':
+        fmt += ' &'
+        fmt += '&'.join(['% 9s' for _ in headers])
+        fmt += '\\\\'  # print "\\"
+    else:
+        raise ValueError("Unknown value for out_format: {}".format(
+            out_format))
+    fmt += '\n'
+    headers = [""] + headers
+
+    report = ""
+    if out_format == 'latex':
+        report += '\n'.join([
+            '\\begin{table}[h]',
+            '\\begin{center}',
+            '\\begin{tabular}{' + 'l' * len(headers) +'}',
+            '\\toprule',
+            ''
+        ])
+    report += fmt % tuple(headers)
+    report += '\n'
+    if out_format == 'latex':
+        report += '\\midrule\n'
+
+    # display percentages
+    if percent:
+        digits = digits - 2
+
+    # use each parser as reference, in turn
+    for parser_true, dtree_true in d_preds:
+        values = [parser_true]  # name of row
+        # get list of dtrees
+        dtree_true_list = [dtree_true[doc_name] for doc_name in doc_names]
+        for parser_name, dtree_pred in d_preds:
+            dtree_pred_list = [dtree_pred[doc_name] for doc_name in doc_names]
+            # compute score
+            f1 = compute_uas_las(
+                dtree_true_list, dtree_pred_list, metrics=[dep_metric],
+                doc_names=doc_names)[0]
+            # fill report
+            values += ["{0:0.{1}f}".format(f1 * 100.0 if percent else f1,
+                                           digits)]
+        report += fmt % tuple(values)
+
+    if out_format == 'latex':
+        report += '\n'.join([
+            '\\bottomrule',
+            '\\end{tabular}',
+            '\\end{center}',
+            '\\caption{\\label{dtree-sim} Pairwise similarity between parsers predictions, dependency metric U.}',
+            '\\end{table}'
+        ])
+        report = report.replace('_', '\_')
+
+    return report
