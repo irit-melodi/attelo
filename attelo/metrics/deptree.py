@@ -28,7 +28,7 @@ def compute_uas_las(dtree_true, dtree_pred, metrics=None, doc_names=None):
 
     metrics : list of str
         If None, defaults to ['U', 'R'] aka. UAS and LAS. Possible
-        values in {'U', 'R', 'R+N', 'R+O', 'F', 'tag_R'}.
+        values in {'U', 'R', 'R+N', 'R+O', 'N+O', 'F', 'tag_R'}.
 
     Returns
     -------
@@ -52,7 +52,7 @@ def compute_uas_las(dtree_true, dtree_pred, metrics=None, doc_names=None):
         tp_bins = dict()
         # exclude fake root from metrics
         # head : dependencies
-        if any(x in set(['U', 'N', 'R', 'O', 'R+N', 'R+O', 'F'])
+        if any(x in set(['U', 'N', 'R', 'O', 'R+N', 'R+O', 'N+O', 'F'])
                for x in metrics):
             heads_true = np.array(dt_true.heads[1:])
             heads_pred = np.array(dt_pred.heads[1:])
@@ -68,7 +68,7 @@ def compute_uas_las(dtree_true, dtree_pred, metrics=None, doc_names=None):
             tp['R'] = np.logical_and(tp['U'], tp['tag_R'])
             tp_bins['R'] = labels_true[tp['R']]
         # nuclearity tag
-        if any(x in set(['tag_N', 'N', 'R+N', 'F']) for x in metrics):
+        if any(x in set(['tag_N', 'N', 'R+N', 'N+O', 'F']) for x in metrics):
             nucs_true = np.array(dt_true.nucs[1:])
             nucs_pred = np.array(dt_pred.nucs[1:])
             tp['tag_N'] = nucs_true == nucs_pred
@@ -77,7 +77,7 @@ def compute_uas_las(dtree_true, dtree_pred, metrics=None, doc_names=None):
             tp['N'] = np.logical_and(tp['U'], tp['tag_N'])
             tp_bins['N'] = nucs_true[tp['N']]
         # order tag
-        if any(x in set(['tag_O', 'O', 'R+O', 'F']) for x in metrics):
+        if any(x in set(['tag_O', 'O', 'R+O', 'N+O', 'F']) for x in metrics):
             rnks_true = np.array(dt_true.ranks[1:])
             rnks_pred = np.array(dt_pred.ranks[1:])
             tp['tag_O'] = rnks_true == rnks_pred
@@ -99,6 +99,13 @@ def compute_uas_las(dtree_true, dtree_pred, metrics=None, doc_names=None):
                 (x, y) for x, y in zip(
                     labels_true[tp['R+N']], nucs_true[tp['R+N']])
             ])
+        if 'N+O' in metrics:
+            tp['N+O'] = np.logical_and(tp['N'], tp['O'])
+            tp_bins['N+O'] = np.array([
+                (x, y) for x, y in zip(
+                    labels_true[tp['N+O']], rnks_true[tp['N+O']])
+            ])
+        # full
         if 'F' in metrics:
             tp['F'] = np.logical_and.reduce((tp['R'], tp['N'], tp['O']))
             tp_bins['F'] = np.array([
