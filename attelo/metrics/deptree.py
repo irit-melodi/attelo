@@ -28,7 +28,7 @@ def compute_uas_las(dtree_true, dtree_pred, metrics=None, doc_names=None):
 
     metrics : list of str
         If None, defaults to ['U', 'R'] aka. UAS and LAS. Possible
-        values in {'U', 'R', 'R+N', 'R+O', 'N+O', 'F', 'tag_R'}.
+        values in {'U', 'R', 'R+N', 'R+O', 'O+N', 'F', 'tag_R'}.
 
     Returns
     -------
@@ -52,7 +52,7 @@ def compute_uas_las(dtree_true, dtree_pred, metrics=None, doc_names=None):
         tp_bins = dict()
         # exclude fake root from metrics
         # head : dependencies
-        if any(x in set(['U', 'N', 'R', 'O', 'R+N', 'R+O', 'N+O', 'F'])
+        if any(x in set(['U', 'N', 'R', 'O', 'R+N', 'R+O', 'O+N', 'F'])
                for x in metrics):
             heads_true = np.array(dt_true.heads[1:])
             heads_pred = np.array(dt_pred.heads[1:])
@@ -68,7 +68,7 @@ def compute_uas_las(dtree_true, dtree_pred, metrics=None, doc_names=None):
             tp['R'] = np.logical_and(tp['U'], tp['tag_R'])
             tp_bins['R'] = labels_true[tp['R']]
         # nuclearity tag
-        if any(x in set(['tag_N', 'N', 'R+N', 'N+O', 'F']) for x in metrics):
+        if any(x in set(['tag_N', 'N', 'R+N', 'O+N', 'F']) for x in metrics):
             nucs_true = np.array(dt_true.nucs[1:])
             nucs_pred = np.array(dt_pred.nucs[1:])
             tp['tag_N'] = nucs_true == nucs_pred
@@ -77,7 +77,7 @@ def compute_uas_las(dtree_true, dtree_pred, metrics=None, doc_names=None):
             tp['N'] = np.logical_and(tp['U'], tp['tag_N'])
             tp_bins['N'] = nucs_true[tp['N']]
         # order tag
-        if any(x in set(['tag_O', 'O', 'R+O', 'N+O', 'F']) for x in metrics):
+        if any(x in set(['tag_O', 'O', 'R+O', 'O+N', 'F']) for x in metrics):
             rnks_true = np.array(dt_true.ranks[1:])
             rnks_pred = np.array(dt_pred.ranks[1:])
             tp['tag_O'] = rnks_true == rnks_pred
@@ -99,11 +99,11 @@ def compute_uas_las(dtree_true, dtree_pred, metrics=None, doc_names=None):
                 (x, y) for x, y in zip(
                     labels_true[tp['R+N']], nucs_true[tp['R+N']])
             ])
-        if 'N+O' in metrics:
-            tp['N+O'] = np.logical_and(tp['N'], tp['O'])
-            tp_bins['N+O'] = np.array([
+        if 'O+N' in metrics:
+            tp['O+N'] = np.logical_and(tp['N'], tp['O'])
+            tp_bins['O+N'] = np.array([
                 (x, y) for x, y in zip(
-                    labels_true[tp['N+O']], rnks_true[tp['N+O']])
+                    labels_true[tp['O+N']], rnks_true[tp['O+N']])
             ])
         # full
         if 'F' in metrics:
@@ -284,37 +284,75 @@ def compute_uas_las_undirected(dtree_true, dtree_pred):
 
 
 def dep_compact_report(parser_true, d_preds, dep_metrics, doc_names,
-                       labelset_true, digits=3, percent=False):
+                       labelset_true, digits=3, percent=False,
+                       out_format='text'):
     """Compact textual report of parser accuracies with dependency metrics.
 
     Parameters
     ----------
     parser_true : str
         Name of the parser used as reference.
-
     d_preds : list of (str, dict from str to RstDepTree)
         List of predicted head-ordered d-trees for each parser.
-
     dep_metrics : list of str
         List of dependency metrics to include in the report.
+    doc_names : list of str?
+        TODO
+    labelset_true : ?
+        TODO
+    digits : int, defaults to 3
+        Significant digits for rounding.
+    percent : boolean, defaults to False
+        Display scores as percentages.
+    out_format : one of {'text', 'latex'}
+        Output format.
 
     Returns
     -------
     report : str
         Textual report
     """
+    out_format_options = ('text', 'latex')
+    if out_format not in out_format_options:
+        raise ValueError('out_format has to be one of ' +
+                         str(out_format_options))
+
     # report
     # * table format
-    width = max(len(parser_name) for parser_name, _ in d_preds)
     headers = dep_metrics
+    headers = ["parser"] + headers
+    if out_format == 'latex':
+        # bold font for column headers
+        headers = ['\\textbf{{{}}}'.format(x) for x in headers]
+    # width of first column (parser name)
+    width = max([len(parser_name) for parser_name, _ in d_preds] +
+                [len(headers[0])])
     fmt = '%% %ds' % width  # first col: parser name
-    fmt += '  '
-    fmt += ' '.join(['% 9s' for _ in headers])
+    if out_format == 'latex':
+        fmt += ' &'
+        fmt += ' &'.join(['% {}s'.format(len(x)) for x in headers[1:]])
+        fmt += ' \\\\'  # print "\\"
+    else:  # if out_format == 'text':
+        fmt += '  '
+        fmt += ' '.join(['% 9s' for _ in headers[1:]])
     fmt += '\n'
 
-    headers = [""] + headers
-    report = fmt % tuple(headers)
-    report += '\n'
+    report = ""
+    if out_format == 'latex':
+        report += '\n'.join([
+            '\\begin{table}[h]',
+            '\\caption{\\label{dtree-eval} Dependency evaluation. U = unlabelled dependencies, O = dependencies labelled with the order of attachment, N = dependencies labelled with the nuclearity alone, O+N = order and nuclearity, R = relation, R+N = relation and nuclearity, F = fully labelled dependencies.}',
+            '\\begin{center}',
+            '\\begin{tabular}{' + 'l' * len(headers) +'}',
+            '\\toprule',
+            ''
+        ])
+    report += fmt % tuple(headers)
+    if out_format == 'latex':
+        report += '\\midrule\n'
+    else:
+        report += '\n'
+
     # display percentages
     dep_digits = digits - 2 if percent else digits
     # end table format and header line
@@ -354,39 +392,52 @@ def dep_compact_report(parser_true, d_preds, dep_metrics, doc_names,
                 v = v * 100.0
             values += ["{0:0.{1}f}".format(v, dep_digits)]
         report += fmt % tuple(values)
+    # LaTeX footer if relevant
+    if out_format == 'latex':
+        report += '\n'.join([
+            '\\bottomrule',
+            '\\end{tabular}',
+            '\\end{center}',
+            '\\end{table}'
+        ])
     # end table content
+
+    # replace underscores in parser names etc
+    report = report.replace('_', ' ')
     return report
 
 
 def dep_similarity(d_preds, doc_names, labelset_true, dep_metric=None,
-                   digits=3, percent=False, out_format='str'):
+                   digits=3, percent=False, out_format='text'):
     """Compact textual report of parser accuracies with dependency metrics.
 
     Parameters
     ----------
     d_preds : list of (str, dict from str to RstDepTree)
         List of predicted head-ordered d-trees for each parser.
-
     doc_names : list of str
         List of document names.
-
     labelset_true : list of str
         List of true labels.
-
     dep_metric : str, optional
         Dependency metric to use ; defaults to 'U' (aka UAS).
-
     digits : int, defaults to 3
         Significant digits for rounding.
-
     percent : boolean, defaults to False
         Display scores as percentages.
+    out_format : one of {'text', 'latex'}
+        Output format.
 
     Returns
     -------
     report : str
         Textual report
     """
+    out_format_options = ('text', 'latex')
+    if out_format not in out_format_options:
+        raise ValueError('out_format has to be one of ' +
+                         str(out_format_options))
+
     if dep_metric is None:
         dep_metric = 'U'
 
@@ -395,16 +446,13 @@ def dep_similarity(d_preds, doc_names, labelset_true, dep_metric=None,
     headers = [k[:7] for k, v in d_preds]
     # if we wanted to print the support, would be here for col name
     fmt = '%% %ds' % width  # first col: parser name
-    if out_format == 'str':
-        fmt += '  '
-        fmt += ' '.join(['% 9s' for _ in headers])
-    elif out_format == 'latex':
+    if out_format == 'latex':
         fmt += ' &'
         fmt += '&'.join(['% 9s' for _ in headers])
         fmt += '\\\\'  # print "\\"
-    else:
-        raise ValueError("Unknown value for out_format: {}".format(
-            out_format))
+    else:  # if out_format == 'text':
+        fmt += '  '
+        fmt += ' '.join(['% 9s' for _ in headers])
     fmt += '\n'
     headers = [""] + headers
 
@@ -412,6 +460,7 @@ def dep_similarity(d_preds, doc_names, labelset_true, dep_metric=None,
     if out_format == 'latex':
         report += '\n'.join([
             '\\begin{table}[h]',
+            '\\caption{\\label{dtree-sim} Pairwise similarity between parsers predictions, dependency metric U.}',
             '\\begin{center}',
             '\\begin{tabular}{' + 'l' * len(headers) +'}',
             '\\toprule',
@@ -447,7 +496,6 @@ def dep_similarity(d_preds, doc_names, labelset_true, dep_metric=None,
             '\\bottomrule',
             '\\end{tabular}',
             '\\end{center}',
-            '\\caption{\\label{dtree-sim} Pairwise similarity between parsers predictions, dependency metric U.}',
             '\\end{table}'
         ])
     report = report.replace('_', ' ')
