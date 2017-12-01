@@ -4,7 +4,10 @@ is directed or not depends on the underlying datapack and decoder).
 You could also combine this with the label parser
 """
 
+from __future__ import print_function
+
 from os import path as fp
+import sys
 
 import joblib
 
@@ -58,19 +61,34 @@ class AttachClassifierWrapper(Parser):
             return self
 
         dpacks, targets = self.dzip(for_attachment, dpacks, targets)
-        self._learner_attach.fit(dpacks, targets,
-                                 nonfixed_pairs=nonfixed_pairs)
+
+        # WIP select only the nonfixed pairs
+        if nonfixed_pairs is not None:
+            dpacks = [dpack.selected(nf_pairs)
+                      for dpack, nf_pairs in zip(dpacks, nonfixed_pairs)]
+            targets = [target[nf_pairs]
+                       for target, nf_pairs in zip(targets, nonfixed_pairs)]
+
+        self._learner_attach.fit(dpacks, targets)
         # save classifier, if necessary
         if cache_file is not None:
-            # print('\tsave {}'.format(cache_file))
             joblib.dump(self._learner_attach, cache_file)
         return self
 
     def transform(self, dpack, nonfixed_pairs=None):
         attach_pack, _ = for_attachment(dpack, dpack.target)
-        weights_a = self._learner_attach.predict_score(
-            attach_pack, nonfixed_pairs=nonfixed_pairs)
-        dpack = self.multiply(dpack, attach=weights_a)
+        # WIP pass only nonfixed pairs to the classifier
+        if nonfixed_pairs is not None:
+            attach_pack = attach_pack.selected(nonfixed_pairs)
+        # end nonfixed_pairs
+        weights_a = self._learner_attach.predict_score(attach_pack)
+        # WIP overwrite only the attachment scores of non-fixed pairs
+        if nonfixed_pairs is not None:
+            scores = np.copy(dpack.graph.attach)
+            scores[nonfixed_pairs] = weights_a
+        else:
+            scores = weights_a
+        dpack = self.multiply(dpack, attach=scores)
         return dpack
 
 

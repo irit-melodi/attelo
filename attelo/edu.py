@@ -53,3 +53,12 @@ a distinguished fake root EDU which simultaneously appears in
 all groupings
 """
 # pylint: enable=pointless-string-statement
+
+
+# small helper for parsers
+def edu_id2num(edu_id):
+    """Get the number of an EDU"""
+    edu_num = (int(edu_id.rsplit('_', 1)[1])
+               if edu_id != FAKE_ROOT_ID
+               else 0)
+    return edu_num

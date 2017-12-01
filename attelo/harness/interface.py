@@ -201,8 +201,8 @@ class Harness(with_metaclass(ABCMeta, object)):
         Usual keys are:
         * edu_input
         * pairings
-        * features
-        * vocab
+        * vocabulary
+        * labels
 
         Parameters
         ----------

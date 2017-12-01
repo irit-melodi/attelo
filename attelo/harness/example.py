@@ -59,16 +59,16 @@ class TinyHarness(Harness):
                                      parser=_parser2)]
 
     def __init__(self):
-        self._datadir = mkdtemp()
+        self._basedir = mkdtemp()
         for cpath in glob.glob('doc/example-corpus/*'):
-            shutil.copy(cpath, self._datadir)
+            shutil.copy(cpath, self._basedir)
         super(TinyHarness, self).__init__('tiny', None)
 
     def run(self):
         """Run the evaluation
         """
         runcfg = RuntimeConfig.empty()
-        eval_dir, scratch_dir = prepare_dirs(runcfg, self._datadir)
+        eval_dir, scratch_dir = prepare_dirs(runcfg, self._basedir)
         self.load(runcfg, eval_dir, scratch_dir)
         evaluate_corpus(self)
 
@@ -89,13 +89,12 @@ class TinyHarness(Harness):
         The 2nd argument denoted by '_' is test_data, which is unused in
         this example.
         """
-        core_path = fp.join(self._datadir, 'tiny')
-        return {
-            'edu_input': core_path + '.edus',
-            'pairings': core_path + '.pairings',
-            'features': core_path + '.features.sparse',
-            'vocab': core_path + '.features.sparse.vocab'
-        }
+        core_path = fp.join(self._basedir, 'data', 'tiny')
+        return {'edu_input': core_path + '.edus',
+                'pairings': core_path + '.pairings',
+                'features': core_path + '.features.sparse',
+                'vocab': core_path + '.features.sparse.vocab',
+                'labels': core_path + '.labels'}
 
     def _model_basename(self, rconf, mtype, ext):
         "Basic filename for a model"

@@ -78,6 +78,18 @@ def _link_data_files(data_dir, eval_dir):
         eval_file = fp.join(eval_dir, fname)
         if fp.isfile(data_file) and not fp.exists(eval_file):
             os.link(data_file, eval_file)
+        elif fp.isdir(data_file) and not fp.exists(eval_file):
+            # 2016-09-01 add support for one file per doc:
+            # create hard links to data/Y/Z as eval-xxx/Y/Z ;
+            # folders cannot be hard linked so we create copies
+            os.makedirs(eval_file)
+            # dirty recursive calls, limited to the immediate members
+            # of data/
+            for fname_sub in os.listdir(data_file):
+                data_file_sub = fp.join(data_file, fname_sub)
+                eval_file_sub = fp.join(eval_file, fname_sub)
+                if fp.isfile(data_file_sub) and not fp.exists(eval_file_sub):
+                    os.link(data_file_sub, eval_file_sub)
 
 
 def _link_model_files(old_dir, new_dir):
@@ -131,12 +143,26 @@ def _create_tstamped_dir(prefix, suffix):
         return True
 
 
-def prepare_dirs(runcfg, data_dir):
+def prepare_dirs(runcfg, base_dir):
+    """Get eval and scratch directory paths.
+
+    Parameters
+    ----------
+    runcfg: attelo.harness.config.RuntimeConfig
+        Current runtime config
+    base_dir: filepath
+        Base directory for the experiment.
+
+    Returns
+    -------
+    eval_dir: filepath
+        Evaluation folder ; subfolder of base_dir.
+    scratch_dir: filepath
+        Scratch folder ; subfolder of base_dir.
     """
-    Return eval and scratch directory paths
-    """
-    eval_prefix = fp.join(data_dir, "eval")
-    scratch_prefix = fp.join(data_dir, "scratch")
+    data_dir = os.path.join(base_dir, 'data')
+    eval_prefix = fp.join(base_dir, "eval")
+    scratch_prefix = fp.join(base_dir, "scratch")
 
     eval_current = eval_prefix + '-current'
     scratch_current = scratch_prefix + '-current'
@@ -230,11 +256,17 @@ def _load_harness_multipack(hconf, test_data=False):
         paths = stripped_paths
     else:
         paths = hconf.mpack_paths(test_data, stripped=False)
-    mpack = load_multipack(paths['edu_input'],
-                           paths['pairings'],
+    mpack = load_multipack(paths['edu_input'], paths['pairings'],
                            paths['features'],
-                           paths['vocab'],
-                           corpus_path=paths.get('corpus', None),  # WIP
+                           paths['vocab'], paths['labels'],
+                           # WIP additional files, used only for rst-dt
+                           # as of 2016-07-28
+                           cdu_file=paths.get('cdu_input', None),
+                           cdu_pairings_file=paths.get('cdu_pairings', None),
+                           cdu_feature_file=paths.get('cdu_features', None),
+                           corpus_path=paths.get('corpus', None),
+                           # end WIP
+                           file_split='corpus',  # WIP
                            verbose=True)
     return mpack
 
@@ -242,7 +274,15 @@ def _load_harness_multipack(hconf, test_data=False):
 def _init_corpus(hconf):
     """Start evaluation; generate folds if needed
 
-    :rtype: DataConfig or None
+    Parameters
+    ----------
+    hconf: ??
+        TODO
+
+    Returns
+    -------
+    dconf: DataConfig or None
+        Data configuration
     """
     can_skip_folds = fp.exists(hconf.fold_file)
     msg_skip_folds = ('Skipping generation of fold files '
@@ -281,8 +321,8 @@ def evaluate_corpus(hconf):
 
     dconf = _init_corpus(hconf)
     if hconf.runcfg.stage in [None, ClusterStage.main]:
-        foldset = hconf.runcfg.folds if hconf.runcfg.folds is not None\
-            else frozenset(dconf.folds.values())
+        foldset = (hconf.runcfg.folds if hconf.runcfg.folds is not None
+                   else frozenset(dconf.folds.values()))
         for fold in foldset:
             do_fold(hconf, dconf, fold)
 

@@ -29,9 +29,9 @@ def config_argparser(psr):
 
     input_grp = psr.add_mutually_exclusive_group(required=True)
     input_grp.add_argument("--gold", metavar="FILE",
-                           nargs=2,
+                           nargs=3,
                            help="gold predictions [pairings, "
-                           "features (targets only)]")
+                           "features (targets only), labels]")
     input_grp.add_argument("--predictions", metavar="FILE",
                            help="single predictions")
 

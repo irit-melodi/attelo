@@ -2,7 +2,10 @@
 Labelling
 """
 
+from __future__ import print_function
+
 from os import path as fp
+import sys
 
 import joblib
 import numpy as np
@@ -68,18 +71,35 @@ class LabelClassifierWrapper(Parser):
 
         dpacks, targets = self.dzip(attached_only, dpacks, targets)
         dpacks, targets = self.dzip(for_labelling, dpacks, targets)
-        self._learner.fit(dpacks, targets, nonfixed_pairs=nonfixed_pairs)
+        # WIP select only the nonfixed pairs
+        if nonfixed_pairs is not None:
+            dpacks = [dpack.selected(nf_pairs)
+                      for dpack, nf_pairs in zip(dpacks, nonfixed_pairs)]
+            targets = [target[nf_pairs]
+                       for target, nf_pairs in zip(targets, nonfixed_pairs)]
+
+        self._learner.fit(dpacks, targets)
         # save classifier, if necessary
         if cache_file is not None:
-            # print('\tsave {}'.format(cache_file))
             joblib.dump(self._learner, cache_file)
+
         return self
 
     def transform(self, dpack, nonfixed_pairs=None):
-        dpack, _ = for_labelling(dpack, dpack.target)
-        weights_l = self._learner.predict_score(
-            dpack, nonfixed_pairs=nonfixed_pairs)
-        dpack = self.multiply(dpack, label=weights_l)
+        label_pack, _ = for_labelling(dpack, dpack.target)
+        # WIP don't pass the fixed pairs to the classifier
+        if nonfixed_pairs is not None:
+            label_pack = label_pack.selected(nonfixed_pairs)
+
+        weights_l = self._learner.predict_score(label_pack)
+        # WIP overwrite only the labelling scores of non-fixed pairs
+        if nonfixed_pairs is not None:
+            lbl_scores = np.copy(dpack.graph.label)
+            lbl_scores[nonfixed_pairs] = weights_l
+        else:
+            lbl_scores = weights_l
+
+        dpack = self.multiply(dpack, label=lbl_scores)
         return dpack
 
 

@@ -9,6 +9,7 @@ import itertools
 import numpy as np
 import scipy.sparse
 
+from .cdu import CDU
 from .edu import FAKE_ROOT_ID
 from .util import concat_l
 
@@ -125,6 +126,12 @@ class DataPack(namedtuple('DataPack',
                            'data',
                            'target',
                            'ctarget',
+                           # 2016-07-28 WIP CDUs for frag EDUs
+                           'cdus',
+                           'cdu_pairings',
+                           'cdu_data',
+                           'cdu_target',
+                           # end WIP
                            'labels',
                            'vocab',
                            'graph'])):
@@ -180,7 +187,9 @@ class DataPack(namedtuple('DataPack',
 
     # pylint: disable=too-many-arguments
     @classmethod
-    def load(cls, edus, pairings, data, target, ctarget, labels, vocab):
+    def load(cls, edus, pairings, data, target, ctarget,
+             cdus, cdu_pairings, cdu_data, cdu_target,
+             labels, vocab):
         '''
         Build a data pack and run some sanity checks
         (see :py:method:sanity_check')
@@ -188,13 +197,14 @@ class DataPack(namedtuple('DataPack',
 
         :rtype: :py:class:`DataPack`
         '''
-        pack = cls(edus=edus,
-                   pairings=pairings,
-                   data=data,
-                   target=target,
+        pack = cls(edus=edus, pairings=pairings,
+                   data=data, target=target,
                    ctarget=ctarget,
-                   labels=labels,
-                   vocab=vocab,
+                   # WIP CDUs
+                   cdus=cdus, cdu_pairings=cdu_pairings,
+                   cdu_data=cdu_data, cdu_target=cdu_target,
+                   # end CDUs
+                   labels=labels, vocab=vocab,
                    graph=None)
         pack.sanity_check()
         return pack
@@ -212,15 +222,40 @@ class DataPack(namedtuple('DataPack',
         if not dpacks:
             raise ValueError('need non-empty list of datapacks')
         dzero = dpacks[0]
+
+        # merge ctargets
+        new_ctarget = defaultdict(list)
+        for d in dpacks:
+            for grp_name, ctgt in d.ctarget.items():
+                new_ctarget[grp_name].append(ctgt)
+        # end merge ctargets
+
+        # CDUs
+        if any(d.cdus for d in dpacks):
+            cdus = concat_l(d.cdus for d in dpacks)
+            cdu_pairings = concat_l(d.cdu_pairings for d in dpacks)
+            cdu_data = scipy.sparse.vstack(d.cdu_data for d in dpacks)
+            cdu_target = (np.concatenate([d.cdu_target for d in dpacks
+                                          if d.cdu_target is not None])
+                          if any(d.cdu_target is not None for d in dpacks)
+                          else None)
+        else:
+            cdus = None
+            cdu_pairings = None
+            cdu_data = None
+            cdu_target = None
+        # end CDUs
         return DataPack(edus=concat_l(d.edus for d in dpacks),
                         pairings=concat_l(d.pairings for d in dpacks),
                         data=scipy.sparse.vstack(d.data for d in dpacks),
                         target=np.concatenate([d.target for d in dpacks]),
-                        ctarget={grp_name: list(itertools.chain.from_iterable(
-                            d.ctarget.get(grp_name, []) for d in dpacks))
-                                 for grp_name in
-                                 set(itertools.chain.from_iterable(
-                                     d.ctarget.keys() for d in dpacks))},
+                        ctarget=new_ctarget,
+                        # CDUs
+                        cdus=cdus,
+                        cdu_pairings=cdu_pairings,
+                        cdu_data=cdu_data,
+                        cdu_target=cdu_target,
+                        # end CDUs
                         labels=dzero.labels,
                         vocab=dzero.vocab,
                         graph=Graph.vstack(d.graph for d in dpacks))
@@ -282,6 +317,36 @@ class DataPack(namedtuple('DataPack',
         self._check_target()
         self._check_table_shape()
 
+    def _selected_cdu(self, sel_pairings):
+        """Helper to selected() for CDUs"""
+        # 2016-07-28 restrict pairings from/to CDUs: keep only those
+        # that correspond to selected pairings from/to the first member
+        # of a CDU
+        sel_pairings_id_set = set((src.id, tgt.id)
+                                  for src, tgt in sel_pairings)
+        # get the EDU pairings that correspond to each CDU pairing
+        edu_pairings_cdu = [
+            (src.members[0] if isinstance(src, CDU) else src.id,
+             tgt.members[0] if isinstance(tgt, CDU) else tgt.id)
+            for src, tgt in self.cdu_pairings
+        ]
+        # filter against the set of selected EDU pairings
+        sel_cdu_indices = [i for i, x in enumerate(edu_pairings_cdu)
+                           if x in sel_pairings_id_set]
+        sel_cdu_pairings = [self.cdu_pairings[x] for x in sel_cdu_indices]
+        sel_cdus_ = set()
+        for du1, du2 in sel_cdu_pairings:
+            if isinstance(du1, CDU):
+                sel_cdus_.add(du1)
+            if isinstance(du2, CDU):
+                sel_cdus_.add(du2)
+        sel_cdus = [x for x in self.cdus if x in sel_cdus_]
+        sel_cdu_data = (self.cdu_data[sel_cdu_indices]
+                        if self.cdu_data is not None and sel_cdu_indices
+                        else None)
+        sel_cdu_targets = np.take(self.cdu_target, sel_cdu_indices)
+        return sel_cdus, sel_cdu_pairings, sel_cdu_data, sel_cdu_targets
+
     def selected(self, indices):
         '''
         Return only the items in the specified rows
@@ -311,11 +376,28 @@ class DataPack(namedtuple('DataPack',
             graph = None
         else:
             graph = self.graph.selected(indices)
+
+        # CDUs: restrict pairings from/to CDUs to selected pairings
+        # from/to the first member of each CDU
+        if self.cdus:
+            sel_cdus, sel_cdu_pairings, sel_cdu_data, sel_cdu_targets = self._selected_cdu(sel_pairings)
+        else:
+            sel_cdus = self.cdus
+            sel_cdu_pairings = self.cdu_pairings
+            sel_cdu_data = self.cdu_data
+            sel_cdu_targets = self.cdu_target
+        # end WIP CDU
         return DataPack(edus=sel_edus,
                         pairings=sel_pairings,
                         data=sel_data,
                         target=sel_targets,
                         ctarget=sel_ctargets,  # WIP
+                        # 2016-07-28 WIP on CDUs
+                        cdus=sel_cdus,
+                        cdu_pairings=sel_cdu_pairings,
+                        cdu_data=sel_cdu_data,
+                        cdu_target=sel_cdu_targets,
+                        # end WIP
                         labels=sel_labels,
                         vocab=self.vocab,
                         graph=graph)
@@ -351,6 +433,12 @@ class DataPack(namedtuple('DataPack',
                         data=self.data,
                         target=self.target,
                         ctarget=self.ctarget,
+                        # 2016-07-29 WIP CDUs
+                        cdus=self.cdus,
+                        cdu_pairings=self.cdu_pairings,
+                        cdu_data=self.cdu_data,
+                        cdu_target=self.cdu_target,
+                        # end CDUs
                         labels=self.labels,
                         vocab=self.vocab,
                         graph=graph)
@@ -504,6 +592,12 @@ def for_attachment(dpack, target):
                      data=dpack.data,
                      target=np.where(dpack.target == unrelated, -1, 1),
                      ctarget=dpack.ctarget,  # WIP
+                     # 2016-07-28 WIP CDUs
+                     cdus=dpack.cdus,
+                     cdu_pairings=dpack.cdu_pairings,
+                     cdu_data=dpack.cdu_data,
+                     cdu_target=dpack.cdu_target,
+                     # end WIP
                      labels=[UNKNOWN, UNRELATED],
                      vocab=dpack.vocab,
                      graph=dpack.graph)

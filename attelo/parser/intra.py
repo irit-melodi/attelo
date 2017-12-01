@@ -11,7 +11,8 @@ from abc import ABCMeta, abstractmethod
 from six import with_metaclass
 import numpy as np
 
-from attelo.edu import (FAKE_ROOT_ID)
+from attelo.cdu import CDU
+from attelo.edu import (FAKE_ROOT_ID, edu_id2num)
 from attelo.table import (DataPack,
                           Graph,
                           UNRELATED,
@@ -45,6 +46,59 @@ class IntraInterPair(namedtuple("IntraInterPair",
         return IntraInterPair(intra=fun(self.intra),
                               inter=fun(self.inter))
 
+
+def _for_intra_cdu(dpack, target, grp, unrelated, intra_tgts):
+    """Helper to for_intra to contain CDU-specific code.
+
+    Parameters
+    ----------
+    dpack : DataPack
+        DataPack
+    target : TODO
+        TODO
+    grp : :obj:`dict` of (str, str)
+        Map from EDU identifier to subgroup identifier.
+    unrelated : int
+        Number of the "unrelated" label for this datapack.
+    intra_tgts : :obj:`dict` of (str, set(str))
+        Map each subgroup (identifier) to the set of its EDUs
+        (identifiers) that have incoming edges whose source is in the
+        same subgroup.
+    """
+    if not dpack.cdu_pairings:
+        # no CDU pairings: fail early
+        all_heads_cdu = []
+        inter_links_cdu = []
+        new_cdu_target = None
+        return all_heads_cdu, inter_links_cdu, new_cdu_target
+
+    all_heads_cdu = []
+    for i, (du1, du2) in enumerate(dpack.cdu_pairings):
+        src = (du1.members[0] if isinstance(du1, CDU) else du1.id)
+        tgt = (du2.members[0] if isinstance(du2, CDU) else du2.id)
+        if (src == FAKE_ROOT_ID
+            and tgt not in intra_tgts[grp[tgt]]):
+            # leftmost member of du2 is an intra root =>
+            # keep (ROOT, leftmost member of du2)
+            all_heads_cdu.append(i)
+    inter_links_cdu = []
+    for i, (du1, du2) in enumerate(dpack.cdu_pairings):
+        src = (du1.members[0] if isinstance(du1, CDU) else du1.id)
+        tgt = (du2.members[0] if isinstance(du2, CDU) else du2.id)
+        if (src != FAKE_ROOT_ID
+            and grp[src] != grp[tgt]
+            and dpack.cdu_target[i] != unrelated):
+            # inter link should be removed
+            inter_links_cdu.append(i)
+    if dpack.cdu_target is not None:
+        new_cdu_target = np.copy(dpack.cdu_target)
+        new_cdu_target[all_heads_cdu] = dpack.label_number('ROOT')
+        new_cdu_target[inter_links_cdu] = unrelated
+    else:
+        new_cdu_target = None
+    return all_heads_cdu, inter_links_cdu, new_cdu_target
+
+
 def for_intra(dpack, target):
     """Adapt a datapack to intrasentential decoding.
 
@@ -58,9 +112,9 @@ def for_intra(dpack, target):
     Returns
     -------
     dpack : DataPack
-
+        DataPack.
     target : array(int)
-
+        TODO.
     """
     # map EDUs to subgroup ids ; intra = pairs of EDUs with same subgroup id
     grp = {e.id: e.subgrouping for e in dpack.edus}
@@ -68,10 +122,12 @@ def for_intra(dpack, target):
     unrelated = dpack.label_number(UNRELATED)
     intra_tgts = defaultdict(set)
     for i, (edu1, edu2) in enumerate(dpack.pairings):
-        if (grp[edu1.id] == grp[edu2.id]
+        if (edu1.id != FAKE_ROOT_ID
+            and grp[edu1.id] == grp[edu2.id]
             and target[i] != unrelated):
             # edu2 has an incoming relation => not an (intra) root
             intra_tgts[grp[edu2.id]].add(edu2.id)
+
     # pick out the (fakeroot, edu) pairs where edu does not have
     # incoming intra edges
     all_heads = [i for i, (edu1, edu2) in enumerate(dpack.pairings)
@@ -82,6 +138,10 @@ def for_intra(dpack, target):
                    if (edu1.id != FAKE_ROOT_ID
                        and grp[edu1.id] != grp[edu2.id]
                        and target[i] != unrelated)]
+    # 2016-07-29 CDUs
+    all_heads_cdu, inter_links_cdu, new_cdu_target = _for_intra_cdu(
+        dpack, target, grp, unrelated, intra_tgts)
+    # end CDUs
 
     # update datapack and target accordingly
     new_target = np.copy(dpack.target)
@@ -98,6 +158,12 @@ def for_intra(dpack, target):
                      data=dpack.data,
                      target=new_target,
                      ctarget=new_ctarget,
+                     # 2016-07-28 WIP CDUs
+                     cdus=dpack.cdus,
+                     cdu_pairings=dpack.cdu_pairings,
+                     cdu_data=dpack.cdu_data,
+                     cdu_target=new_cdu_target,
+                     # end WIP CDUs
                      labels=dpack.labels,
                      vocab=dpack.vocab,
                      graph=dpack.graph)
@@ -332,7 +398,7 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
     def fit(self, dpacks, targets, cache=None):
         caches = self._split_cache(cache)
 
-        # print('intra.fit')
+        # print('intra.fit')  # DEBUG
         if dpacks:
             dpacks_intra, targets_intra = self.dzip(self._for_intra_fit,
                                                     dpacks, targets)
@@ -354,7 +420,7 @@ class IntraInterParser(with_metaclass(ABCMeta, Parser)):
             targets_spacks.extend(target_spacks)
         self._parsers.intra.fit(dpacks_spacks, targets_spacks,
                                 cache=caches.intra)
-        # print('inter.fit')
+        # print('inter.fit')  # DEBUG
         if dpacks:
             dpacks_inter, targets_inter = self.dzip(self._for_inter_fit,
                                                     dpacks, targets)
@@ -668,15 +734,6 @@ class HeadToHeadParser(IntraInterParser):
                 print('Hallucinated inter edges: {}'.format(sorted(set(inter_edges_pred) - set(inter_edges_true))))
 
         return dpack
-
-
-# small helper for the FrontierToHeadParser
-def edu_id2num(edu_id):
-    """Get the number of an EDU"""
-    edu_num = (int(edu_id.rsplit('_', 1)[1])
-               if edu_id != FAKE_ROOT_ID
-               else 0)
-    return edu_num
 
 
 class FrontierToHeadParser(IntraInterParser):

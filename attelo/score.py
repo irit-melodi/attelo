@@ -2,6 +2,8 @@
 Scoring decoding results
 '''
 
+from __future__ import print_function
+
 from collections import (defaultdict, namedtuple)
 import itertools
 
@@ -11,14 +13,11 @@ from sklearn.metrics import confusion_matrix
 # WIP
 from educe.rst_dt.annotation import _binarize
 from educe.rst_dt.corpus import RstRelationConverter, RELMAP_112_18_FILE
+from educe.rst_dt.metrics.rst_parseval import LBL_FNS, rst_parseval_report
 # end WIP
 
-from .table import (UNRELATED,
-                    attached_only,
-                    get_label_string)
-from .metrics.classification_structured import precision_recall_fscore_support
-from .metrics.constituency import LBL_FNS
-from .metrics.util import get_oracle_ctrees, get_spans, oracle_ctree_spans
+from .table import UNRELATED, attached_only, get_label_string
+from .metrics.util import get_oracle_ctrees, oracle_ctree_spans
 
 
 # pylint: disable=too-few-public-methods
@@ -225,7 +224,7 @@ def score_cspans(dpacks, dpredictions, coarse_rels=True, binary_trees=True,
     # end WIP
     # spans of the gold constituency trees
     ctree_spans_golds = [list(itertools.chain.from_iterable(
-        get_spans(ctg) for ctg in ctree_gold))
+        ctg.get_spans() for ctg in ctree_gold))
                          for ctree_gold in ctree_golds]
     # spans of the predicted oracle constituency trees
     edges_preds = [[(edu1, edu2, rel)
@@ -235,6 +234,27 @@ def score_cspans(dpacks, dpredictions, coarse_rels=True, binary_trees=True,
     ctree_spans_preds = [oracle_ctree_spans(edges_pred, att_pack.edus)
                          for edges_pred, att_pack
                          in zip(edges_preds, att_packs)]
+
+    ctree_true = ctree_golds  # yerk
+    ctree_pred = [get_oracle_ctrees(edges_pred, att_pack.edus,
+                                    allow_forest=False)
+                  for edges_pred, att_pack
+                  in zip(edges_preds, att_packs)]
+    # 2016-10-02 force one ctree per doc ; we need to reconsider when we
+    # do doc-level eval
+    for ct_true in ctree_true:
+        if len(ct_true) > 1:
+            raise NotImplementedError(
+                "Currently unable to handle multiple ctrees per doc")
+    ctree_true = [ct_true[0] for ct_true in ctree_true]
+    for ct_pred in ctree_pred:
+        if len(ct_pred) > 1:
+            raise NotImplementedError(
+                "Currently unable to handle multiple ctrees per doc")
+    ctree_pred = [ct_pred[0] for ct_pred in ctree_pred]
+    # end force one ctree per doc
+
+    print(rst_parseval_report(ctree_true, ctree_pred))
 
     # FIXME replace loop with attelo.metrics.constituency.XXX
     cnts = []

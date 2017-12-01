@@ -15,10 +15,10 @@ def load_args_multipack(args):
     '''
     Load multipack specified via command line arguments
     '''
-    return load_multipack(args.edus,
-                          args.pairings,
+    return load_multipack(args.edus, args.pairings,
                           args.features,
-                          args.vocab,
+                          args.vocab, args.labels,
+                          file_split='corpus',  # WIP
                           verbose=not args.quiet)
 
 

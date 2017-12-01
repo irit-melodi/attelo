@@ -7,6 +7,10 @@ The current trend is to try and slowly converge.
 
 from __future__ import absolute_import, print_function
 
+# FIXME: look into using sklearn.pipeline.Pipeline
+# I wasn't too successful last time
+
+from attelo.io import Torpor
 from .interface import Parser
 
 
@@ -17,7 +21,7 @@ class Pipeline(Parser):
     fitted independently of each other.
 
     Steps should be a tuple of names and parsers, just like
-    in sklearn.
+    in sklearn.pipeline.Pipeline.
 
     Parameters
     ----------

@@ -2,10 +2,14 @@
 Local classifiers
 """
 
+from __future__ import print_function
+
+import warnings
+
 import numpy as np
 
-from attelo.table import (DataPack,
-                          for_labelling)
+from attelo.cdu import CDU
+from attelo.table import DataPack
 from .interface import (AttachClassifier,
                         LabelClassifier)
 from .util import (relabel)
@@ -14,9 +18,9 @@ from .util import (relabel)
 
 
 class SklearnClassifier(object):
-    '''
-    An scikit classifier used for any purpose
-    '''
+    """
+    An sklearn classifier used for any purpose
+    """
     def __init__(self, learner):
         self._learner = learner
         pfunc = getattr(learner, "predict_proba", None)
@@ -82,59 +86,123 @@ class SklearnClassifier(object):
 
 
 class SklearnAttachClassifier(AttachClassifier, SklearnClassifier):
-    '''
-    A relatively simple way to get an attachment classifier:
-    just pass in a scikit classifier
-    '''
+    """A relatively simple way to get an attachment classifier:
+    just pass in an sklearn classifier.
 
-    def __init__(self, learner):
-        """
-        learner: scikit-compatible classifier
-            Use the given learner for label prediction.
-        """
+    Parameters
+    ----------
+    learner: sklearn API-compatible classifier
+        The learner to use for label prediction.
+
+    pos_label: str or int, 1 by default
+        The class that codes an attachment decision.
+    """
+
+    def __init__(self, learner, pos_label=1):
         AttachClassifier.__init__(self)
         SklearnClassifier.__init__(self, learner)
         self._fitted = False
+        self.pos_label = pos_label
 
-    def fit(self, dpacks, targets, nonfixed_pairs=None):
-        # WIP select only the nonfixed pairs
-        if nonfixed_pairs is not None:
-            dpacks = [dpack.selected(nf_pairs)
-                      for dpack, nf_pairs in zip(dpacks, nonfixed_pairs)]
-            targets = [target[nf_pairs]
-                       for target, nf_pairs in zip(targets, nonfixed_pairs)]
-
+    def fit(self, dpacks, targets):
         dpack = DataPack.vstack(dpacks)
         target = np.concatenate(targets)
         self._learner.fit(dpack.data, target)
         self._fitted = True
         return self
 
-    def predict_score(self, dpack, nonfixed_pairs=None):
+    def predict_score(self, dpack):
         if not self._fitted:
             raise ValueError('Fit not yet called')
 
-        # WIP pass only nonfixed pairs to the classifier
-        if nonfixed_pairs is not None:
-            dpack_filtd = dpack.selected(nonfixed_pairs)
-        else:
-            dpack_filtd = dpack
-
         if self.can_predict_proba:
-            attach_idx = list(self._learner.classes_).index(1)
-            probs = self._learner.predict_proba(dpack_filtd.data)
+            # retro-compatibility
+            if not hasattr(self, 'pos_label'):
+                warnings.warn(
+                    "Assuming pos_label=1 ; you are probably using an {0} "
+                    "unpickled from an older version of educe.".format(
+                        self.__class__.__name__),
+                    UserWarning)
+                self.pos_label = 1
+            # end retro-compatibility
+            attach_idx = list(self._learner.classes_).index(self.pos_label)
+            probs = self._learner.predict_proba(dpack.data)
             scores_pred = probs[:, attach_idx]
         else:
-            scores_pred = self._learner.decision_function(dpack_filtd.data)
+            scores_pred = self._learner.decision_function(dpack.data)
+        if False:
+            # scoring of CDU pairings is currently de-activated
+            scores_pred = self.overwrite_scores_cdu(dpack, scores_pred)
+        return scores_pred
 
-        # WIP overwrite only the attachment scores of non-fixed pairs
-        if nonfixed_pairs is not None:
-            scores = np.copy(dpack.graph.attach)
-            scores[nonfixed_pairs] = scores_pred
-        else:
-            scores = scores_pred
+    def overwrite_scores_cdu(self, dpack, scores_pred):
+        """Overwrite scores of EDU pairings with scores of CDU pairings.
 
-        return scores
+        Parameters
+        ----------
+        dpack : DataPack
+            DataPack
+
+        scores_pred : array of float, dimensions=(len(edu_pairings), 1)
+            Predicted scores for pairs of EDUs.
+
+        Returns
+        -------
+        scores_pred : array of float, dimensions=(len(edu_pairings), 1)
+            Updated array of predicted scores.
+
+        Notes
+        -----
+        All CDU-related code might be better off in a dedicated submodule
+        of parser.
+        """
+        attach_idx = list(self._learner.classes_).index(self.pos_label)
+        # 2016-07-29 WIP compute scores for CDUs
+        # TODO find a cleaner way to compute these scores
+        epairs_map = {(src.id, tgt.id): i for i, (src, tgt)
+                      in enumerate(dpack.pairings)}
+        # filter CDU pairs
+        cpairs_idc = []  # indices of selected CDU pairs
+        epairs_idc = []  # indices of corresponding EDU pairs
+        for i, (src, tgt) in enumerate(dpack.cdu_pairings):
+            esrc = src.members[0] if isinstance(src, CDU) else src.id
+            etgt = tgt.members[0] if isinstance(tgt, CDU) else tgt.id
+            if (esrc, etgt) in epairs_map:
+                cpairs_idc.append(i)
+                epairs_idc.append(epairs_map[(esrc, etgt)])
+        # score pairs on CDUs, replace the score of the EDU pair if the
+        # score of the CDU pair is higher
+        if cpairs_idc:
+            print('woot!')  # DEBUG
+            sel_cdu_data = dpack.cdu_data[cpairs_idc]
+            if self.can_predict_proba:
+                cdu_probs = self._learner.predict_proba(sel_cdu_data)
+                cdu_scores_pred = cdu_probs[:, attach_idx]
+            else:
+                cdu_scores_pred = self._learner.decision_function(
+                    sel_cdu_data)
+            # DEBUG
+            if False:
+                epairs = [dpack.pairings[i] for i in epairs_idc]
+                epair_ids = [(src.id, tgt.id) for src, tgt in epairs]
+                print('epair scores')
+                for x, y in zip(epair_ids,
+                                [scores_pred[i] for i in epairs_idc])[:30]:
+                    print(x, y)
+                cpairs = [dpack.cdu_pairings[i] for i in cpairs_idc]
+                cpair_ids = [(src if isinstance(src, CDU) else src.id,
+                              tgt if isinstance(tgt, CDU) else tgt.id)
+                             for src, tgt in cpairs]
+                print('cpair scores')
+                for x, y in zip(cpair_ids, cdu_scores_pred)[:30]:
+                    print(x, y)
+                raise ValueError('gne')
+            # end DEBUG
+            # was: np.maximum(scores_pred[epairs_idc], cdu_scores_pred)
+            scores_pred[epairs_idc] = cdu_scores_pred
+        # end WIP CDUs
+
+        return scores_pred
 
 
 class SklearnLabelClassifier(LabelClassifier, SklearnClassifier):
@@ -159,14 +227,7 @@ class SklearnLabelClassifier(LabelClassifier, SklearnClassifier):
         self._fitted = False
         self._labels = None  # not yet learned
 
-    def fit(self, dpacks, targets, nonfixed_pairs=None):
-        # WIP select only the nonfixed pairs
-        if nonfixed_pairs is not None:
-            dpacks = [dpack.selected(nf_pairs)
-                      for dpack, nf_pairs in zip(dpacks, nonfixed_pairs)]
-            targets = [target[nf_pairs]
-                       for target, nf_pairs in zip(targets, nonfixed_pairs)]
-
+    def fit(self, dpacks, targets):
         dpack = DataPack.vstack(dpacks)
         target = np.concatenate(targets)
         self._learner.fit(dpack.data, target)
@@ -174,30 +235,15 @@ class SklearnLabelClassifier(LabelClassifier, SklearnClassifier):
         self._fitted = True
         return self
 
-    def predict_score(self, dpack, nonfixed_pairs=None):
+    def predict_score(self, dpack):
         if not self._fitted:
             raise ValueError('Fit not yet called')
 
         if self._labels is None:
             raise ValueError('No labels associated with this classifier')
 
-        dpack, _ = for_labelling(dpack, dpack.target)
-
-        # WIP don't pass the fixed pairs to the classifier
-        if nonfixed_pairs is not None:
-            dpack_filtd = dpack.selected(nonfixed_pairs)
-        else:
-            dpack_filtd = dpack
-
         # TODO non-probabilistic labellers
-        weights = self._learner.predict_proba(dpack_filtd.data)
-        lbl_scores_pred = relabel(self._labels, weights, dpack_filtd.labels)
+        weights = self._learner.predict_proba(dpack.data)
+        lbl_scores_pred = relabel(self._labels, weights, dpack.labels)
 
-        # WIP overwrite only the labelling scores of non-fixed pairs
-        if nonfixed_pairs is not None:
-            lbl_scores = np.copy(dpack.graph.label)
-            lbl_scores[nonfixed_pairs] = lbl_scores_pred
-        else:
-            lbl_scores = lbl_scores_pred
-
-        return lbl_scores
+        return lbl_scores_pred

@@ -309,7 +309,11 @@ def full_report(mpack, fold_dict, slices, metrics,
             edge_count[key].append(score_edges(fpack, predictions))
         # * on constituency tree spans
         if 'cspans' in metrics:
-            sc_cspans = score_cspans(dpacks, dpredictions)
+            try:
+                sc_cspans = score_cspans(dpacks, dpredictions)
+            except Exception:
+                print('Error in slice configuration', key)
+                raise
             cspan_count[key].append(sc_cspans)
         # * on EDUs
         if 'edus' in metrics:
